@@ -1,3 +1,4 @@
 *.erl
 zig-cache/
 zig-out/
+*.swp

@@ -1,24 +1,28 @@
 const std = @import("std");
+const codegen = @import("codegen.zig");
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    // Setup memory allocator
+    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    // const allocator = gpa.allocator();
+    // defer {
+    //     const leaked = gpa.deinit();
+    //     if (leaked) {
+    //         std.debug.print("Leaked!\n", .{});
+    //     }
+    // }
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    // const process = std.process;
+    // var arg_it = process.args();
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    // _ = arg_it.skip();
+    // const code_path = arg_it.next() orelse {
+    //     return error.InvalidArgs;
+    // };
 
-    try bw.flush(); // don't forget to flush!
-}
+    var file = try std.fs.cwd().createFile("basic.erl", .{});
+    defer file.close();
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+    const wtr = file.writer();
+    try codegen.write_module(wtr, "basic");
 }

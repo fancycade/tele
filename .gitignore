@@ -1,0 +1,3 @@
+*.erl
+zig-cache/
+zig-out/

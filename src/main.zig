@@ -3,17 +3,17 @@ const Codegen = @import("codegen.zig").Codegen;
 
 pub fn main() !void {
     // Setup memory allocator
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer {
-        const leaked = gpa.deinit();
-        switch (leaked) {
-            .ok => {},
-            .leak => {
-                std.debug.print("Memory leak detected!!!\n", .{});
-            },
-        }
-    }
+    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    // const allocator = gpa.allocator();
+    // defer {
+    //     const leaked = gpa.deinit();
+    //     switch (leaked) {
+    //         .ok => {},
+    //         .leak => {
+    //             std.debug.print("Memory leak detected!!!\n", .{});
+    //         },
+    //     }
+    // }
 
     // const process = std.process;
     // var arg_it = process.args();
@@ -26,6 +26,5 @@ pub fn main() !void {
     var file = try std.fs.cwd().createFile("basic.erl", .{});
     defer file.close();
 
-    var codegen = Codegen.init(allocator, file.writer());
-    try codegen.module("basic");
+    _ = Codegen.init(file.writer());
 }

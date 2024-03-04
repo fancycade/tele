@@ -1,5 +1,8 @@
 const std = @import("std");
-const Codegen = @import("codegen.zig").Codegen;
+const codegen = @import("codegen.zig");
+const ast = @import("ast.zig");
+const Ast = ast.Ast;
+const AstType = ast.AstType;
 
 pub fn main() !void {
     // Setup memory allocator
@@ -26,5 +29,5 @@ pub fn main() !void {
     var file = try std.fs.cwd().createFile("basic.erl", .{});
     defer file.close();
 
-    _ = Codegen.init(file.writer());
+    try codegen.write_ast(file.writer(), &Ast{ .body = "1", .ast_type = AstType.int, .children = null });
 }

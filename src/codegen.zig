@@ -2,24 +2,9 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const Ast = ast.Ast;
 const AstType = ast.AstType;
-const fs = std.fs;
 const test_allocator = std.testing.allocator;
 
-pub const Codegen = struct {
-    const Self = @This();
-
-    writer: fs.File.Writer,
-
-    pub fn init(writer: anytype) Self {
-        return Self{ .writer = writer };
-    }
-
-    pub fn write(self: *Self, a: *const Ast) !void {
-        try write_ast(self.writer, a);
-    }
-};
-
-fn write_ast(w: anytype, a: *const Ast) !void {
+pub fn write_ast(w: anytype, a: *const Ast) !void {
     switch (a.ast_type) {
         .int => {
             try write_value(w, a);

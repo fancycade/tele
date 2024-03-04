@@ -76,15 +76,13 @@ You won't need to declare syntax for PID. Is represented like Erlang:
 
 ### Tuples
 
-Tuples are delimited with parens and comma. The parens are required. 
-
-    (1, 2)
+Tuples are delimited with curly brackets and comma. The parens are required. 
+    
+    {1, 2}
 
 A single element tuple can be defined as:
 
-    (1,)
-
-The comma is necessary to disambiguate from a parens expression like (1).
+    {1}
 
 ### Lists
 
@@ -94,9 +92,9 @@ Lists are the same as in Erlang
 
 ### Maps
 
-Maps are similar to JS or Python
+Maps are prefixed with #: 
 
-    {"foo": "bar"}
+    #{"foo": "bar"}
 
 ### Anonymous Functions
 
@@ -144,11 +142,25 @@ In some cases it may be necessary to specify what record type is used when acces
 
     match v
       | [1, 2, x]: x
-      | [1, 2, x, y]: (x, y)
+      | [1, 2, x, y]: {x, y}
 
     match v
-      | {'foo: "bar"}: ('ok, "result")
-      | {'bar: bar}: bar 
+      | #{'foo: "bar"}: {'ok, "result"}
+      | #{'bar: bar}: bar
+
+EXPERIMENTAL:
+
+Type annotation syntax in pattern matching that can be translated to guards. Inspired by Rhombus.
+
+    match v
+      | x :: int: x + 2
+      | x :: float: x + 2.0
+
+The double semicolon is like an inline type annotation.
+
+    match v
+      | {_, x} :: {any, int}: x + 2
+      | _: {'error, 'oops}
 
 ### Function Definitions
 
@@ -162,22 +174,31 @@ Pattern matching with a function definition.
     def foo | (x, [1, 2]): x
             | (_x, b): b
 
+The difference with the match syntax is it requires a surrounding parens on each case to signify the function signature.
+
+EXPERIMENTAL:
+
+Type annotation syntax in pattern matching that can be translated to guards. Inspired by Rhombus.
+
+    def foo
+      | (x :: int): x
+      | (y :: float): y
+
 ### Modules
 
 Functions of modules are called with the . syntax
 
     io.format("foobar", [])
 
-modules are defined with the `module <name>:`
+modules are defined by creating a file and using the name of the file.
 
-Multiple modules can be defined in a single file
+A file, `basic.tl`, would be the `basic` module.  
 
-    module foobar:
-      def hello():
-        io.format("Hello, World!")
+    def hello():
+      io.format("Hello, World!")
 
-      def foobar(x, y):
-        2 + 2
+    def foobar(x, y):
+      2 + 2
 
 Functions by default are exported. To prevent this make a private function
 
@@ -185,12 +206,11 @@ Functions by default are exported. To prevent this make a private function
 
 The module might look like this
 
-    module foobar:
-      def add4(x):
-        add2(add2(x))
+    def add4(x):
+      add2(add2(x))
 
-      defp add2(x):
-        x + 2
+    defp add2(x):
+      x + 2
 
 ### Type Annotations
 
@@ -206,21 +226,19 @@ Type annotations can go on function signatures.
 
 Here is a full module with type signatures and sum types
 
-    module int_math:
-    
-      def add(int, int): int 
-      def add(x, y):
-        x + y
+    def add(int, int): int 
+    def add(x, y):
+      x + y
 
-      def add(int): int
-      def add2(x):
-        x + 2
+    def add(int): int
+    def add2(x):
+      x + 2
 
-      def div(int, int):
-        ('ok, int) | ('error, binary)
-      def div
-        | (_, 0): ('error, 'div_by_zero)
-        | (a, b): ('ok, a / b) 
+    def div(int, int):
+      {'ok, int} | {'error, binary}
+    def div
+      | (_, 0): {'error, 'div_by_zero}
+      | (a, b): {'ok, a / b}
 
 Type Annotations of anonymous functions look like this:
 
@@ -260,11 +278,10 @@ Erlang has the concept of behaviours which are like module interfaces.
 
 defining a behaviour is as simple as defining a module with callbacks.
 
-    module cursor:
-      callback def up((int, int)): (int, int)
-      callback def down((int, int)): (int, int)
-      callback def left((int, int)): (int, int)
-      callback def right((int, int)): (int, int)
+    callback def up({int, int}): {int, int}
+    callback def down({int, int}): {int, int}
+    callback def left({int, int}): {int, int}
+    callback def right({int, int}): {int, int}
 
 TODO:
 
@@ -272,22 +289,21 @@ Determine if possible to get rid of callback keyword by function signature witho
 
 To make a module adhere to a behaviour:
 
-    module thing:
-      behaviour cursor
+    behaviour: cursor 
      
-      def up((int, int)): (int, int)
-      def up((x, y)): 
-        (x, y - 1)
+    def up({int, int}): {int, int}
+    def up({x, y}): 
+      {x, y - 1}
     
-      def down((int, int)): (int, int)
-      def down((x, y)):
-        (x, y + 1)
+    def down({int, int}): {int, int}
+    def down({x, y}):
+      {x, y + 1}
     
-      def left((int, int)): (int, int)
-      def left((x, y)):
-        (x - 1, y)
+    def left({int, int}): {int, int}
+    def left({x, y}):
+      {x - 1, y}
     
-      def right((int, int)): (int, int)
-      def right((x, y)):
-        (x + 1, y)
+    def right({int, int}): {int, int}
+    def right({x, y}):
+      {x + 1, y}
 

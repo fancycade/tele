@@ -212,6 +212,15 @@ The module might look like this
     defp add2(x):
       x + 2
 
+EXPERIMENTAL:
+
+Make multiple modules inside of a file.
+
+module foobar:
+
+  def foo(a, b):
+    a + b
+
 ### Type Annotations
 
 Type annotations can go on function signatures.

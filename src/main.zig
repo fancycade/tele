@@ -3,6 +3,7 @@ const codegen = @import("codegen.zig");
 const ast = @import("ast.zig");
 const Ast = ast.Ast;
 const AstType = ast.AstType;
+const tokenizer = @import("tokenizer.zig");
 
 pub fn main() !void {
     // Setup memory allocator

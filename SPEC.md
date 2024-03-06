@@ -84,6 +84,18 @@ A single element tuple can be defined as:
 
     {1}
 
+EXPERIMENTAL:
+
+Use gleam tuple syntax.
+
+Tuples are delimited by an opening `#(` and a closing paren `)`.
+
+    #(1, 2)
+
+A single element tuple can be defined as:
+
+    #()
+
 ### Lists
 
 Lists are the same as in Erlang
@@ -95,6 +107,14 @@ Lists are the same as in Erlang
 Maps are prefixed with #: 
 
     #{"foo": "bar"}
+
+EXPERIMENTAL:
+
+Remove the need for the # prefix if tuples end up being #() instead of {}.
+
+    {"foo": "bar"}
+
+This makes it similar to Python or Javascript map syntax.
 
 ### Anonymous Functions
 
@@ -130,13 +150,19 @@ Instantiating a record.
 
 Accessing a field from a record:
 
+    a#thing.a
+    a#thing.b
+
+The record type is required.
+
+EXPERIMENTAL:
+
+See if this type of syntax is possible.
+
     a.a
     a.b
 
-In some cases it may be necessary to specify what record type is used when accessing a field:
-
-    a#thing.a
-    a#thing.b
+Would run into issues where record type is not known.
 
 ### Pattern Matching
 
@@ -216,12 +242,14 @@ EXPERIMENTAL:
 
 Make multiple modules inside of a file.
 
-module foobar:
+    module foobar:
 
-  def foo(a, b):
-    a + b
+      def foo(a, b):
+        a + b
 
 ### Type Annotations
+
+These are equivalent to Erlang function specs.
 
 Type annotations can go on function signatures.
 
@@ -316,3 +344,14 @@ To make a module adhere to a behaviour:
     def right({x, y}):
       {x + 1, y}
 
+### Module Aliases
+
+EXPERIMENTAL:
+
+alias attribute to make it easier working with long module names.
+
+    alias lm: long_module_name
+
+This could be used for other things as well. Simple string substitution like erlang macros.
+
+This doesn't have a direct correlation with erlang and so it would be handled at compile time.

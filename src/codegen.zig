@@ -48,7 +48,9 @@ pub fn write_ast(w: anytype, a: *const Ast) !void {
         .case_clause => {
             try write_case_clause(w, a);
         },
-        .case => {},
+        .case => {
+            try write_case(w, a);
+        },
     }
 }
 
@@ -428,6 +430,64 @@ test "write case clause" {
     try write_case_clause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "X -> Y = X + 2,\n Y"));
+}
+
+fn write_case(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+    // TODO: Check for children with minimum children length of 2
+
+    _ = try w.write("case ");
+    try write_ast(w, a.children.?.items[0]);
+    _ = try w.write(" of\n ");
+
+    var i: usize = 1;
+    var loop = true;
+    while (loop) {
+        try write_ast(w, a.children.?.items[i]);
+
+        const len = a.children.?.items.len;
+
+        if (i + 1 != len) {
+            _ = try w.write(";");
+        }
+
+        _ = try w.write("\n ");
+
+        i += 1;
+        if (i >= len) {
+            loop = false;
+        }
+    }
+
+    _ = try w.write("end");
+}
+
+test "write case" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var case_clause_children_1 = std.ArrayList(*const Ast).init(test_allocator);
+    defer case_clause_children_1.deinit();
+
+    try case_clause_children_1.append(&Ast{ .body = "true", .ast_type = AstType.atom, .children = null });
+    try case_clause_children_1.append(&Ast{ .body = "ok", .ast_type = AstType.atom, .children = null });
+
+    var case_clause_children_2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer case_clause_children_2.deinit();
+
+    try case_clause_children_2.append(&Ast{ .body = "false", .ast_type = AstType.atom, .children = null });
+    try case_clause_children_2.append(&Ast{ .body = "error", .ast_type = AstType.atom, .children = null });
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
+
+    try children.append(&Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_1 });
+    try children.append(&Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_2 });
+
+    try write_case(list.writer(), &Ast{ .body = "", .ast_type = AstType.case, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "case X of\n true -> ok;\n false -> error\n end"));
 }
 
 fn write_function_signature(w: anytype, name: []const u8, args: []const []const u8) !void {

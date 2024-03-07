@@ -27,8 +27,12 @@ pub fn main() !void {
     //     return error.InvalidArgs;
     // };
 
-    // var file = try std.fs.cwd().createFile("basic.erl", .{});
-    // defer file.close();
+    var file = try std.fs.cwd().createFile("basic.erl", .{});
+    defer file.close();
 
-    // try codegen.write_ast(file.writer(), &Ast{ .body = "1", .ast_type = AstType.int, .children = null });
+    var w = file.writer();
+    try codegen.write_ast(w, &Ast{ .body = "foobar", .ast_type = AstType.atom, .children = null });
+
+    // Write EOL
+    _ = try w.write("\n");
 }

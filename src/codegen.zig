@@ -4,52 +4,84 @@ const Ast = ast.Ast;
 const AstType = ast.AstType;
 const test_allocator = std.testing.allocator;
 
-pub fn write_ast(w: anytype, a: *const Ast) !void {
+const CodegenError = error{WritingFailure};
+
+pub fn write_ast(w: anytype, a: *const Ast) error{WritingFailure}!void {
     switch (a.ast_type) {
         .int => {
-            try write_value(w, a);
+            write_value(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .float => {
-            try write_value(w, a);
+            write_value(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .binary => {
-            try write_binary(w, a);
+            write_binary(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .atom => {
-            try write_value(w, a);
+            write_value(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .variable => {
-            try write_value(w, a);
+            write_value(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .record => {
-            try write_record(w, a);
+            write_record(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .tuple => {
-            try write_tuple(w, a);
+            write_tuple(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .list => {
-            try write_list(w, a);
+            write_list(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .map => {
-            try write_map(w, a);
+            write_map(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .attribute => {
-            try write_attribute(w, a);
+            write_attribute(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .function_call => {
-            try write_function_call(w, a);
+            write_function_call(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .function_def => {
-            try write_function_def(w, a);
+            write_function_def(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .op => {
-            try write_op(w, a);
+            write_op(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .case_clause => {
-            try write_case_clause(w, a);
+            write_case_clause(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
         .case => {
-            try write_case(w, a);
+            write_case(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
         },
     }
 }
@@ -97,11 +129,11 @@ test "write binary" {
     try std.testing.expect(std.mem.eql(u8, list.items, "<<\"foobar\">>"));
 }
 
-fn write_tuple(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+fn write_tuple(w: anytype, a: *const Ast) !void {
     _ = try w.write("{");
     var i: usize = 0;
     for (a.children.?.items) |c| {
-        _ = try write_ast(w, c);
+        try write_ast(w, c);
 
         if (i + 1 < a.children.?.items.len) {
             _ = try w.write(", ");
@@ -127,11 +159,12 @@ test "write tuple" {
     try std.testing.expect(std.mem.eql(u8, list.items, "{1, 2}"));
 }
 
-fn write_list(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+fn write_list(w: anytype, a: *const Ast) !void {
     _ = try w.write("[");
     var i: usize = 0;
     for (a.children.?.items) |c| {
         try write_ast(w, c);
+
         if (i + 1 < a.children.?.items.len) {
             _ = try w.write(", ");
         }
@@ -159,13 +192,14 @@ test "write list" {
 
 // Children list consist of alternating key value pairs [k1, v1, k2, v2...]
 
-fn write_map(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+fn write_map(w: anytype, a: *const Ast) !void {
     _ = try w.write("#{");
 
     var loop = true;
     var i: usize = 0;
     while (loop) {
         try write_ast(w, a.children.?.items[i]);
+
         _ = try w.write(" => ");
         try write_ast(w, a.children.?.items[i + 1]);
 
@@ -202,7 +236,7 @@ test "write map" {
     try std.testing.expect(std.mem.eql(u8, list.items, "#{foo => bar, foo2 => baz}"));
 }
 
-fn write_record(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+fn write_record(w: anytype, a: *const Ast) !void {
     _ = try w.write("#");
     _ = try w.write(a.body);
     _ = try w.write("{");
@@ -247,9 +281,10 @@ test "write record" {
     try std.testing.expect(std.mem.eql(u8, list.items, "#person{name=<<\"Joe\">>, age=68}"));
 }
 
-fn write_op(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+fn write_op(w: anytype, a: *const Ast) !void {
     // TODO: Throw error if children is not length 2
     try write_ast(w, a.children.?.items[0]);
+
     _ = try w.write(" ");
     _ = try w.write(a.body);
     _ = try w.write(" ");
@@ -271,7 +306,7 @@ test "write op" {
     try std.testing.expect(std.mem.eql(u8, list.items, "1 + 2"));
 }
 
-fn write_function_call(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+fn write_function_call(w: anytype, a: *const Ast) !void {
     _ = try w.write(a.body);
     _ = try w.write("(");
 
@@ -308,7 +343,7 @@ test "write function call" {
     // TODO: Test no arguments
 }
 
-fn write_attribute(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+fn write_attribute(w: anytype, a: *const Ast) !void {
     _ = try w.write("-");
     _ = try w.write(a.body);
     _ = try w.write("(");
@@ -342,7 +377,7 @@ test "write attribute" {
     // Test multi arg string
 }
 
-fn write_function_def(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+fn write_function_def(w: anytype, a: *const Ast) !void {
     _ = try w.write(a.body);
     _ = try w.write(" ->\n");
 
@@ -377,7 +412,7 @@ test "write function def" {
     try std.testing.expect(std.mem.eql(u8, list.items, "hello_world() ->\n    hello(),\n    world().\n"));
 }
 
-fn write_case_clause(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+fn write_case_clause(w: anytype, a: *const Ast) !void {
 
     // TODO: Check that children are at least length of 2
 
@@ -432,7 +467,7 @@ test "write case clause" {
     try std.testing.expect(std.mem.eql(u8, list.items, "X -> Y = X + 2,\n Y"));
 }
 
-fn write_case(w: anytype, a: *const Ast) error{OutOfMemory}!void {
+fn write_case(w: anytype, a: *const Ast) !void {
     // TODO: Check for children with minimum children length of 2
 
     _ = try w.write("case ");
@@ -443,7 +478,6 @@ fn write_case(w: anytype, a: *const Ast) error{OutOfMemory}!void {
     var loop = true;
     while (loop) {
         try write_ast(w, a.children.?.items[i]);
-
         const len = a.children.?.items.len;
 
         if (i + 1 != len) {

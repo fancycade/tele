@@ -1,7 +1,7 @@
 const std = @import("std");
 const test_allocator = std.testing.allocator;
 
-pub const AstType = enum { int, float, binary, atom, tuple, list, map, record, attribute, function_def, function_call, case, case_clause, op, variable };
+pub const AstType = enum { int, float, binary, atom, tuple, list, map, record, attribute, function_def, function_signature, anonymous_function, function_call, case, case_clause, guard_clause, op, variable };
 
 pub const Ast = struct {
     const Self = @This();

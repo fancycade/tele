@@ -68,6 +68,16 @@ pub fn write_ast(w: anytype, a: *const Ast) error{WritingFailure}!void {
                 return CodegenError.WritingFailure;
             };
         },
+        .anonymous_function => {
+            write_anonymous_function(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
+        },
+        .function_signature => {
+            write_function_signature(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
+        },
         .op => {
             write_op(w, a) catch {
                 return CodegenError.WritingFailure;
@@ -80,6 +90,11 @@ pub fn write_ast(w: anytype, a: *const Ast) error{WritingFailure}!void {
         },
         .case => {
             write_case(w, a) catch {
+                return CodegenError.WritingFailure;
+            };
+        },
+        .guard_clause => {
+            write_guard_clause(w, a) catch {
                 return CodegenError.WritingFailure;
             };
         },
@@ -379,23 +394,26 @@ test "write attribute" {
 
 fn write_function_def(w: anytype, a: *const Ast) !void {
     _ = try w.write(a.body);
-    _ = try w.write(" ->\n");
+    try write_function_signature(w, a.children.?.items[0]);
+    _ = try w.write(" ->");
 
-    var i: usize = 0;
-    for (a.children.?.items) |c| {
-        _ = try w.write("    ");
-        try write_ast(w, c);
+    var i: usize = 1;
+    while (true) {
+        if (i >= a.children.?.items.len) {
+            break;
+        }
 
-        if (i + 1 == a.children.?.items.len) {
-            _ = try w.write(".");
-        } else {
+        _ = try w.write("\n    ");
+        try write_ast(w, a.children.?.items[i]);
+
+        if (i + 1 < a.children.?.items.len) {
             _ = try w.write(",");
         }
 
-        _ = try w.write("\n");
-
         i = i + 1;
     }
+
+    _ = try w.write(".\n");
 }
 
 test "write function def" {
@@ -405,11 +423,127 @@ test "write function def" {
     var children = std.ArrayList(*const Ast).init(test_allocator);
     defer children.deinit();
 
+    try children.append(&Ast{ .body = "", .ast_type = AstType.function_signature, .children = null });
     try children.append(&Ast{ .body = "hello", .ast_type = AstType.function_call, .children = null });
     try children.append(&Ast{ .body = "world", .ast_type = AstType.function_call, .children = null });
 
-    try write_function_def(list.writer(), &Ast{ .body = "hello_world()", .ast_type = AstType.function_def, .children = children });
+    try write_function_def(list.writer(), &Ast{ .body = "hello_world", .ast_type = AstType.function_def, .children = children });
     try std.testing.expect(std.mem.eql(u8, list.items, "hello_world() ->\n    hello(),\n    world().\n"));
+}
+
+fn write_anonymous_function(w: anytype, a: *const Ast) !void {
+    _ = try w.write("fun");
+    try write_function_signature(w, a.children.?.items[0]);
+    _ = try w.write(" ->");
+
+    var i: usize = 1;
+
+    while (true) {
+        if (i >= a.children.?.items.len) {
+            break;
+        }
+
+        _ = try w.write("\n    ");
+
+        try write_ast(w, a.children.?.items[i]);
+
+        if (i + 1 < a.children.?.items.len) {
+            _ = try w.write(",");
+        }
+
+        i = i + 1;
+    }
+
+    _ = try w.write("\nend");
+}
+
+test "write anonymous function" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "", .ast_type = AstType.function_signature, .children = null });
+    try children.append(&Ast{ .body = "hello", .ast_type = AstType.function_call, .children = null });
+    try children.append(&Ast{ .body = "world", .ast_type = AstType.function_call, .children = null });
+
+    try write_anonymous_function(list.writer(), &Ast{ .body = "", .ast_type = AstType.anonymous_function, .children = children });
+    try std.testing.expect(std.mem.eql(u8, list.items, "fun() ->\n    hello(),\n    world()\nend"));
+}
+
+fn write_function_signature(w: anytype, a: *const Ast) !void {
+    if (a.children == null) {
+        _ = try w.write("()");
+        return;
+    }
+
+    _ = try w.write("(");
+
+    var i: usize = 0;
+    for (a.children.?.items) |c| {
+        try write_ast(w, c);
+
+        if (i + 1 < a.children.?.items.len) {
+            _ = try w.write(", ");
+        }
+
+        i += 1;
+    }
+    _ = try w.write(")");
+}
+
+test "write function signature" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "A", .ast_type = AstType.variable, .children = null });
+    try children.append(&Ast{ .body = "B", .ast_type = AstType.variable, .children = null });
+
+    try write_function_signature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children });
+    const expected = "(A, B)";
+    try std.testing.expect(std.mem.eql(u8, list.items, expected));
+}
+
+fn write_guard_clause(w: anytype, a: *const Ast) !void {
+    _ = try w.write("when ");
+    var i: usize = 0;
+    for (a.children.?.items) |c| {
+        try write_ast(w, c);
+
+        if (i + 1 != a.children.?.items.len) {
+            _ = try w.write(", ");
+        }
+
+        i = i + 1;
+    }
+}
+
+test "write guard clause" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    var children2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer children2.deinit();
+
+    try children2.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
+    try children.append(&Ast{ .body = "is_number", .ast_type = AstType.function_call, .children = children2 });
+
+    var children3 = std.ArrayList(*const Ast).init(test_allocator);
+    defer children3.deinit();
+
+    try children3.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
+    try children.append(&Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = children3 });
+
+    try write_guard_clause(list.writer(), &Ast{ .body = "", .ast_type = AstType.guard_clause, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "when is_number(X), is_integer(X)"));
 }
 
 fn write_case_clause(w: anytype, a: *const Ast) !void {
@@ -522,29 +656,4 @@ test "write case" {
     try write_case(list.writer(), &Ast{ .body = "", .ast_type = AstType.case, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "case X of\n true -> ok;\n false -> error\n end"));
-}
-
-fn write_function_signature(w: anytype, name: []const u8, args: []const []const u8) !void {
-    _ = try w.write(name);
-    _ = try w.write("(");
-    var i: usize = 0;
-    for (args) |a| {
-        _ = try w.write(a);
-
-        if (i + 1 < args.len) {
-            _ = try w.write(", ");
-        }
-
-        i += 1;
-    }
-    _ = try w.write(") ->\n");
-}
-
-test "write function signature" {
-    var list = std.ArrayList(u8).init(test_allocator);
-    defer list.deinit();
-    const args = [_][]const u8{ "A", "B" };
-    try write_function_signature(list.writer(), "basic", &args);
-    const expected = "basic(A, B) ->\n";
-    try std.testing.expect(std.mem.eql(u8, list.items, expected));
 }

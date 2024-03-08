@@ -600,9 +600,18 @@ fn write_case_clause(w: anytype, a: *const Ast) !void {
     // TODO: Check that children are at least length of 2
 
     try write_ast(w, a.children.?.items[0]);
-    _ = try w.write(" -> ");
 
     var i: usize = 1;
+
+    if (a.children.?.items[1].ast_type == AstType.guard_clause) {
+        _ = try w.write(" ");
+        try write_guard_clause(w, a.children.?.items[1]);
+
+        i = i + 1;
+    }
+
+    _ = try w.write(" -> ");
+
     var loop = true;
     while (loop) {
         try write_ast(w, a.children.?.items[i]);
@@ -648,6 +657,30 @@ test "write case clause" {
     try write_case_clause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "X -> Y = X + 2,\n Y"));
+
+    list.clearAndFree();
+
+    var children2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer children2.deinit();
+
+    try children2.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
+
+    var guard_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer guard_children.deinit();
+
+    var function_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer function_children.deinit();
+
+    try function_children.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
+
+    try guard_children.append(&Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children });
+
+    try children2.append(&Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children });
+
+    try children2.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
+
+    try write_case_clause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children2 });
+    try std.testing.expect(std.mem.eql(u8, list.items, "X when is_integer(X) -> X"));
 }
 
 fn write_case(w: anytype, a: *const Ast) !void {

@@ -480,23 +480,48 @@ fn write_function_signature(w: anytype, a: *const Ast) !void {
 
     _ = try w.write("(");
 
-    var i: usize = 0;
+    // Look for guard clause
+    var guard: bool = false;
     for (a.children.?.items) |c| {
-        try write_ast(w, c);
+        if (c.ast_type == AstType.guard_clause) {
+            guard = true;
+        }
+    }
 
-        if (i + 1 < a.children.?.items.len) {
+    var len = a.children.?.items.len;
+
+    if (guard) {
+        len = len - 1;
+    }
+
+    var i: usize = 0;
+
+    while (true) {
+        if (i >= len) {
+            break;
+        }
+
+        try write_ast(w, a.children.?.items[i]);
+
+        if (i + 1 < len) {
             _ = try w.write(", ");
         }
 
         i += 1;
     }
+
     _ = try w.write(")");
+
+    if (guard) {
+        _ = try w.write(" ");
+
+        try write_guard_clause(w, a.children.?.items[len]);
+    }
 }
 
 test "write function signature" {
     var list = std.ArrayList(u8).init(test_allocator);
     defer list.deinit();
-
     var children = std.ArrayList(*const Ast).init(test_allocator);
     defer children.deinit();
 
@@ -504,8 +529,32 @@ test "write function signature" {
     try children.append(&Ast{ .body = "B", .ast_type = AstType.variable, .children = null });
 
     try write_function_signature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children });
+
     const expected = "(A, B)";
     try std.testing.expect(std.mem.eql(u8, list.items, expected));
+
+    list.clearAndFree();
+
+    var children2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer children2.deinit();
+
+    try children2.append(&Ast{ .body = "A", .ast_type = AstType.variable, .children = null });
+    try children2.append(&Ast{ .body = "B", .ast_type = AstType.variable, .children = null });
+
+    var guard_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer guard_children.deinit();
+
+    var function_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer function_children.deinit();
+
+    try function_children.append(&Ast{ .body = "A", .ast_type = AstType.variable, .children = null });
+    try guard_children.append(&Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children });
+
+    try children2.append(&Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children });
+
+    try write_function_signature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children2 });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "(A, B) when is_integer(A)"));
 }
 
 fn write_guard_clause(w: anytype, a: *const Ast) !void {

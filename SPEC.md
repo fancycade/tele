@@ -179,8 +179,8 @@ Would run into issues where record type is not known.
       | [1, 2, x, y]: {x, y}
 
     match v
-      | #{'foo: "bar"}: {'ok, "result"}
-      | #{'bar: bar}: bar
+      | {'foo: "bar"}: #('ok, "result")
+      | {'bar: bar}: bar
 
 EXPERIMENTAL:
 

@@ -4,9 +4,17 @@ An Erlang frontend. A programming language designed to be compiled to Erlang tha
 
 This means that Telelang must have a 1 to 1 feature equivalent feature with Erlang.
 
-Inspired by [Mochi](https://github.com/i2y/mochi), Rhombus, Elixir, Haskell, OCaml, Python, Typescript, and Scheme.
+Inspired by [Mochi](https://github.com/i2y/mochi), [Rhombus](https://docs.racket-lang.org/rhombus/index.html), [Elixir](https://elixir-lang.org/), Haskell, OCaml, Python, Typescript, and Scheme.
 
 ## Language
+
+### Comments
+
+C-Style comments
+
+    // This is a line comment
+
+    /* This is a multiline comment */
 
 ### Numbers
 

@@ -78,8 +78,30 @@ fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compili
                 return CompilerError.CompilingFailure;
             };
         },
-        else => {
-            return CompilerError.CompilingFailure;
+        .anonymous_function => {
+            return tele_to_erlang_anonymous_function(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .function_def => {
+            return tele_to_erlang_function_def(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .case_clause => {
+            return tele_to_erlang_case_clause(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .case => {
+            return tele_to_erlang_case(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .attribute => {
+            return tele_to_erlang_attribute(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
         },
     }
 }
@@ -520,3 +542,84 @@ test "tele to erlang function signature" {
 
     erlang_ast.destroy(e, test_allocator);
 }
+
+fn tele_to_erlang_anonymous_function(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.body = "";
+    e.*.ast_type = ErlangAstType.anonymous_function;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+test "tele to erlang anonymous function" {}
+
+fn tele_to_erlang_function_def(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.ast_type = ErlangAstType.function_def;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    const buf = try allocator.alloc(u8, t.*.body.len);
+    std.mem.copyForwards(u8, buf, t.*.body);
+    e.*.body = buf;
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+test "tele to erlang function def" {}
+
+fn tele_to_erlang_case_clause(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.body = "";
+    e.*.ast_type = ErlangAstType.case_clause;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+test "tele to erlang case clause" {}
+
+fn tele_to_erlang_case(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.body = "";
+    e.*.ast_type = ErlangAstType.case;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+test "tele to erlang case" {}
+
+fn tele_to_erlang_attribute(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.ast_type = ErlangAstType.attribute;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    const buf = try allocator.alloc(u8, t.*.body.len);
+    std.mem.copyForwards(u8, buf, t.*.body);
+    e.*.body = buf;
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+test "tele to erlang attribute" {}

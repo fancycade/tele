@@ -68,6 +68,16 @@ fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compili
                 return CompilerError.CompilingFailure;
             };
         },
+        .guard_clause => {
+            return tele_to_erlang_guard_clause(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .function_signature => {
+            return tele_to_erlang_function_signature(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         else => {
             return CompilerError.CompilingFailure;
         },
@@ -440,6 +450,73 @@ test "tele to erlang op" {
     try e_children.append(&ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null });
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "+", .ast_type = ErlangAstType.function_call, .children = e_children }));
+
+    erlang_ast.destroy(e, test_allocator);
+}
+
+fn tele_to_erlang_guard_clause(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.body = "";
+    e.*.ast_type = ErlangAstType.guard_clause;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+test "tele to erlang guard clause" {
+    var t_children = std.ArrayList(*const TeleAst).init(test_allocator);
+    defer t_children.deinit();
+
+    try t_children.append(&TeleAst{ .body = "x", .ast_type = TeleAstType.variable, .children = null });
+
+    var t_children2 = std.ArrayList(*const TeleAst).init(test_allocator);
+    defer t_children2.deinit();
+
+    try t_children2.append(&TeleAst{ .body = "is_number", .ast_type = TeleAstType.function_call, .children = t_children });
+
+    const e = try tele_to_erlang_guard_clause(&TeleAst{ .body = "", .ast_type = TeleAstType.guard_clause, .children = t_children2 }, test_allocator);
+
+    var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
+    defer e_children.deinit();
+
+    try e_children.append(&ErlangAst{ .body = "X", .ast_type = ErlangAstType.variable, .children = null });
+
+    var e_children2 = std.ArrayList(*const ErlangAst).init(test_allocator);
+    defer e_children2.deinit();
+
+    try e_children2.append(&ErlangAst{ .body = "is_number", .ast_type = ErlangAstType.function_call, .children = e_children });
+
+    try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "", .ast_type = ErlangAstType.guard_clause, .children = e_children2 }));
+
+    erlang_ast.destroy(e, test_allocator);
+}
+
+fn tele_to_erlang_function_signature(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.body = "";
+    e.*.ast_type = ErlangAstType.function_signature;
+
+    if (t.children != null) {
+        e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+        for (t.children.?.items) |c| {
+            try e.children.?.append(try tele_to_erlang(c, allocator));
+        }
+    } else {
+        e.*.children = null;
+    }
+
+    return e;
+}
+
+test "tele to erlang function signature" {
+    const e = try tele_to_erlang_function_signature(&TeleAst{ .body = "", .ast_type = TeleAstType.function_signature, .children = null }, test_allocator);
+
+    try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "", .ast_type = ErlangAstType.function_signature, .children = null }));
 
     erlang_ast.destroy(e, test_allocator);
 }

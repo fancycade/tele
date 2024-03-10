@@ -36,3 +36,18 @@ pub fn equal(a: *const Ast, b: *const Ast) bool {
 
     return true;
 }
+
+pub fn destroy(a: *const Ast, allocator: std.mem.Allocator) void {
+    if (!std.mem.eql(u8, "", a.*.body)) {
+        allocator.free(a.*.body);
+    }
+
+    if (a.*.children != null) {
+        for (a.*.children.?.items) |c| {
+            destroy(c, allocator);
+        }
+        a.*.children.?.deinit();
+    }
+
+    allocator.destroy(a);
+}

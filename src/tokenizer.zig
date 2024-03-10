@@ -3,6 +3,95 @@ const test_allocator = std.testing.allocator;
 const eql = std.mem.eql;
 const expect = std.testing.expect;
 
+const TokenQueueError = error{MissingHead};
+
+const TokenQueueNode = struct { next: ?*TokenQueueNode, body: []const u8 };
+
+// FIFO Queue
+const TokenQueue = struct {
+    const Self = @This();
+
+    head: ?*TokenQueueNode,
+    tail: ?*TokenQueueNode,
+    allocator: std.mem.Allocator,
+
+    fn init(allocator: std.mem.Allocator) !*Self {
+        const queue = try allocator.create(Self);
+        queue.*.allocator = allocator;
+        queue.*.head = null;
+        queue.*.tail = null;
+        return queue;
+    }
+
+    fn deinit(self: *Self) void {
+        var cur = self.head;
+
+        while (cur != null) {
+            const next = cur.?.next;
+            self.allocator.free(cur.?.body);
+            self.allocator.destroy(cur.?);
+            cur = next;
+        }
+
+        self.allocator.destroy(self);
+    }
+
+    fn push(self: *Self, token_body: []const u8) !void {
+        const node = try self.allocator.create(TokenQueueNode);
+        node.*.next = null;
+        node.*.body = token_body;
+
+        if (self.head == null) {
+            self.head = node;
+            self.tail = node;
+        } else {
+            self.tail.?.next = node;
+            self.tail = self.tail.?.next;
+        }
+    }
+
+    fn pop(self: *Self) !*TokenQueueNode {
+        if (self.head == null) {
+            return TokenQueueError.MissingHead;
+        } else {
+            const node = self.head;
+            self.head = self.head.?.next;
+            node.?.next = null;
+            return node.?;
+        }
+    }
+};
+
+test "token queue" {
+    const queue = try TokenQueue.init(test_allocator);
+    defer queue.deinit();
+
+    const buf: []u8 = try test_allocator.alloc(u8, 13);
+    std.mem.copyForwards(u8, buf, "hello, world!");
+
+    try queue.push(buf);
+    const node = try queue.pop();
+
+    try std.testing.expect(std.mem.eql(u8, node.*.body, "hello, world!"));
+
+    test_allocator.free(node.*.body);
+    test_allocator.destroy(node);
+}
+
+fn read_tokens(r: anytype, allocator: std.mem.Allocator) *TokenQueue {
+    const queue: *TokenQueue = TokenQueue.init(allocator);
+
+    var buffer = std.ArrayList(u8).init(allocator);
+    defer buffer.deinit();
+
+    var leftover: u8 = 0;
+    while (read_token(r, &buffer, &leftover)) {
+        queue.push(try buffer.toOwnedSlice());
+    }
+
+    return queue;
+}
+
 const TokenMode = enum { word, op, hash, bit_string, none };
 
 fn read_token(r: anytype, l: *std.ArrayList(u8), leftover: *u8) !bool {

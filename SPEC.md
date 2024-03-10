@@ -109,7 +109,7 @@ Tuples are delimited by an opening `#(` and a closing paren `)`.
 
 A single element tuple can be defined as:
 
-    #()
+    #(1)
 
 ### Lists
 
@@ -119,9 +119,9 @@ Lists are the same as in Erlang
 
 ### Maps
 
-Maps are prefixed with #: 
+Maps are delimited with '{' and '}': 
 
-    #{"foo": "bar"}
+    {"foo": "bar"}
 
 EXPERIMENTAL:
 

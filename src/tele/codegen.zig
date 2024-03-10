@@ -98,9 +98,6 @@ pub fn write_ast(w: anytype, a: *const Ast, offset: usize) error{WritingFailure}
                 return CodegenError.WritingFailure;
             };
         },
-        else => {
-            return CodegenError.WritingFailure;
-        },
     }
 }
 

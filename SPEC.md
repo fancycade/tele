@@ -6,6 +6,13 @@ This means that Telelang must have a 1 to 1 feature equivalent feature with Erla
 
 Inspired by [Mochi](https://github.com/i2y/mochi), [Rhombus](https://docs.racket-lang.org/rhombus/index.html), [Elixir](https://elixir-lang.org/), Haskell, OCaml, Python, Typescript, and Scheme.
 
+Some basic design principles that tele follows are:
+
+1. Tele is Erlang
+2. Readability at the expense of writability
+3. Use widely familiar concepts or syntax when possible
+4. Minimal syntax with little amibiguity
+
 ## Language
 
 ### Comments
@@ -182,6 +189,13 @@ Would run into issues where record type is not known.
       | {'foo: "bar"}: #('ok, "result")
       | {'bar: bar}: bar
 
+    match v
+      | 2:
+        #('ok, 'done)
+      | 3:
+        ok = 'ok
+        #(ok, 'failure)
+
 EXPERIMENTAL:
 
 Type annotation syntax in pattern matching that can be translated to guards. Inspired by Rhombus.
@@ -293,7 +307,7 @@ NOT
 
     (int): int
 
-Despite the second looking like a function definition, because it makes the type annotation clearer
+Despite the second looking like a function definition, this is because it makes the type annotation clearer.
 
     def foo((int): int): (int): int
 

@@ -63,6 +63,11 @@ fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compili
                 return CompilerError.CompilingFailure;
             };
         },
+        .op => {
+            return tele_to_erlang_op(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         else => {
             return CompilerError.CompilingFailure;
         },
@@ -399,6 +404,42 @@ test "tele to erlang function call" {
     try e_children.append(&ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null });
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "add2", .ast_type = ErlangAstType.function_call, .children = e_children }));
+
+    erlang_ast.destroy(e, test_allocator);
+}
+
+fn tele_to_erlang_op(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.ast_type = ErlangAstType.op;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    const buf = try allocator.alloc(u8, t.*.body.len);
+    std.mem.copyForwards(u8, buf, t.*.body);
+    e.*.body = buf;
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+test "tele to erlang op" {
+    var t_children = std.ArrayList(*const TeleAst).init(test_allocator);
+    defer t_children.deinit();
+
+    try t_children.append(&TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null });
+    try t_children.append(&TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null });
+
+    const e = try tele_to_erlang_function_call(&TeleAst{ .body = "+", .ast_type = TeleAstType.op, .children = t_children }, test_allocator);
+
+    var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
+    defer e_children.deinit();
+
+    try e_children.append(&ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null });
+    try e_children.append(&ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null });
+
+    try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "+", .ast_type = ErlangAstType.function_call, .children = e_children }));
 
     erlang_ast.destroy(e, test_allocator);
 }

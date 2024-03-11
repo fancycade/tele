@@ -15,7 +15,7 @@ const TokenQueue = struct {
     tail: ?*TokenQueueNode,
     allocator: std.mem.Allocator,
 
-    fn init(allocator: std.mem.Allocator) !*Self {
+    pub fn init(allocator: std.mem.Allocator) !*Self {
         const queue = try allocator.create(Self);
         queue.*.allocator = allocator;
         queue.*.head = null;
@@ -23,7 +23,7 @@ const TokenQueue = struct {
         return queue;
     }
 
-    fn deinit(self: *Self) void {
+    pub fn deinit(self: *Self) void {
         var cur = self.head;
 
         while (cur != null) {
@@ -36,7 +36,7 @@ const TokenQueue = struct {
         self.allocator.destroy(self);
     }
 
-    fn push(self: *Self, token_body: []const u8) !void {
+    pub fn push(self: *Self, token_body: []const u8) !void {
         const node = try self.allocator.create(TokenQueueNode);
         node.*.next = null;
         node.*.body = token_body;
@@ -50,7 +50,7 @@ const TokenQueue = struct {
         }
     }
 
-    fn pop(self: *Self) !*TokenQueueNode {
+    pub fn pop(self: *Self) !*TokenQueueNode {
         if (self.head == null) {
             return TokenQueueError.MissingHead;
         } else {
@@ -59,6 +59,18 @@ const TokenQueue = struct {
             node.?.next = null;
             return node.?;
         }
+    }
+
+    pub fn peek(self: *Self) !*TokenQueueNode {
+        if (self.head == null) {
+            return TokenQueueError.MissingHead;
+        } else {
+            return self.head.?;
+        }
+    }
+
+    pub fn empty(self: *Self) bool {
+        return self.head == null;
     }
 };
 

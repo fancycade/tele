@@ -50,7 +50,7 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const src = [_][]const u8{ "src/main.zig", "src/erlang/codegen.zig", "src/tele/codegen.zig", "src/tokenizer.zig", "src/compiler.zig" };
+    const src = [_][]const u8{ "src/main.zig", "src/erlang/codegen.zig", "src/tele/codegen.zig", "src/tokenizer.zig", "src/compiler.zig", "src/parser.zig" };
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.

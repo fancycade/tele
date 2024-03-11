@@ -12,6 +12,7 @@ Some basic design principles that tele follows are:
 2. Readability at the expense of writability
 3. Use widely familiar concepts or syntax when possible
 4. Minimal syntax with little amibiguity
+5. No anglocentric syntax requirements (i.e. capital letters)
 
 ## Language
 
@@ -91,25 +92,11 @@ You won't need to declare syntax for PID. Is represented like Erlang:
 
 ### Tuples
 
-Tuples are delimited with curly brackets and comma. The parens are required. 
-    
-    {1, 2}
-
-A single element tuple can be defined as:
-
-    {1}
-
-EXPERIMENTAL:
-
-Use gleam tuple syntax.
+Taken from gleam's tuples.
 
 Tuples are delimited by an opening `#(` and a closing paren `)`.
 
     #(1, 2)
-
-A single element tuple can be defined as:
-
-    #(1)
 
 ### Lists
 
@@ -142,7 +129,7 @@ Anonymous functions can be defined on a single line.
 Anonymous functions can be multiple lines. Here we delimit the end of the function expression with the comma of the map function arguements.
 
     map((x) ->
-      x2 = 2
+      x2 = x + 2
       x2 + 2,
       [1, 2, 3]
     )
@@ -158,7 +145,7 @@ Variables are lower case words
 
 Instantiating a record.
 
-    type thing: #(a, b)
+    record thing: #(a, b)
 
     a = #thing(a=12, b=43)
     b = #thing(12, 43)
@@ -191,10 +178,10 @@ Would run into issues where record type is not known.
 
     match v
       | 2:
-        #('ok, 'done)
+          #('ok, 'done)
       | 3:
-        ok = 'ok
-        #(ok, 'failure)
+          ok = 'ok
+          #(ok, 'failure)
 
 EXPERIMENTAL:
 
@@ -294,10 +281,10 @@ Here is a full module with type signatures and sum types
       x + 2
 
     def div(int, int):
-      {'ok, int} | {'error, binary}
+      #('ok, int) | #('error, binary)
     def div
-      | (_, 0): {'error, 'div_by_zero}
-      | (a, b): {'ok, a / b}
+      | (_, 0): #('error, 'div_by_zero)
+      | (a, b): #('ok, a / b)
 
 Type Annotations of anonymous functions look like this:
 
@@ -337,10 +324,10 @@ Erlang has the concept of behaviours which are like module interfaces.
 
 defining a behaviour is as simple as defining a module with callbacks.
 
-    callback def up({int, int}): {int, int}
-    callback def down({int, int}): {int, int}
-    callback def left({int, int}): {int, int}
-    callback def right({int, int}): {int, int}
+    callback def up(#(int, int)): #(int, int)
+    callback def down(#(int, int)): #(int, int)
+    callback def left(#(int, int)): #(int, int)
+    callback def right(#(int, int)): #(int, int)
 
 TODO:
 
@@ -350,21 +337,21 @@ To make a module adhere to a behaviour:
 
     behaviour: cursor 
      
-    def up({int, int}): {int, int}
-    def up({x, y}): 
-      {x, y - 1}
+    def up(#(int, int)): #(int, int)
+    def up(#(x, y)): 
+      #(x, y - 1)
     
-    def down({int, int}): {int, int}
-    def down({x, y}):
-      {x, y + 1}
+    def down(#(int, int)): #(int, int)
+    def down(#(x, y)):
+      #(x, y + 1)
     
-    def left({int, int}): {int, int}
-    def left({x, y}):
-      {x - 1, y}
+    def left(#(int, int)): #(int, int)
+    def left(#(x, y)):
+      #(x - 1, y)
     
-    def right({int, int}): {int, int}
-    def right({x, y}):
-      {x + 1, y}
+    def right(#(int, int)): #(int, int)
+    def right(#(x, y)):
+      #(x + 1, y)
 
 ### Module Aliases
 

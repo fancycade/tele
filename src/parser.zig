@@ -7,6 +7,8 @@ const TeleAstType = tele_ast.AstType;
 
 const ParserError = error{ParsingFailure};
 
+const ParserMode = enum { none, op };
+
 fn parse_reader(r: anytype, allocator: std.mem.Allocator) !std.ArrayList(*const TeleAst) {
     const token_queue = tokenizer.read_tokens(r, allocator);
     defer token_queue.deinit();
@@ -14,7 +16,7 @@ fn parse_reader(r: anytype, allocator: std.mem.Allocator) !std.ArrayList(*const 
     return try parse_tokens(token_queue, allocator);
 }
 
-fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserError!std.ArrayList(*const TeleAst) {
+fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: ParserMode) ParserError!std.ArrayList(*const TeleAst) {
     var list = std.ArrayList(*const TeleAst).init(allocator);
 
     while (true) {
@@ -126,6 +128,26 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserEr
             try list.append(&TeleAst{ .body = "", .ast_type = TeleAstType.map, .children = children });
 
             token_queue2.deinit();
+        } else if (is_operator(node.*.body)) {
+            if (list.items.len == 0) {
+                // TODO: Error expected value on left side of operator
+            }
+            const ast1 = try list.pop();
+
+            var alist = try parse_tokens(token_queue, allocator, .op);
+            defer alist.deinit();
+
+            const ast2 = try alist.pop();
+
+            var children = std.ArrayList(*const TeleAst).init(allocator);
+            try children.append(ast1);
+            try children.append(ast2);
+
+            const buf = allocator.alloc(u8, node.*.body.len);
+            std.mem.copyForwards(u8, buf, node.*.body);
+
+            try list.append(&TeleAst{ .body = buf, .ast_type = TeleAstType.op, .children = children });
+            alist.deinit();
         } else {
             const buf = allocator.alloc(u8, node.*.body.len);
             std.mem.copyForwards(u8, buf, node.*.body);
@@ -134,6 +156,10 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserEr
 
         allocator.free(node.*.body);
         allocator.destroy(node);
+
+        if (mode == .op) {
+            break;
+        }
     }
 
     return list;
@@ -204,4 +230,30 @@ fn is_paren_start(buf: []const u8) bool {
 
 fn is_paren_end(buf: []const u8) bool {
     return buf[0] == ')';
+}
+
+fn is_operator(buf: []const u8) bool {
+    if (buf.len == 0) {
+        return false;
+    }
+
+    switch (buf[0]) {
+        '+', '*', '/', '!' => {
+            return true;
+        },
+        '<', '>', '=' => {
+            if (buf.len == 1) {
+                return true;
+            } else if (buf.len == 2) {
+                if (buf[1] == '=') {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        },
+        else => {
+            return false;
+        },
+    }
 }

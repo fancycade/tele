@@ -11,7 +11,7 @@ const ErlangAstType = erlang_ast.AstType;
 
 const CompilerError = error{CompilingFailure};
 
-fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{CompilingFailure}!*ErlangAst {
+pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{CompilingFailure}!*ErlangAst {
     switch (t.ast_type) {
         .int => {
             return tele_to_erlang_int(t, allocator) catch {

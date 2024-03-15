@@ -8,7 +8,7 @@ const TokenQueueError = error{MissingHead};
 const TokenQueueNode = struct { next: ?*TokenQueueNode, body: []const u8 };
 
 // FIFO Queue
-const TokenQueue = struct {
+pub const TokenQueue = struct {
     const Self = @This();
 
     head: ?*TokenQueueNode,
@@ -90,15 +90,15 @@ test "token queue" {
     test_allocator.destroy(node);
 }
 
-fn read_tokens(r: anytype, allocator: std.mem.Allocator) *TokenQueue {
-    const queue: *TokenQueue = TokenQueue.init(allocator);
+pub fn read_tokens(r: anytype, allocator: std.mem.Allocator) !*TokenQueue {
+    const queue: *TokenQueue = try TokenQueue.init(allocator);
 
     var buffer = std.ArrayList(u8).init(allocator);
     defer buffer.deinit();
 
     var leftover: u8 = 0;
-    while (read_token(r, &buffer, &leftover)) {
-        queue.push(try buffer.toOwnedSlice());
+    while (try read_token(r, &buffer, &leftover)) {
+        try queue.push(try buffer.toOwnedSlice());
     }
 
     return queue;

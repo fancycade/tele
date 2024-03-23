@@ -82,9 +82,17 @@ test "token queue" {
     std.mem.copyForwards(u8, buf, "hello, world!");
 
     try queue.push(buf);
+
+    try std.testing.expect(!queue.empty());
+
+    const node_ptr = try queue.peek();
+    try std.testing.expect(std.mem.eql(u8, node_ptr.*.body, "hello, world!"));
+
     const node = try queue.pop();
 
     try std.testing.expect(std.mem.eql(u8, node.*.body, "hello, world!"));
+
+    try std.testing.expect(queue.empty());
 
     test_allocator.free(node.*.body);
     test_allocator.destroy(node);
@@ -97,7 +105,7 @@ pub fn read_tokens(r: anytype, allocator: std.mem.Allocator) !*TokenQueue {
     defer buffer.deinit();
 
     var leftover: u8 = 0;
-    while (try read_token(r, &buffer, &leftover)) {
+    while (!try read_token(r, &buffer, &leftover)) {
         try queue.push(try buffer.toOwnedSlice());
     }
 
@@ -120,6 +128,8 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), leftover: *u8) !bool {
             } else if (op_char(leftover.*)) {
                 mode = .op;
             }
+        } else if (whitespace(leftover.*) or newline(leftover.*)) {
+            // Skip
         } else {
             try l.append(leftover.*);
             mode = .word;
@@ -147,6 +157,8 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), leftover: *u8) !bool {
                     } else {
                         return false;
                     }
+                } else if (whitespace(b) or newline(b)) {
+                    // Skip
                 } else {
                     try l.append(b);
                     mode = .word;
@@ -158,6 +170,8 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), leftover: *u8) !bool {
                         leftover.* = b;
                         return false;
                     }
+                } else if (newline(b) or whitespace(b)) {
+                    return false;
                 }
                 try l.append(b);
             },
@@ -195,9 +209,17 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), leftover: *u8) !bool {
     return false;
 }
 
+fn whitespace(c: u8) bool {
+    return c == ' ' or c == '\t';
+}
+
+fn newline(c: u8) bool {
+    return c == '\n' or c == '\r';
+}
+
 fn special_char(c: u8) bool {
     switch (c) {
-        '(', ')', '{', '}', '[', ']', ':', ',', '\n', '#', '-', '+', '/', '*', '<', '>', '|', '_', ' ', '=' => {
+        '(', ')', '{', '}', '[', ']', ':', ',', '#', '-', '+', '/', '*', '<', '>', '|', '_', '=' => {
             return true;
         },
         else => {},
@@ -237,19 +259,11 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "["));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "]"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -261,15 +275,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "foobar"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -277,15 +283,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "$c"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -293,15 +291,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "="));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -309,15 +299,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "-"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -325,15 +307,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "=="));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -341,15 +315,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "<="));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -357,15 +323,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "|"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -377,10 +335,6 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "#("));
     list.clearAndFree();
 
@@ -389,15 +343,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "16#FFFF"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -413,15 +359,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "<<\"binary\">>"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -429,18 +367,10 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "io.read"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "{"));
     list.clearAndFree();
 
@@ -461,15 +391,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "{"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, " "));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -477,15 +399,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, " "));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, ":"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, " "));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -493,15 +407,7 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, " "));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "}"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
@@ -517,10 +423,6 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, " "));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "2"));
     list.clearAndFree();
 
@@ -529,19 +431,11 @@ test "read token" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, " "));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "3"));
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &leftover);
     try expect(eql(u8, list.items, "]"));
-    list.clearAndFree();
-
-    _ = try read_token(file.reader(), &list, &leftover);
-    try expect(eql(u8, list.items, "\n"));
     list.clearAndFree();
 
     const eof = try read_token(file.reader(), &list, &leftover);

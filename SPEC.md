@@ -60,6 +60,8 @@ Atoms are like Scheme. They are prefixed with a '
 
     'hello
 
+EXPERIMENTAL:
+
 Optionally end the prefix with another tick:
 
     'hello'
@@ -86,7 +88,7 @@ This is equivalent to <<"foobar"/utf8>> in Erlang.
 
 ### PID
 
-You won't need to declare syntax for PID. Is represented like Erlang:
+You won't need to declare syntax for PID. It is represented like it is in Erlang:
 
     <0.54.0>
 
@@ -159,12 +161,28 @@ The record type is required.
 
 EXPERIMENTAL:
 
+Define records with type syntax. They are distinguished from tuples by having named fields.
+
+    type thing: #(a=int, b=int)
+
 See if this type of syntax is possible.
 
     a.a
     a.b
 
 Would run into issues where record type is not known.
+
+This could be solved with structural typing. The record type can be inferred by what field's are used.
+Or if it is ambiguous it doesn't matter because the correct field is used semantically anyways.
+The problem with structural typing with records is that in Erlang the record includes the first element
+atom as the record type name. Structural typing would have to ignore that. This might be okay since records
+are actually tuples anyways.
+
+Type annotations can be used to determine what type is actually used.
+
+This feature would need to know the current record types in scope for that module. When including
+erlang header files these would need to be parsed by the tele compiler. This could be similar to how
+Zig parses C header files.
 
 ### Pattern Matching
 

@@ -1,2 +1,2 @@
 def add2(a, b):
-  a + 2
+  a + b + 2

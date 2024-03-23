@@ -42,26 +42,30 @@ pub fn main() !void {
         return ExecutionError.Empty;
     }
 
-    //var east_list = std.ArrayList(*const Ast).init(allocator);
+    var east_list = std.ArrayList(*const Ast).init(allocator);
 
-    //for (ta.items) |c| {
-    //    try east_list.append(try compiler.tele_to_erlang(c, allocator));
-    //}
+    for (ta.items) |c| {
+        try east_list.append(try compiler.tele_to_erlang(c, allocator));
+    }
 
     // Use code path to make output file name
-    //var file = try std.fs.cwd().createFile("basic.erl", .{});
-    //defer file.close();
+    var file = try std.fs.cwd().createFile("basic.erl", .{});
+    defer file.close();
 
-    //var w = file.writer();
+    var w = file.writer();
 
-    //for (east_list.items) |c| {
-    //    try codegen.write_ast(w, c);
-    //}
+    _ = try w.write("-module(basic).\n");
+    _ = try w.write("-export([add2/2]).\n");
+
+    for (east_list.items) |c| {
+        try codegen.write_ast(w, c);
+    }
 
     // Write EOL
-    //_ = try w.write("\n");
+    _ = try w.write("\n");
 
     free_tele_ast_list(ta, allocator);
+    free_erlang_ast_list(east_list, allocator);
 }
 
 fn free_tele_ast_list(ta: std.ArrayList(*const TeleAst), allocator: std.mem.Allocator) void {
@@ -71,6 +75,19 @@ fn free_tele_ast_list(ta: std.ArrayList(*const TeleAst), allocator: std.mem.Allo
         }
         if (c.*.children != null) {
             free_tele_ast_list(c.*.children.?, allocator);
+        }
+        allocator.destroy(c);
+    }
+    ta.deinit();
+}
+
+fn free_erlang_ast_list(ta: std.ArrayList(*const Ast), allocator: std.mem.Allocator) void {
+    for (ta.items) |c| {
+        if (c.*.body.len > 0) {
+            allocator.free(c.*.body);
+        }
+        if (c.*.children != null) {
+            free_erlang_ast_list(c.*.children.?, allocator);
         }
         allocator.destroy(c);
     }

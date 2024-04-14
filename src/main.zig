@@ -33,6 +33,8 @@ pub fn main() !void {
         return error.InvalidArgs;
     };
 
+    const erlang_path = try erlang_name(code_path, allocator);
+
     var input_file = try std.fs.cwd().openFile(code_path, .{ .mode = .read_only });
     defer input_file.close();
 
@@ -49,13 +51,16 @@ pub fn main() !void {
     }
 
     // Use code path to make output file name
-    var file = try std.fs.cwd().createFile("basic.erl", .{});
+    var file = try std.fs.cwd().createFile(erlang_path, .{});
     defer file.close();
 
     var w = file.writer();
 
-    _ = try w.write("-module(basic).\n");
+    _ = try w.write("-module(");
+    _ = try w.write(erlang_path[0 .. erlang_path.len - 4]);
+    _ = try w.write(").\n");
     _ = try w.write("-export([add2/2]).\n");
+    _ = try w.write("\n");
 
     for (east_list.items) |c| {
         try codegen.write_ast(w, c);
@@ -64,6 +69,7 @@ pub fn main() !void {
     // Write EOL
     _ = try w.write("\n");
 
+    allocator.free(erlang_path);
     free_tele_ast_list(ta, allocator);
     free_erlang_ast_list(east_list, allocator);
 }
@@ -92,4 +98,16 @@ fn free_erlang_ast_list(ta: std.ArrayList(*const Ast), allocator: std.mem.Alloca
         allocator.destroy(c);
     }
     ta.deinit();
+}
+
+fn erlang_name(path: []const u8, allocator: std.mem.Allocator) ![]const u8 {
+    const base = std.fs.path.basename(path);
+
+    const buf = try allocator.alloc(u8, base.len + 1);
+    std.mem.copyForwards(u8, buf, base[0 .. base.len - 2]);
+    buf[buf.len - 3] = 'e';
+    buf[buf.len - 2] = 'r';
+    buf[buf.len - 1] = 'l';
+
+    return buf;
 }

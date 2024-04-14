@@ -111,7 +111,7 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: Pa
                     }
                 }
 
-                token_queue2.push(node2.*.body) catch {
+                token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
                     return ParserError.ParsingFailure;
                 };
             }
@@ -155,7 +155,7 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: Pa
                     }
                 }
 
-                token_queue2.push(node2.*.body) catch {
+                token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
                     return ParserError.ParsingFailure;
                 };
             }
@@ -199,7 +199,7 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: Pa
                     }
                 }
 
-                token_queue2.push(node2.*.body) catch {
+                token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
                     return ParserError.ParsingFailure;
                 };
             }
@@ -287,7 +287,7 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: Pa
                         return ParserError.ParsingFailure;
                     };
                     std.mem.copyForwards(u8, buf2, node2.*.body);
-                    token_queue2.push(buf2) catch {
+                    token_queue2.push(buf2, node2.*.line, node2.col) catch {
                         return ParserError.ParsingFailure;
                     };
                 }
@@ -324,7 +324,7 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: Pa
                         return ParserError.ParsingFailure;
                     };
                     std.mem.copyForwards(u8, buf2, node2.*.body);
-                    token_queue3.push(buf2) catch {
+                    token_queue3.push(buf2, node2.*.line, node2.*.col) catch {
                         return ParserError.ParsingFailure;
                     };
                 }

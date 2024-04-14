@@ -5,11 +5,14 @@ const Ast = ast.Ast;
 const AstType = ast.AstType;
 const tast = @import("tele/ast.zig");
 const TeleAst = tast.Ast;
+const TeleAstType = tast.AstType;
 const tokenizer = @import("tokenizer.zig");
 const parser = @import("parser.zig");
 const compiler = @import("compiler.zig");
 
 const ExecutionError = error{Empty};
+
+const FunctionMetadata = struct { name: []const u8, args: usize };
 
 pub fn main() !void {
     // Setup memory allocator
@@ -59,7 +62,21 @@ pub fn main() !void {
     _ = try w.write("-module(");
     _ = try w.write(erlang_path[0 .. erlang_path.len - 4]);
     _ = try w.write(").\n");
-    _ = try w.write("-export([add2/2]).\n");
+    _ = try w.write("-export([");
+
+    const metadata = try scan_function_metadata(ta, allocator);
+
+    var ctr: usize = 0;
+    for (metadata.items) |m| {
+        try write_function_metadata(w, m);
+        if (ctr < metadata.items.len - 1) {
+            _ = try w.write(", ");
+        }
+
+        ctr += 1;
+    }
+
+    _ = try w.write("]).\n");
     _ = try w.write("\n");
 
     for (east_list.items) |c| {
@@ -72,6 +89,7 @@ pub fn main() !void {
     allocator.free(erlang_path);
     free_tele_ast_list(ta, allocator);
     free_erlang_ast_list(east_list, allocator);
+    free_function_metadata(metadata, allocator);
 }
 
 fn free_tele_ast_list(ta: std.ArrayList(*const TeleAst), allocator: std.mem.Allocator) void {
@@ -110,4 +128,45 @@ fn erlang_name(path: []const u8, allocator: std.mem.Allocator) ![]const u8 {
     buf[buf.len - 1] = 'l';
 
     return buf;
+}
+
+fn write_function_metadata(w: anytype, md: *const FunctionMetadata) !void {
+    _ = try w.write(md.*.name);
+    _ = try w.write("/");
+    var buf: [24]u8 = undefined;
+    const str = try std.fmt.bufPrint(&buf, "{}", .{md.*.args});
+    _ = try w.write(str);
+}
+
+fn scan_function_metadata(ta: std.ArrayList(*const TeleAst), allocator: std.mem.Allocator) !std.ArrayList(*const FunctionMetadata) {
+    var metadata = std.ArrayList(*const FunctionMetadata).init(allocator);
+
+    for (ta.items) |t| {
+        if (t.*.ast_type == TeleAstType.function_def) {
+            const md = try allocator.create(FunctionMetadata);
+
+            const buf = try allocator.alloc(u8, t.*.body.len);
+            std.mem.copyForwards(u8, buf, t.*.body);
+            md.*.name = buf;
+
+            if (t.*.children == null) {
+                md.*.args = 0;
+            } else if (t.*.children.?.items[0].*.ast_type == TeleAstType.function_signature) {
+                md.*.args = t.*.children.?.items[0].*.children.?.items.len;
+            }
+
+            try metadata.append(md);
+        }
+    }
+
+    return metadata;
+}
+
+fn free_function_metadata(metadata: std.ArrayList(*const FunctionMetadata), allocator: std.mem.Allocator) void {
+    for (metadata.items) |m| {
+        allocator.free(m.name);
+        allocator.destroy(m);
+    }
+
+    metadata.deinit();
 }

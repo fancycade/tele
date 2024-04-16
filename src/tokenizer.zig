@@ -52,23 +52,6 @@ pub const TokenQueue = struct {
         }
     }
 
-    // Push node onto front of queue
-    pub fn push_head(self: *Self, token_body: []const u8, line_number: usize, col_number: usize) !void {
-        const node = try self.allocator.create(TokenQueueNode);
-        node.*.next = null;
-        node.*.body = token_body;
-        node.*.line = line_number;
-        node.*.col = col_number;
-
-        if (self.head == null) {
-            self.head = node;
-            self.tail = node;
-        } else {
-            node.*.next = self.head;
-            self.head = node;
-        }
-    }
-
     pub fn pop(self: *Self) !*TokenQueueNode {
         if (self.head == null) {
             return TokenQueueError.MissingHead;

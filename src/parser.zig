@@ -303,22 +303,22 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: Pa
                 var first_body_child_col: usize = 0;
                 var first_node: bool = true;
                 while (!token_queue.empty()) {
-                    const node2 = token_queue.pop() catch {
+                    const peek_node2 = token_queue.peek() catch {
                         return ParserError.ParsingFailure;
                     };
 
                     if (first_node) {
-                        first_body_child_col = node2.*.col;
+                        first_body_child_col = peek_node2.col;
                         first_node = false;
                     } else {
-                        if (node2.*.col < first_body_child_col) {
-                            token_queue.push_head(node2.*.body, node2.*.line, node2.*.col) catch {
-                                return ParserError.ParsingFailure;
-                            };
-                            allocator.destroy(node2);
+                        if (peek_node2.*.col < first_body_child_col) {
                             break;
                         }
                     }
+
+                    const node2 = token_queue.pop() catch {
+                        return ParserError.ParsingFailure;
+                    };
 
                     token_queue3.push(node2.*.body, node2.*.line, node2.*.col) catch {
                         return ParserError.ParsingFailure;

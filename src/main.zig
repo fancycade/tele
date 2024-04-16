@@ -83,9 +83,6 @@ pub fn main() !void {
         try codegen.write_ast(w, c);
     }
 
-    // Write EOL
-    _ = try w.write("\n");
-
     allocator.free(erlang_path);
     free_tele_ast_list(ta, allocator);
     free_erlang_ast_list(east_list, allocator);

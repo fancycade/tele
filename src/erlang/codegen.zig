@@ -413,7 +413,7 @@ fn write_function_def(w: anytype, a: *const Ast) !void {
         i = i + 1;
     }
 
-    _ = try w.write(".\n");
+    _ = try w.write(".\n\n");
 }
 
 test "write function def" {
@@ -428,7 +428,7 @@ test "write function def" {
     try children.append(&Ast{ .body = "world", .ast_type = AstType.function_call, .children = null });
 
     try write_function_def(list.writer(), &Ast{ .body = "hello_world", .ast_type = AstType.function_def, .children = children });
-    try std.testing.expect(std.mem.eql(u8, list.items, "hello_world() ->\n    hello(),\n    world().\n"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "hello_world() ->\n    hello(),\n    world().\n\n"));
 }
 
 fn write_anonymous_function(w: anytype, a: *const Ast) !void {

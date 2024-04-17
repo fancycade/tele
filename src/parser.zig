@@ -327,27 +327,17 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: Pa
                     allocator.destroy(node2);
                 }
 
-                var alist = parse_tokens(token_queue3, allocator, ParserMode.none) catch {
+                var alist = parse_body(token_queue3, allocator) catch {
                     return ParserError.ParsingFailure;
                 };
-                var temp = std.ArrayList(*const TeleAst).init(allocator);
 
-                // Do this to get the order correct for the children list
                 while (alist.items.len > 0) {
                     const a = alist.pop();
-                    temp.append(a) catch {
-                        return ParserError.ParsingFailure;
-                    };
-                }
-                alist.deinit();
-
-                while (temp.items.len > 0) {
-                    const a = temp.pop();
                     children.append(a) catch {
                         return ParserError.ParsingFailure;
                     };
                 }
-                temp.deinit();
+                alist.deinit();
 
                 // Assemble Function Definition Ast
                 const t = allocator.create(TeleAst) catch {
@@ -386,6 +376,72 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: Pa
     }
 
     return list;
+}
+
+fn parse_body(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserError!std.ArrayList(*const TeleAst) {
+    var statement_token_queue = TokenQueue.init(allocator) catch {
+        return ParserError.ParsingFailure;
+    };
+    defer statement_token_queue.deinit();
+    var alist = std.ArrayList(*const TeleAst).init(allocator); // catch {
+    //    return ParserError.ParsingFailure;
+    //};
+
+    while (!token_queue.empty()) {
+        var current_line: usize = 0;
+        var current_first: bool = true;
+        while (!token_queue.empty()) {
+            const pnode = token_queue.peek() catch {
+                return ParserError.ParsingFailure;
+            };
+
+            if (current_first) {
+                current_line = pnode.*.line;
+                current_first = false;
+            } else if (pnode.*.line > current_line) {
+                break;
+            } else {
+                const node = token_queue.pop() catch {
+                    return ParserError.ParsingFailure;
+                };
+
+                statement_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                    return ParserError.ParsingFailure;
+                };
+                allocator.destroy(node);
+            }
+        }
+
+        var statement_list = parse_tokens(statement_token_queue, allocator, ParserMode.none) catch {
+            // TODO: Do memory cleanup here
+            return ParserError.ParsingFailure;
+        };
+
+        const ast = statement_list.pop();
+
+        if (statement_list.items.len > 0) {
+            // TODO: Do proper memory cleanup here
+            return ParserError.ParsingFailure;
+        } else {
+            statement_list.deinit();
+
+            alist.append(ast) catch {
+                return ParserError.ParsingFailure;
+            };
+        }
+    }
+
+    var final_list = std.ArrayList(*const TeleAst).init(allocator);
+
+    while (alist.items.len > 0) {
+        const a = alist.pop();
+        final_list.append(a) catch {
+            return ParserError.ParsingFailure;
+        };
+    }
+    alist.deinit();
+
+    return final_list;
 }
 
 fn parse_function_signature(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {

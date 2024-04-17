@@ -3,3 +3,8 @@ def add2(a, b):
 
 def add3(a, b, c):
   a + b + c
+
+def add4(a):
+  b = a + 2
+  c = b + 3
+  c

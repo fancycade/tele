@@ -599,6 +599,20 @@ fn is_keyword(buf: []const u8) bool {
     return false;
 }
 
+fn is_body_keyword(buf: []const u8) bool {
+    if (buf.len == 0) {
+        return false;
+    }
+
+    if (buf[0] == 'm') {
+        if (std.mem.eql(u8, "match", buf)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 fn is_function_definition(buf: []const u8) bool {
     return std.mem.eql(u8, "def", buf);
 }

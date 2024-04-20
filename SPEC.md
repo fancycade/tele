@@ -70,6 +70,8 @@ This is mostly useful for when you put a space in an atom:
 
     'hello world'
 
+This is valid in Erlang, but might not be in Tele. Instead use binary_to_atom("hello world").
+
 ### Bit Strings
 
     <<10, 20>>
@@ -94,11 +96,11 @@ You won't need to declare syntax for PID. It is represented like it is in Erlang
 
 ### Tuples
 
-Taken from gleam's tuples.
-
 Tuples are delimited by an opening `#(` and a closing paren `)`.
 
     #(1, 2)
+
+Taken from gleam's tuples.
 
 ### Lists
 
@@ -106,15 +108,11 @@ Lists are the same as in Erlang
 
     [1, 2, 3]
 
+Similar to Erlang, Javascript, and Python.
+
 ### Maps
 
 Maps are delimited with '{' and '}': 
-
-    {"foo": "bar"}
-
-EXPERIMENTAL:
-
-Remove the need for the # prefix if tuples end up being #() instead of {}.
 
     {"foo": "bar"}
 
@@ -128,13 +126,21 @@ Anonymous functions can be defined on a single line.
 
     map((x) -> x + 2, [1, 2, 3])
 
-Anonymous functions can be multiple lines. Here we delimit the end of the function expression with the comma of the map function arguements.
+Anonymous functions can be multiple lines. Anonymous function bodies follow the same syntax rules as blocks.
+Function bodies starting on same line have to be one line. Multiline bodies must be after the beginning of the block.
 
-    map((x) ->
-      x2 = x + 2
-      x2 + 2,
+    map(
+      (x) ->
+        x2 = x + 2
+        x2 + 2, 
       [1, 2, 3]
     )
+
+    f = (x, y) ->
+          z = x + y
+          z + 42
+
+    f2 = (x, y) -> f(x, y)
 
 ### Variables
 
@@ -186,34 +192,34 @@ Zig parses C header files.
 
 ### Pattern Matching
 
-    match v
-      | [1, 2, x]: x
-      | [1, 2, x, y]: {x, y}
+    match v:
+      [1, 2, x]: x
+      [1, 2, x, y]: {x, y}
 
-    match v
-      | {'foo: "bar"}: #('ok, "result")
-      | {'bar: bar}: bar
+    match v:
+      {'foo: "bar"}: #('ok, "result")
+      {'bar: bar}: bar
 
-    match v
-      | 2:
-          #('ok, 'done)
-      | 3:
-          ok = 'ok
-          #(ok, 'failure)
+    match v:
+      2:
+        #('ok, 'done)
+      3:
+        ok = 'ok
+        #(ok, 'failure)
 
 EXPERIMENTAL:
 
 Type annotation syntax in pattern matching that can be translated to guards. Inspired by Rhombus.
 
-    match v
-      | x :: int: x + 2
-      | x :: float: x + 2.0
+    match v:
+      x :: int: x + 2
+      x :: float: x + 2.0
 
 The double semicolon is like an inline type annotation.
 
-    match v
-      | {_, x} :: {any, int}: x + 2
-      | _: {'error, 'oops}
+    match v:
+      {_, x} :: {any, int}: x + 2
+      _: {'error, 'oops}
 
 ### Function Definitions
 
@@ -224,8 +230,9 @@ The double semicolon is like an inline type annotation.
 
 Pattern matching with a function definition.
 
-    def foo | (x, [1, 2]): x
-            | (_x, b): b
+    def foo:
+      (x, [1, 2]): x
+      (_x, b): b
 
 The difference with the match syntax is it requires a surrounding parens on each case to signify the function signature.
 
@@ -233,9 +240,9 @@ EXPERIMENTAL:
 
 Type annotation syntax in pattern matching that can be translated to guards. Inspired by Rhombus.
 
-    def foo
-      | (x :: int): x
-      | (y :: float): y
+    def foo:
+      (x :: int): x
+      (y :: float): y
 
 ### Modules
 
@@ -294,15 +301,15 @@ Here is a full module with type signatures and sum types
     def add(x, y):
       x + y
 
-    def add(int): int
+    def add2(int): int
     def add2(x):
       x + 2
 
     def div(int, int):
       #('ok, int) | #('error, binary)
-    def div
-      | (_, 0): #('error, 'div_by_zero)
-      | (a, b): #('ok, a / b)
+    def div:
+      (_, 0): #('error, 'div_by_zero)
+      (a, b): #('ok, a / b)
 
 Type Annotations of anonymous functions look like this:
 

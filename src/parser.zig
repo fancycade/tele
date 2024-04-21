@@ -387,48 +387,97 @@ fn parse_body(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserErro
     //    return ParserError.ParsingFailure;
     //};
 
+    var ast: *const TeleAst = undefined;
     while (!token_queue.empty()) {
-        var current_line: usize = 0;
-        var current_first: bool = true;
-        while (!token_queue.empty()) {
-            const pnode = token_queue.peek() catch {
-                return ParserError.ParsingFailure;
-            };
-
-            if (current_first) {
-                current_line = pnode.*.line;
-                current_first = false;
-            } else if (pnode.*.line > current_line) {
-                break;
-            } else {
-                const node = token_queue.pop() catch {
-                    return ParserError.ParsingFailure;
-                };
-
-                statement_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
-                    return ParserError.ParsingFailure;
-                };
-                allocator.destroy(node);
-            }
+        // Statement Token Queue should be empty because all tokens were consumed in parse_tokens
+        if (!statement_token_queue.empty()) {
+            alist.deinit();
+            return ParserError.ParsingFailure;
         }
 
-        var statement_list = parse_tokens(statement_token_queue, allocator, ParserMode.none) catch {
-            // TODO: Do memory cleanup here
+        const pnode = token_queue.peek() catch {
             return ParserError.ParsingFailure;
         };
 
-        const ast = statement_list.pop();
+        if (is_body_keyword(pnode.*.body)) {
+            if (is_match_keyword(pnode.*.body)) {
+                const current_col = pnode.*.col;
 
-        if (statement_list.items.len > 0) {
-            // TODO: Do proper memory cleanup here
-            return ParserError.ParsingFailure;
+                // Pop off match keyword
+                const n = token_queue.pop() catch {
+                    return ParserError.ParsingFailure;
+                };
+                allocator.free(n.*.body);
+                allocator.destroy(n);
+
+                while (!token_queue.empty()) {
+                    const pnode2 = token_queue.peek() catch {
+                        return ParserError.ParsingFailure;
+                    };
+
+                    if (pnode2.*.col <= current_col) {
+                        break;
+                    } else {
+                        const node = token_queue.pop() catch {
+                            return ParserError.ParsingFailure;
+                        };
+
+                        statement_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                            return ParserError.ParsingFailure;
+                        };
+
+                        allocator.destroy(node);
+                    }
+                }
+
+                ast = parse_match_expression(statement_token_queue, allocator) catch {
+                    return ParserError.ParsingFailure;
+                };
+            } else {
+                return ParserError.ParsingFailure;
+            }
         } else {
-            statement_list.deinit();
+            const current_line = pnode.*.line;
 
-            alist.append(ast) catch {
+            while (!token_queue.empty()) {
+                const pnode2 = token_queue.peek() catch {
+                    return ParserError.ParsingFailure;
+                };
+
+                if (pnode2.*.line > current_line) {
+                    break;
+                } else {
+                    const node = token_queue.pop() catch {
+                        return ParserError.ParsingFailure;
+                    };
+
+                    statement_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                        return ParserError.ParsingFailure;
+                    };
+                    allocator.destroy(node);
+                }
+            }
+
+            var statement_list = parse_tokens(statement_token_queue, allocator, ParserMode.none) catch {
+                // TODO: Do memory cleanup here
                 return ParserError.ParsingFailure;
             };
+
+            // Statement should have one AST item that needs to be popped off
+            ast = statement_list.pop();
+
+            // Throw error if statement list is not empty
+            if (statement_list.items.len > 0) {
+                statement_list.deinit();
+                return ParserError.ParsingFailure;
+            } else {
+                statement_list.deinit();
+            }
         }
+
+        alist.append(ast) catch {
+            return ParserError.ParsingFailure;
+        };
     }
 
     var final_list = std.ArrayList(*const TeleAst).init(allocator);
@@ -442,6 +491,157 @@ fn parse_body(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserErro
     alist.deinit();
 
     return final_list;
+}
+
+fn parse_match_expression(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
+    var buffer_token_queue = TokenQueue.init(allocator) catch {
+        return ParserError.ParsingFailure;
+    };
+
+    // Parse Match Signature
+    while (!token_queue.empty()) {
+        const node = token_queue.pop() catch {
+            return ParserError.ParsingFailure;
+        };
+
+        if (is_colon(node.*.body)) {
+            allocator.free(node.*.body);
+            allocator.destroy(node);
+            break;
+        } else {
+            buffer_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                return ParserError.ParsingFailure;
+            };
+            allocator.destroy(node);
+        }
+    }
+
+    var signature_list = parse_tokens(buffer_token_queue, allocator, ParserMode.none) catch {
+        return ParserError.ParsingFailure;
+    };
+
+    const signature_ast = signature_list.pop();
+
+    if (signature_list.items.len > 0) {
+        return ParserError.ParsingFailure;
+    }
+
+    if (!buffer_token_queue.empty()) {
+        return ParserError.ParsingFailure;
+    }
+    signature_list.deinit();
+
+    var children = std.ArrayList(*const TeleAst).init(allocator);
+    children.append(signature_ast) catch {
+        return ParserError.ParsingFailure;
+    };
+
+    // Parse Match Clauses
+    while (!token_queue.empty()) {
+        var clause_col: usize = 0;
+        var clause_col_first: bool = true;
+        var clause_children = std.ArrayList(*const TeleAst).init(allocator);
+
+        // Case Clause Signature
+        while (!token_queue.empty()) {
+            const node = token_queue.pop() catch {
+                return ParserError.ParsingFailure;
+            };
+
+            if (clause_col_first) {
+                clause_col = node.*.col;
+                clause_col_first = false;
+            }
+
+            if (is_colon(node.*.body)) {
+                allocator.free(node.*.body);
+                allocator.destroy(node);
+                break;
+            } else {
+                buffer_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                    return ParserError.ParsingFailure;
+                };
+                allocator.destroy(node);
+            }
+        }
+
+        var case_clause_signature_list = parse_tokens(buffer_token_queue, allocator, ParserMode.none) catch {
+            return ParserError.ParsingFailure;
+        };
+
+        const case_clause_signature_ast = case_clause_signature_list.pop();
+
+        if (signature_list.items.len > 0) {
+            return ParserError.ParsingFailure;
+        }
+
+        if (!buffer_token_queue.empty()) {
+            return ParserError.ParsingFailure;
+        }
+
+        clause_children.append(case_clause_signature_ast) catch {
+            return ParserError.ParsingFailure;
+        };
+        case_clause_signature_list.deinit();
+
+        // Parse Case Clause Body
+
+        while (!token_queue.empty()) {
+            const peek_node = token_queue.peek() catch {
+                return ParserError.ParsingFailure;
+            };
+
+            if (peek_node.*.col <= clause_col) {
+                break;
+            } else {
+                const node = token_queue.pop() catch {
+                    return ParserError.ParsingFailure;
+                };
+
+                buffer_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                    return ParserError.ParsingFailure;
+                };
+                allocator.destroy(node);
+            }
+        }
+
+        var alist = parse_body(buffer_token_queue, allocator) catch {
+            return ParserError.ParsingFailure;
+        };
+
+        if (!buffer_token_queue.empty()) {
+            return ParserError.ParsingFailure;
+        }
+
+        while (alist.items.len > 0) {
+            const a = alist.pop();
+            clause_children.append(a) catch {
+                return ParserError.ParsingFailure;
+            };
+        }
+        alist.deinit();
+
+        const case_clause_ast = allocator.create(TeleAst) catch {
+            return ParserError.ParsingFailure;
+        };
+        case_clause_ast.*.body = "";
+        case_clause_ast.*.children = clause_children;
+        case_clause_ast.*.ast_type = TeleAstType.case_clause;
+
+        children.append(case_clause_ast) catch {
+            return ParserError.ParsingFailure;
+        };
+    }
+
+    buffer_token_queue.deinit();
+
+    const final_ast = allocator.create(TeleAst) catch {
+        return ParserError.ParsingFailure;
+    };
+    final_ast.*.body = "";
+    final_ast.*.ast_type = TeleAstType.case;
+    final_ast.*.children = children;
+    return final_ast;
 }
 
 fn parse_function_signature(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
@@ -610,6 +810,19 @@ fn is_body_keyword(buf: []const u8) bool {
         }
     }
 
+    return false;
+}
+
+fn is_match_keyword(buf: []const u8) bool {
+    if (buf.len == 0) {
+        return false;
+    }
+
+    if (buf[0] == 'm') {
+        if (std.mem.eql(u8, "match", buf)) {
+            return true;
+        }
+    }
     return false;
 }
 

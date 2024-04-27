@@ -184,12 +184,15 @@ pub const Context = struct {
                 break;
             }
 
-            _ = try w.write("\n    ");
+            _ = try w.write("\n");
+            try self.push_padding(4);
             try self.write_ast(w, a.children.?.items[i]);
 
             if (i + 1 < a.children.?.items.len) {
                 _ = try w.write(",");
             }
+
+            try self.pop_padding();
 
             i = i + 1;
         }
@@ -352,10 +355,26 @@ pub const Context = struct {
         _ = try w.write("end");
     }
 
+    pub fn push_padding(self: *Self, padding: usize) !void {
+        try self.*.padding_stack.append(self.current_padding() + padding);
+    }
+
+    pub fn pop_padding(self: *Self) !void {
+        _ = self.*.padding_stack.pop();
+    }
+
+    pub fn current_padding(self: *Self) usize {
+        if (self.*.padding_stack.items.len == 0) {
+            return 0;
+        } else {
+            return self.*.padding_stack.items[self.*.padding_stack.items.len - 1];
+        }
+    }
+
     pub fn write_padding(self: *Self, w: anytype) !void {
         var ctr: usize = 0;
         if (self.*.padding_stack.items.len > 0) {
-            while (ctr < self.*.padding_stack.items[self.*.padding_stack.items.len - 1]) {
+            while (ctr < self.current_padding()) {
                 _ = try w.write(" ");
                 ctr += 1;
             }

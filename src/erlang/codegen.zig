@@ -9,10 +9,14 @@ const CodegenError = error{WritingFailure};
 pub const Context = struct {
     const Self = @This();
 
-    padding: usize,
+    padding_stack: std.ArrayList(usize),
 
-    pub fn init() Context {
-        return Context{ .padding = 0 };
+    pub fn init(allocator: std.mem.Allocator) Context {
+        return Context{ .padding_stack = std.ArrayList(usize).init(allocator) };
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.padding_stack.deinit();
     }
 
     pub fn write_value(self: *Self, w: anytype, a: *const Ast) !void {
@@ -350,9 +354,11 @@ pub const Context = struct {
 
     pub fn write_padding(self: *Self, w: anytype) !void {
         var ctr: usize = 0;
-        while (ctr < self.*.padding) {
-            _ = try w.write(" ");
-            ctr += 1;
+        if (self.*.padding_stack.items.len > 0) {
+            while (ctr < self.*.padding_stack.items[self.*.padding_stack.items.len - 1]) {
+                _ = try w.write(" ");
+                ctr += 1;
+            }
         }
     }
 
@@ -453,7 +459,8 @@ pub const Context = struct {
 };
 
 test "write value" {
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
 
     var list = std.ArrayList(u8).init(test_allocator);
     defer list.deinit();
@@ -482,7 +489,8 @@ test "write binary" {
     var list = std.ArrayList(u8).init(test_allocator);
     defer list.deinit();
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
 
     try context.write_binary(list.writer(), &Ast{ .body = "\"foobar\"", .ast_type = AstType.binary, .children = null });
 
@@ -499,7 +507,8 @@ test "write tuple" {
     try children.append(&Ast{ .body = "1", .ast_type = AstType.int, .children = null });
     try children.append(&Ast{ .body = "2", .ast_type = AstType.int, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
 
     try context.write_tuple(list.writer(), &Ast{ .body = "", .ast_type = AstType.list, .children = children });
 
@@ -518,7 +527,8 @@ test "write list" {
     try children.append(&Ast{ .body = "42.42", .ast_type = AstType.float, .children = null });
     try children.append(&Ast{ .body = "\"foobar\"", .ast_type = AstType.binary, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
 
     try context.write_list(list.writer(), &Ast{ .body = "", .children = children, .ast_type = AstType.list });
 
@@ -537,7 +547,8 @@ test "write map" {
     try children.append(&Ast{ .body = "foo2", .ast_type = AstType.atom, .children = null });
     try children.append(&Ast{ .body = "baz", .ast_type = AstType.atom, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
 
     try context.write_map(list.writer(), &Ast{ .body = "", .ast_type = AstType.map, .children = children });
 
@@ -556,7 +567,8 @@ test "write record" {
     try children.append(&Ast{ .body = "age", .ast_type = AstType.atom, .children = null });
     try children.append(&Ast{ .body = "68", .ast_type = AstType.int, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
 
     try context.write_record(list.writer(), &Ast{ .body = "person", .ast_type = AstType.record, .children = children });
 
@@ -573,7 +585,8 @@ test "write op" {
     try children.append(&Ast{ .body = "1", .ast_type = AstType.int, .children = null });
     try children.append(&Ast{ .body = "2", .ast_type = AstType.int, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
     try context.write_op(list.writer(), &Ast{ .body = "+", .children = children, .ast_type = AstType.op });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "1 + 2"));
@@ -589,7 +602,8 @@ test "write function call" {
     try children.append(&Ast{ .body = "1", .ast_type = AstType.int, .children = null });
     try children.append(&Ast{ .body = "2", .ast_type = AstType.int, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
     try context.write_function_call(list.writer(), &Ast{ .body = "erlang:add", .ast_type = AstType.function_call, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "erlang:add(1, 2)"));
@@ -606,7 +620,8 @@ test "write attribute" {
 
     try children.append(&Ast{ .body = "foobar", .ast_type = AstType.atom, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
     try context.write_attribute(list.writer(), &Ast{ .body = "module", .ast_type = AstType.attribute, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "-module(foobar).\n"));
@@ -625,7 +640,8 @@ test "write function def" {
     try children.append(&Ast{ .body = "hello", .ast_type = AstType.function_call, .children = null });
     try children.append(&Ast{ .body = "world", .ast_type = AstType.function_call, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
     try context.write_function_def(list.writer(), &Ast{ .body = "hello_world", .ast_type = AstType.function_def, .children = children });
     try std.testing.expect(std.mem.eql(u8, list.items, "hello_world() ->\n    hello(),\n    world().\n\n"));
 }
@@ -641,7 +657,8 @@ test "write anonymous function" {
     try children.append(&Ast{ .body = "hello", .ast_type = AstType.function_call, .children = null });
     try children.append(&Ast{ .body = "world", .ast_type = AstType.function_call, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
     try context.write_anonymous_function(list.writer(), &Ast{ .body = "", .ast_type = AstType.anonymous_function, .children = children });
     try std.testing.expect(std.mem.eql(u8, list.items, "fun() ->\n    hello(),\n    world()\nend"));
 }
@@ -655,7 +672,8 @@ test "write function signature" {
     try children.append(&Ast{ .body = "A", .ast_type = AstType.variable, .children = null });
     try children.append(&Ast{ .body = "B", .ast_type = AstType.variable, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
     try context.write_function_signature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children });
 
     const expected = "(A, B)";
@@ -704,7 +722,8 @@ test "write guard clause" {
     try children3.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
     try children.append(&Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = children3 });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
     try context.write_guard_clause(list.writer(), &Ast{ .body = "", .ast_type = AstType.guard_clause, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "when is_number(X), is_integer(X)"));
@@ -734,7 +753,8 @@ test "write case clause" {
     try children.append(&Ast{ .body = "=", .ast_type = AstType.op, .children = op2_children });
     try children.append(&Ast{ .body = "Y", .ast_type = AstType.variable, .children = null });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
     try context.write_case_clause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "X -> Y = X + 2,\n Y"));
@@ -788,7 +808,8 @@ test "write case" {
     try children.append(&Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_1 });
     try children.append(&Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_2 });
 
-    var context = Context.init();
+    var context = Context.init(test_allocator);
+    defer context.deinit();
     try context.write_case(list.writer(), &Ast{ .body = "", .ast_type = AstType.case, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "case X of\n true -> ok;\n false -> error\n end"));

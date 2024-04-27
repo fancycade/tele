@@ -80,11 +80,12 @@ pub fn main() !void {
     _ = try w.write("]).\n");
     _ = try w.write("\n");
 
-    var context = Context.init();
+    var context = Context.init(allocator);
     for (east_list.items) |c| {
         try context.write_ast(w, c);
     }
 
+    context.deinit();
     allocator.free(erlang_path);
     free_tele_ast_list(ta, allocator);
     free_erlang_ast_list(east_list, allocator);

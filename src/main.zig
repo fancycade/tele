@@ -1,5 +1,6 @@
 const std = @import("std");
 const codegen = @import("erlang/codegen.zig");
+const Context = codegen.Context;
 const ast = @import("erlang/ast.zig");
 const Ast = ast.Ast;
 const AstType = ast.AstType;
@@ -79,8 +80,9 @@ pub fn main() !void {
     _ = try w.write("]).\n");
     _ = try w.write("\n");
 
+    var context = Context.init();
     for (east_list.items) |c| {
-        try codegen.write_ast(w, c);
+        try context.write_ast(w, c);
     }
 
     allocator.free(erlang_path);

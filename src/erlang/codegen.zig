@@ -123,6 +123,7 @@ pub const Context = struct {
 
     pub fn write_op(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
+        try self.push_padding(0);
         // TODO: Throw error if children is not length 2
         try self.write_ast(w, a.children.?.items[0]);
 
@@ -130,6 +131,7 @@ pub const Context = struct {
         _ = try w.write(a.body);
         _ = try w.write(" ");
         try self.write_ast(w, a.children.?.items[1]);
+        try self.pop_padding();
     }
 
     pub fn write_function_call(self: *Self, w: anytype, a: *const Ast) !void {
@@ -179,25 +181,24 @@ pub const Context = struct {
         _ = try w.write(" ->");
 
         var i: usize = 1;
+        try self.push_padding(self.current_padding() + 4);
         while (true) {
             if (i >= a.children.?.items.len) {
                 break;
             }
 
             _ = try w.write("\n");
-            try self.push_padding(4);
             try self.write_ast(w, a.children.?.items[i]);
 
             if (i + 1 < a.children.?.items.len) {
                 _ = try w.write(",");
             }
 
-            try self.pop_padding();
-
             i = i + 1;
         }
 
         _ = try w.write(".\n\n");
+        try self.pop_padding();
     }
 
     pub fn write_anonymous_function(self: *Self, w: anytype, a: *const Ast) !void {
@@ -213,13 +214,17 @@ pub const Context = struct {
                 break;
             }
 
-            _ = try w.write("\n    ");
+            _ = try w.write("\n");
+
+            try self.push_padding(self.current_padding() + 4);
 
             try self.write_ast(w, a.children.?.items[i]);
 
             if (i + 1 < a.children.?.items.len) {
                 _ = try w.write(",");
             }
+
+            try self.pop_padding();
 
             i = i + 1;
         }
@@ -291,8 +296,6 @@ pub const Context = struct {
     }
 
     pub fn write_case_clause(self: *Self, w: anytype, a: *const Ast) !void {
-        try self.write_padding(w);
-
         // TODO: Check that children are at least length of 2
 
         try self.write_ast(w, a.children.?.items[0]);
@@ -305,17 +308,19 @@ pub const Context = struct {
 
             i = i + 1;
         }
+        _ = try w.write(" ->");
 
-        _ = try w.write(" -> ");
-
+        try self.push_padding(self.current_padding() + 4);
         var loop = true;
         while (loop) {
+            _ = try w.write("\n");
+
             try self.write_ast(w, a.children.?.items[i]);
 
             const len = a.children.?.items.len;
 
             if (i + 1 != len) {
-                _ = try w.write(",\n ");
+                _ = try w.write(",");
             }
 
             i += 1;
@@ -324,6 +329,7 @@ pub const Context = struct {
                 loop = false;
             }
         }
+        try self.pop_padding();
     }
 
     pub fn write_case(self: *Self, w: anytype, a: *const Ast) !void {
@@ -331,12 +337,17 @@ pub const Context = struct {
         // TODO: Check for children with minimum children length of 2
 
         _ = try w.write("case ");
+        try self.push_padding(0);
         try self.write_ast(w, a.children.?.items[0]);
-        _ = try w.write(" of\n ");
+        _ = try w.write(" of");
+        try self.pop_padding();
 
         var i: usize = 1;
         var loop = true;
+        try self.push_padding(self.current_padding() + 4);
         while (loop) {
+            _ = try w.write("\n");
+
             try self.write_ast(w, a.children.?.items[i]);
             const len = a.children.?.items.len;
 
@@ -344,19 +355,20 @@ pub const Context = struct {
                 _ = try w.write(";");
             }
 
-            _ = try w.write("\n ");
-
             i += 1;
             if (i >= len) {
                 loop = false;
             }
         }
+        try self.pop_padding();
 
+        _ = try w.write("\n");
+        _ = try self.write_padding(w);
         _ = try w.write("end");
     }
 
     pub fn push_padding(self: *Self, padding: usize) !void {
-        try self.*.padding_stack.append(self.current_padding() + padding);
+        try self.*.padding_stack.append(padding);
     }
 
     pub fn pop_padding(self: *Self) !void {
@@ -776,7 +788,7 @@ test "write case clause" {
     defer context.deinit();
     try context.write_case_clause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children });
 
-    try std.testing.expect(std.mem.eql(u8, list.items, "X -> Y = X + 2,\n Y"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "X ->\n    Y = X + 2,\n    Y"));
 
     list.clearAndFree();
 
@@ -800,7 +812,7 @@ test "write case clause" {
     try children2.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
 
     try context.write_case_clause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children2 });
-    try std.testing.expect(std.mem.eql(u8, list.items, "X when is_integer(X) -> X"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "X when is_integer(X) ->\n    X"));
 }
 
 test "write case" {
@@ -831,5 +843,5 @@ test "write case" {
     defer context.deinit();
     try context.write_case(list.writer(), &Ast{ .body = "", .ast_type = AstType.case, .children = children });
 
-    try std.testing.expect(std.mem.eql(u8, list.items, "case X of\n true -> ok;\n false -> error\n end"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "case X of\n    true ->\n        ok;\n    false ->\n        error\nend"));
 }

@@ -17,6 +17,15 @@ def f5(n):
 
 def f6(n):
   match n:
+    1:
+      a = 32
+      c = b + n
+      c + 50
+    2:
+      43
+
+def f7(n):
+  match n:
     1: 42
     y:
       match y:

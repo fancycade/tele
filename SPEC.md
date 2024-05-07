@@ -118,6 +118,26 @@ Maps are delimited with '{' and '}':
 
 This makes it similar to Python or Javascript map syntax.
 
+Tele can destructure maps like this:
+
+    m = {"foo": "bar"}
+    {"foo": b} = m
+    ?assertEqual(b, "bar")
+
+EXPERIMENTAL:
+
+Erlang has map update syntax like this:
+
+    M = #{},
+    M#{<<"foo">> => <<"bar">>}.
+
+Tele could do map update syntax like this:
+
+    m = {}
+    {m, "foo": "bar"}
+
+The updated map must be the first element of the new map.
+
 ### Anonymous Functions
 
 Anonymous functions can be defined on a single line.

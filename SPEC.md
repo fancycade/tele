@@ -250,11 +250,10 @@ The double semicolon is like an inline type annotation.
 
 Pattern matching with a function definition.
 
-    def foo:
-      (x, [1, 2]): x
-      (_x, b): b
+    def foo(x, [1, 2]): x
+    def foo(_x, b): b
 
-The difference with the match syntax is it requires a surrounding parens on each case to signify the function signature.
+This is similar to Elixir.
 
 EXPERIMENTAL:
 

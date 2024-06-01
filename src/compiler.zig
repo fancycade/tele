@@ -409,14 +409,18 @@ test "tele to erlang record" {
 fn tele_to_erlang_function_call(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const e = try allocator.create(ErlangAst);
     e.*.ast_type = ErlangAstType.function_call;
-    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
 
     const buf = try allocator.alloc(u8, t.*.body.len);
     std.mem.copyForwards(u8, buf, t.*.body);
     e.*.body = buf;
 
-    for (t.children.?.items) |c| {
-        try e.children.?.append(try tele_to_erlang(c, allocator));
+    if (t.children != null) {
+        e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+        for (t.children.?.items) |c| {
+            try e.children.?.append(try tele_to_erlang(c, allocator));
+        }
+    } else {
+        e.children = null;
     }
 
     return e;

@@ -137,6 +137,8 @@ pub const Context = struct {
         _ = try w.write(a.body);
         _ = try w.write("(");
 
+        try self.push_padding(0);
+
         if (a.children != null) {
             var i: usize = 0;
             for (a.children.?.items) |c| {
@@ -149,6 +151,8 @@ pub const Context = struct {
                 i += 1;
             }
         }
+
+        try self.pop_padding();
 
         _ = try w.write(")");
     }

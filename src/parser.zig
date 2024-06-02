@@ -102,7 +102,7 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserEr
         } else if (is_keyword(node.*.body)) {
             if (is_function_definition(node.*.body)) {
                 allocator.free(node.*.body);
-                const t = parse_function_definition(token_queue, allocator) catch {
+                const t = parse_function_definition(token_queue, allocator, node.*.col) catch {
                     return ParserError.ParsingFailure;
                 };
                 list.append(t) catch {
@@ -418,7 +418,7 @@ fn parse_map(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
     return t;
 }
 
-fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
+fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Allocator, current_col: usize) !*TeleAst {
     const node3 = token_queue.pop() catch {
         return ParserError.ParsingFailure;
     };
@@ -464,20 +464,18 @@ fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Alloca
     var token_queue3 = TokenQueue.init(allocator) catch {
         return ParserError.ParsingFailure;
     };
-    var first_body_child_col: usize = 0;
-    var first_node: bool = true;
+
+    if (token_queue.empty()) {
+        return ParserError.ParsingFailure;
+    }
+
     while (!token_queue.empty()) {
         const peek_node2 = token_queue.peek() catch {
             return ParserError.ParsingFailure;
         };
 
-        if (first_node) {
-            first_body_child_col = peek_node2.col;
-            first_node = false;
-        } else {
-            if (peek_node2.*.col < first_body_child_col) {
-                break;
-            }
+        if (peek_node2.*.col <= current_col) {
+            break;
         }
 
         const node2 = token_queue.pop() catch {
@@ -489,6 +487,10 @@ fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Alloca
         };
 
         allocator.destroy(node2);
+    }
+
+    if (token_queue3.empty()) {
+        return ParserError.ParsingFailure;
     }
 
     var alist = parse_body(token_queue3, allocator) catch {
@@ -515,14 +517,12 @@ fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Alloca
 }
 
 fn parse_body(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserError!std.ArrayList(*TeleAst) {
-    var statement_token_queue = TokenQueue.init(allocator) catch {
-        return ParserError.ParsingFailure;
-    };
-    defer statement_token_queue.deinit();
     var alist = std.ArrayList(*TeleAst).init(allocator);
 
-    var ast: *TeleAst = undefined;
+    var i: usize = 0;
+
     while (!token_queue.empty()) {
+        i = i + 1;
         const pnode = token_queue.peek() catch {
             return ParserError.ParsingFailure;
         };
@@ -531,7 +531,10 @@ fn parse_body(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserErro
             if (is_match_keyword(pnode.*.body)) {
                 const current_col = pnode.*.col;
 
-                ast = parse_match_expression(token_queue, allocator, current_col) catch {
+                const ast = parse_match_expression(token_queue, allocator, current_col) catch {
+                    return ParserError.ParsingFailure;
+                };
+                alist.append(ast) catch {
                     return ParserError.ParsingFailure;
                 };
             } else {
@@ -539,57 +542,113 @@ fn parse_body(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserErro
             }
         } else {
             const current_line = pnode.*.line;
-
-            // Parse Line
-            while (!token_queue.empty()) {
-                const pnode2 = token_queue.peek() catch {
-                    return ParserError.ParsingFailure;
-                };
-
-                if (pnode2.*.line > current_line) {
-                    break;
-                } else {
-                    const node = token_queue.pop() catch {
-                        return ParserError.ParsingFailure;
-                    };
-
-                    statement_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
-                        return ParserError.ParsingFailure;
-                    };
-                    allocator.destroy(node);
-                }
-
-                var statement_list = parse_tokens(statement_token_queue, allocator) catch {
-                    // TODO: Do memory cleanup here
-                    return ParserError.ParsingFailure;
-                };
-
-                // Statement Token Queue should be empty because all tokens were consumed in parse_tokens
-                if (!statement_token_queue.empty()) {
-                    statement_list.deinit();
-                    alist.deinit();
-                    return ParserError.ParsingFailure;
-                }
-
-                // Statement should have one AST item that needs to be popped off
-                ast = statement_list.pop();
-
-                // Throw error if statement list is not empty
-                if (statement_list.items.len > 0) {
-                    statement_list.deinit();
-                    return ParserError.ParsingFailure;
-                } else {
-                    statement_list.deinit();
-                }
-            }
+            const ast = parse_body_line(token_queue, allocator, current_line) catch {
+                return ParserError.ParsingFailure;
+            };
+            alist.append(ast) catch {
+                return ParserError.ParsingFailure;
+            };
         }
-
-        alist.append(ast) catch {
-            return ParserError.ParsingFailure;
-        };
     }
 
+    if (alist.items.len == 0) {
+        return ParserError.ParsingFailure;
+    }
     return alist;
+}
+
+test "parse body multi" {
+    const file = try std.fs.cwd().openFile(
+        "snippets/body_multi.tl",
+        .{ .mode = .read_only },
+    );
+    defer file.close();
+    const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
+    defer token_queue.deinit();
+
+    const result = try parse_body(token_queue, test_allocator);
+    try std.testing.expect(result.items.len == 2);
+
+    const ast1 = result.items[0];
+    try std.testing.expect(ast1.*.ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, ast1.*.body, "+"));
+    try std.testing.expect(ast1.*.children.?.items.len == 2);
+
+    const ast2 = result.items[1];
+    try std.testing.expect(ast2.*.ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, ast2.*.body, "-"));
+    try std.testing.expect(ast2.*.children.?.items.len == 2);
+
+    tele_ast.free_tele_ast_list(result, test_allocator);
+}
+
+fn parse_body_line(token_queue: *TokenQueue, allocator: std.mem.Allocator, current_line: usize) !*TeleAst {
+    var buffer_token_queue = try TokenQueue.init(allocator);
+    // Parse Line
+    while (!token_queue.empty()) {
+        const pnode2 = token_queue.peek() catch {
+            return ParserError.ParsingFailure;
+        };
+
+        if (pnode2.*.line > current_line) {
+            break;
+        } else {
+            const node = token_queue.pop() catch {
+                return ParserError.ParsingFailure;
+            };
+
+            buffer_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                return ParserError.ParsingFailure;
+            };
+            allocator.destroy(node);
+        }
+    }
+    var alist = parse_tokens(buffer_token_queue, allocator) catch {
+        return ParserError.ParsingFailure;
+    };
+    defer alist.deinit();
+
+    if (!buffer_token_queue.empty()) {
+        alist.deinit();
+        return ParserError.ParsingFailure;
+    }
+    buffer_token_queue.deinit();
+    if (alist.items.len != 1) {
+        return ParserError.ParsingFailure;
+    }
+
+    // Statement should have one AST item that needs to be popped off
+    const ast = alist.pop();
+    return ast;
+}
+
+test "parse body line" {
+    const file = try std.fs.cwd().openFile(
+        "snippets/body_single.tl",
+        .{ .mode = .read_only },
+    );
+    defer file.close();
+    const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
+    defer token_queue.deinit();
+
+    const result = try parse_body_line(token_queue, test_allocator, 0);
+    try std.testing.expect(result.*.ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, result.*.body, "+"));
+    try std.testing.expect(result.*.children.?.items.len == 2);
+
+    const ast1 = result.*.children.?.items[0];
+    try std.testing.expect(ast1.*.ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, ast1.*.body, "a"));
+    try std.testing.expect(ast1.*.children == null);
+
+    const ast2 = result.*.children.?.items[1];
+    try std.testing.expect(ast2.*.ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, ast2.*.body, "2"));
+    try std.testing.expect(ast2.*.children == null);
+
+    tele_ast.free_tele_ast_list(result.*.children.?, test_allocator);
+    test_allocator.free(result.*.body);
+    test_allocator.destroy(result);
 }
 
 fn parse_match_expression(token_queue: *TokenQueue, allocator: std.mem.Allocator, current_col: usize) !*TeleAst {

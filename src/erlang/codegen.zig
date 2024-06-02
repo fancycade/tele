@@ -177,30 +177,52 @@ pub const Context = struct {
     }
 
     pub fn write_function_def(self: *Self, w: anytype, a: *const Ast) !void {
-        try self.write_padding(w);
-        _ = try w.write(a.body);
-        try self.write_function_signature(w, a.children.?.items[0]);
-        _ = try w.write(" ->");
+        var i: usize = 0;
 
-        var i: usize = 1;
-        try self.push_padding(self.current_padding() + 4);
         while (true) {
             if (i >= a.children.?.items.len) {
                 break;
             }
 
-            _ = try w.write("\n");
-            try self.write_ast(w, a.children.?.items[i]);
-
-            if (i + 1 < a.children.?.items.len) {
-                _ = try w.write(",");
-            }
+            try self.write_padding(w);
+            _ = try w.write(a.body);
+            try self.write_function_signature(w, a.children.?.items[i]);
+            _ = try w.write(" ->");
 
             i = i + 1;
-        }
 
-        _ = try w.write(".\n\n");
-        try self.pop_padding();
+            try self.push_padding(self.current_padding() + 4);
+            while (true) {
+                if (i >= a.children.?.items.len or a.children.?.items[i].ast_type == AstType.function_signature) {
+                    break;
+                }
+
+                _ = try w.write("\n");
+                try self.write_ast(w, a.children.?.items[i]);
+
+                if (i + 1 < a.children.?.items.len and a.children.?.items[i + 1].ast_type != AstType.function_signature) {
+                    _ = try w.write(",");
+                }
+
+                i = i + 1;
+            }
+
+            var can_break = false;
+            if (i >= a.children.?.items.len) {
+                _ = try w.write(".\n\n");
+                can_break = true;
+            } else if (a.children.?.items[i].ast_type == AstType.function_signature) {
+                _ = try w.write(";\n");
+            } else {
+                return CodegenError.WritingFailure;
+            }
+
+            try self.pop_padding();
+
+            if (can_break) {
+                break;
+            }
+        }
     }
 
     pub fn write_anonymous_function(self: *Self, w: anytype, a: *const Ast) !void {
@@ -677,6 +699,35 @@ test "write function def" {
     defer context.deinit();
     try context.write_function_def(list.writer(), &Ast{ .body = "hello_world", .ast_type = AstType.function_def, .children = children });
     try std.testing.expect(std.mem.eql(u8, list.items, "hello_world() ->\n    hello(),\n    world().\n\n"));
+}
+
+test "write function def matching" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    var signature_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer signature_children.deinit();
+
+    try signature_children.append(&Ast{ .body = "1", .ast_type = AstType.int, .children = null });
+
+    try children.append(&Ast{ .body = "", .ast_type = AstType.function_signature, .children = signature_children });
+    try children.append(&Ast{ .body = "1", .ast_type = AstType.int, .children = null });
+
+    var signature_children2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer signature_children2.deinit();
+
+    try signature_children2.append(&Ast{ .body = "2", .ast_type = AstType.int, .children = null });
+
+    try children.append(&Ast{ .body = "", .ast_type = AstType.function_signature, .children = signature_children2 });
+    try children.append(&Ast{ .body = "2", .ast_type = AstType.int, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.write_function_def(list.writer(), &Ast{ .body = "hello", .ast_type = AstType.function_def, .children = children });
+    try std.testing.expect(std.mem.eql(u8, list.items, "hello(1) ->\n    1;\nhello(2) ->\n    2.\n\n"));
 }
 
 test "write anonymous function" {

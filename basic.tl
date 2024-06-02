@@ -1,33 +1,9 @@
-def add2(a, b):
-  a + b + 2
+def factorial(1):
+  1
+def factorial(n):
+  factorial(n - 1)
 
-def add3(a, b, c):
-  a + b + c
-
-def add4(a):
-  b = a + 2
-  c = b + 3
-  c
-
-def f5(n):
-  match n:
-    1: 42
-    2:
-      43
-
-def f6(n):
-  match n:
-    1:
-      a = 32
-      c = b + n
-      c + 50
-    2:
-      43
-
-def f7(n):
-  match n:
-    1: 42
-    y:
-      match y:
-        2: 43
-        3: 44
+def hello(1):
+  1
+def hello(2):
+  2

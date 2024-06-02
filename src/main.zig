@@ -44,15 +44,21 @@ pub fn main() !void {
     var input_file = try std.fs.cwd().openFile(code_path, .{ .mode = .read_only });
     defer input_file.close();
 
-    const ta = try parser.parse_reader(input_file.reader(), allocator);
+    var ta = try parser.parse_reader(input_file.reader(), allocator);
 
     if (ta.items.len == 0) {
         return ExecutionError.Empty;
     }
 
+    const ta2 = try compiler.preprocess(&ta, allocator);
+
+    if (ta2.items.len == 0) {
+        return ExecutionError.Empty;
+    }
+
     var east_list = std.ArrayList(*const Ast).init(allocator);
 
-    for (ta.items) |c| {
+    for (ta2.items) |c| {
         try east_list.append(try compiler.tele_to_erlang(c, allocator));
     }
 
@@ -62,7 +68,7 @@ pub fn main() !void {
     var tcontext = TeleContext.init(allocator);
     defer tcontext.deinit();
     const tw = tfile.writer();
-    for (ta.items) |c| {
+    for (ta2.items) |c| {
         try tcontext.write_ast(tw, c);
     }
 
@@ -77,7 +83,7 @@ pub fn main() !void {
     _ = try w.write(").\n");
     _ = try w.write("-export([");
 
-    const metadata = try scan_function_metadata(ta, allocator);
+    const metadata = try scan_function_metadata(ta2, allocator);
 
     var ctr: usize = 0;
     for (metadata.items) |m| {
@@ -99,12 +105,13 @@ pub fn main() !void {
 
     context.deinit();
     allocator.free(erlang_path);
-    free_tele_ast_list(ta, allocator);
+    ta.deinit();
+    free_tele_ast_list(ta2, allocator);
     free_erlang_ast_list(east_list, allocator);
     free_function_metadata(metadata, allocator);
 }
 
-fn free_tele_ast_list(ta: std.ArrayList(*const TeleAst), allocator: std.mem.Allocator) void {
+fn free_tele_ast_list(ta: std.ArrayList(*TeleAst), allocator: std.mem.Allocator) void {
     for (ta.items) |c| {
         if (c.*.body.len > 0) {
             allocator.free(c.*.body);
@@ -150,7 +157,7 @@ fn write_function_metadata(w: anytype, md: *const FunctionMetadata) !void {
     _ = try w.write(str);
 }
 
-fn scan_function_metadata(ta: std.ArrayList(*const TeleAst), allocator: std.mem.Allocator) !std.ArrayList(*const FunctionMetadata) {
+fn scan_function_metadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !std.ArrayList(*const FunctionMetadata) {
     var metadata = std.ArrayList(*const FunctionMetadata).init(allocator);
 
     for (ta.items) |t| {

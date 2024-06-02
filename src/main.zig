@@ -106,22 +106,9 @@ pub fn main() !void {
     context.deinit();
     allocator.free(erlang_path);
     ta.deinit();
-    free_tele_ast_list(ta2, allocator);
+    tast.free_tele_ast_list(ta2, allocator);
     free_erlang_ast_list(east_list, allocator);
     free_function_metadata(metadata, allocator);
-}
-
-fn free_tele_ast_list(ta: std.ArrayList(*TeleAst), allocator: std.mem.Allocator) void {
-    for (ta.items) |c| {
-        if (c.*.body.len > 0) {
-            allocator.free(c.*.body);
-        }
-        if (c.*.children != null) {
-            free_tele_ast_list(c.*.children.?, allocator);
-        }
-        allocator.destroy(c);
-    }
-    ta.deinit();
 }
 
 fn free_erlang_ast_list(ta: std.ArrayList(*const Ast), allocator: std.mem.Allocator) void {

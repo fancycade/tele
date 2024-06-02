@@ -8,3 +8,16 @@ pub const Ast = struct {
     body: []const u8,
     ast_type: AstType,
 };
+
+pub fn free_tele_ast_list(ta: std.ArrayList(*Ast), allocator: std.mem.Allocator) void {
+    for (ta.items) |c| {
+        if (c.*.body.len > 0) {
+            allocator.free(c.*.body);
+        }
+        if (c.*.children != null) {
+            free_tele_ast_list(c.*.children.?, allocator);
+        }
+        allocator.destroy(c);
+    }
+    ta.deinit();
+}

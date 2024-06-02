@@ -14,7 +14,7 @@ pub fn parse_reader(r: anytype, allocator: std.mem.Allocator) !std.ArrayList(*Te
     const token_queue = try tokenizer.read_tokens(r, allocator);
     errdefer token_queue.deinit();
 
-    const result = try parse_tokens(token_queue, allocator, ParserMode.none);
+    const result = try parse_tokens(token_queue, allocator);
     if (!token_queue.empty()) {
         return ParserError.ParsingFailure;
     }
@@ -24,7 +24,7 @@ pub fn parse_reader(r: anytype, allocator: std.mem.Allocator) !std.ArrayList(*Te
     return result;
 }
 
-fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: ParserMode) ParserError!std.ArrayList(*TeleAst) {
+fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserError!std.ArrayList(*TeleAst) {
     var list = std.ArrayList(*TeleAst).init(allocator);
     errdefer list.deinit();
 
@@ -89,35 +89,16 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: Pa
             };
         } else if (is_operator(node.*.body)) {
             if (list.items.len == 0) {
-                return ParserError.ParsingFailure;
                 // TODO: Error expected value on left side of operator
+                return ParserError.ParsingFailure;
             }
             const ast1 = list.pop();
-
-            var alist = parse_tokens(token_queue, allocator, ParserMode.op) catch {
+            const t = parse_operator(node.*.body, token_queue, allocator, ast1) catch {
                 return ParserError.ParsingFailure;
             };
-
-            const ast2 = alist.pop();
-
-            var children = std.ArrayList(*TeleAst).init(allocator);
-            children.append(ast1) catch {
-                return ParserError.ParsingFailure;
-            };
-            children.append(ast2) catch {
-                return ParserError.ParsingFailure;
-            };
-
-            const t = allocator.create(TeleAst) catch {
-                return ParserError.ParsingFailure;
-            };
-            t.*.body = node.*.body;
-            t.*.ast_type = TeleAstType.op;
-            t.*.children = children;
             list.append(t) catch {
                 return ParserError.ParsingFailure;
             };
-            alist.deinit();
         } else if (is_keyword(node.*.body)) {
             if (is_function_definition(node.*.body)) {
                 allocator.free(node.*.body);
@@ -151,15 +132,112 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator, mode: Pa
             }
         }
 
-        //allocator.free(node.*.body);
         allocator.destroy(node);
-
-        if (mode == ParserMode.op) {
-            break;
-        }
     }
 
     return list;
+}
+
+fn parse_operator(body: []const u8, token_queue: *TokenQueue, allocator: std.mem.Allocator, arg: *TeleAst) !*TeleAst {
+    var alist = parse_tokens(token_queue, allocator) catch {
+        return ParserError.ParsingFailure;
+    };
+    if (alist.items.len != 1) {
+        return ParserError.ParsingFailure;
+    }
+
+    const ast2 = alist.pop();
+    defer alist.deinit();
+
+    var children = std.ArrayList(*TeleAst).init(allocator);
+    children.append(arg) catch {
+        return ParserError.ParsingFailure;
+    };
+    children.append(ast2) catch {
+        return ParserError.ParsingFailure;
+    };
+
+    const t = allocator.create(TeleAst) catch {
+        return ParserError.ParsingFailure;
+    };
+    t.*.body = body;
+    t.*.ast_type = TeleAstType.op;
+    t.*.children = children;
+
+    return t;
+}
+
+test "parse operator expression" {
+    const file = try std.fs.cwd().openFile(
+        "snippets/op.tl",
+        .{ .mode = .read_only },
+    );
+    defer file.close();
+    const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
+    defer token_queue.deinit();
+
+    var result = try parse_tokens(token_queue, test_allocator);
+    defer result.deinit();
+    try std.testing.expect(result.items.len == 1);
+
+    const a = result.pop();
+    try std.testing.expect(a.*.ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, a.*.body, "+"));
+    try std.testing.expect(a.children.?.items.len == 2);
+
+    const c = a.children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
+
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "2"));
+    try std.testing.expect(c.items[1].children == null);
+
+    test_allocator.free(a.*.body);
+    tele_ast.free_tele_ast_list(a.children.?, test_allocator);
+    test_allocator.destroy(a);
+}
+
+test "parse operator expression chained" {
+    const file = try std.fs.cwd().openFile(
+        "snippets/op2.tl",
+        .{ .mode = .read_only },
+    );
+    defer file.close();
+    const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
+    defer token_queue.deinit();
+
+    var result = try parse_tokens(token_queue, test_allocator);
+    defer result.deinit();
+    try std.testing.expect(result.items.len == 1);
+
+    const a = result.pop();
+    try std.testing.expect(a.*.ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, a.*.body, "="));
+    try std.testing.expect(a.children.?.items.len == 2);
+
+    const c = a.children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "a"));
+    try std.testing.expect(c.items[0].children == null);
+
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "+"));
+    try std.testing.expect(c.items[1].children.?.items.len == 2);
+
+    const c2 = c.items[1].children.?;
+    try std.testing.expect(c2.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c2.items[0].body, "1"));
+    try std.testing.expect(c2.items[0].children == null);
+
+    try std.testing.expect(c2.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c2.items[1].body, "2"));
+    try std.testing.expect(c2.items[1].children == null);
+
+    test_allocator.free(a.*.body);
+    tele_ast.free_tele_ast_list(a.children.?, test_allocator);
+    test_allocator.destroy(a);
 }
 
 fn check_paren_start_peek(token_queue: *TokenQueue) !bool {
@@ -233,7 +311,7 @@ fn parse_tuple(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst
         return ParserError.ParsingFailure;
     }
 
-    const children = parse_tokens(token_queue2, allocator, ParserMode.none) catch {
+    const children = parse_tokens(token_queue2, allocator) catch {
         return ParserError.ParsingFailure;
     };
 
@@ -279,7 +357,7 @@ fn parse_list(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst 
         return ParserError.ParsingFailure;
     }
 
-    const children = parse_tokens(token_queue2, allocator, ParserMode.none) catch {
+    const children = parse_tokens(token_queue2, allocator) catch {
         return ParserError.ParsingFailure;
     };
 
@@ -325,7 +403,7 @@ fn parse_map(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
         return ParserError.ParsingFailure;
     }
 
-    const children = parse_tokens(token_queue2, allocator, ParserMode.none) catch {
+    const children = parse_tokens(token_queue2, allocator) catch {
         return ParserError.ParsingFailure;
     };
 
@@ -481,7 +559,7 @@ fn parse_body(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserErro
                     allocator.destroy(node);
                 }
 
-                var statement_list = parse_tokens(statement_token_queue, allocator, ParserMode.none) catch {
+                var statement_list = parse_tokens(statement_token_queue, allocator) catch {
                     // TODO: Do memory cleanup here
                     return ParserError.ParsingFailure;
                 };
@@ -732,7 +810,7 @@ fn parse_match_signature(token_queue: *TokenQueue, allocator: std.mem.Allocator)
         return ParserError.ParsingFailure;
     }
 
-    var signature_list = parse_tokens(buffer_token_queue, allocator, ParserMode.none) catch {
+    var signature_list = parse_tokens(buffer_token_queue, allocator) catch {
         return ParserError.ParsingFailure;
     };
     if (!buffer_token_queue.empty()) {
@@ -800,7 +878,7 @@ fn parse_case_clause_signature(token_queue: *TokenQueue, allocator: std.mem.Allo
         }
     }
 
-    var case_clause_signature_list = parse_tokens(buffer_token_queue, allocator, ParserMode.none) catch {
+    var case_clause_signature_list = parse_tokens(buffer_token_queue, allocator) catch {
         return ParserError.ParsingFailure;
     };
 
@@ -1003,7 +1081,7 @@ fn parse_function_call(body: []const u8, token_queue: *TokenQueue, allocator: st
             allocator.destroy(n2);
         }
 
-        var alist = parse_tokens(token_queue2, allocator, ParserMode.none) catch {
+        var alist = parse_tokens(token_queue2, allocator) catch {
             return ParserError.ParsingFailure;
         };
 

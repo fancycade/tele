@@ -329,6 +329,7 @@ fn parse_list(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst 
     var token_queue2 = TokenQueue.init(allocator) catch {
         return ParserError.ParsingFailure;
     };
+    // Expected to have already parsed start of list so count starts at 1
     var count: usize = 1;
 
     while (!token_queue.empty()) {
@@ -342,13 +343,18 @@ fn parse_list(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst 
             count -= 1;
             if (count == 0) {
                 allocator.free(node2.*.body);
+                allocator.destroy(node2);
                 break;
             }
         }
 
-        token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
-            return ParserError.ParsingFailure;
-        };
+        if (count == 1 and is_comma(node2.*.body)) {
+            allocator.free(node2.*.body);
+        } else {
+            token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
+                return ParserError.ParsingFailure;
+            };
+        }
 
         allocator.destroy(node2);
     }
@@ -369,6 +375,24 @@ fn parse_list(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst 
     t.*.children = children;
     token_queue2.deinit();
     return t;
+}
+
+test "parse list" {
+    const file = try std.fs.cwd().openFile(
+        "snippets/list.tl",
+        .{ .mode = .read_only },
+    );
+    defer file.close();
+    const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
+    defer token_queue.deinit();
+
+    const result = try parse_list(token_queue, test_allocator);
+    try std.testing.expect(result.*.ast_type == TeleAstType.list);
+    try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
+    try std.testing.expect(result.*.children.?.items.len == 3);
+
+    tele_ast.free_tele_ast_list(result.children.?, test_allocator);
+    test_allocator.destroy(result);
 }
 
 fn parse_map(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
@@ -1144,17 +1168,24 @@ fn parse_function_call_arg(token_queue: *TokenQueue, allocator: std.mem.Allocato
         return ParserError.ParsingFailure;
     };
 
-    // TODO: Handle multiple arguments and nested commas
-
+    var n_count: usize = 0;
     while (!token_queue.empty()) {
         const n2 = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
 
-        if (is_comma(n2.*.body) or is_paren_end(n2.*.body)) {
-            allocator.free(n2.*.body);
-            allocator.destroy(n2);
-            break;
+        if (n_count == 0) {
+            if (is_comma(n2.*.body) or is_paren_end(n2.*.body)) {
+                allocator.free(n2.*.body);
+                allocator.destroy(n2);
+                break;
+            }
+        }
+
+        if (is_paren_start(n2.*.body) or is_tuple_start(n2.*.body) or is_list_start(n2.*.body) or is_map_start(n2.*.body)) {
+            n_count += 1;
+        } else if (is_paren_end(n2.*.body) or is_list_end(n2.*.body) or is_map_end(n2.*.body)) {
+            n_count -= 1;
         }
 
         buffer_token_queue.push(n2.*.body, n2.*.line, n2.*.col) catch {

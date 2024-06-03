@@ -24,3 +24,4 @@ io.read
 {foo:bar}
 { foo : bar }
 [1, 2, 3]
+++

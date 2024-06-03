@@ -277,46 +277,67 @@ fn parse_value(body: []const u8, allocator: std.mem.Allocator, ast_type: TeleAst
 }
 
 fn parse_tuple(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
+    var children = std.ArrayList(*TeleAst).init(allocator);
     var token_queue2 = TokenQueue.init(allocator) catch {
         return ParserError.ParsingFailure;
     };
+    // Expected to have already parsed start of tuple, so count starts at 1
     var count: usize = 1;
+    var end_of_tuple = false;
 
-    while (!token_queue.empty()) {
-        const node2 = token_queue.pop() catch {
-            return ParserError.ParsingFailure;
-        };
+    while (!token_queue.empty() and !end_of_tuple) {
+        while (!token_queue.empty()) {
+            const node2 = token_queue.pop() catch {
+                return ParserError.ParsingFailure;
+            };
 
-        if (is_tuple_start(node2.*.body) or is_paren_start(node2.*.body)) {
-            count += 1;
-        } else if (is_paren_end(node2.*.body)) {
-            count -= 1;
-            if (count == 0) {
-                // Free paren end body
+            if (is_tuple_start(node2.*.body) or is_paren_start(node2.*.body)) {
+                count += 1;
+            } else if (is_paren_end(node2.*.body)) {
+                count -= 1;
+                if (count == 0) {
+                    // Free paren end body
+                    allocator.free(node2.*.body);
+                    allocator.destroy(node2);
+                    end_of_tuple = true;
+                    break;
+                }
+            }
+
+            if (count == 1 and is_comma(node2.*.body)) {
                 allocator.free(node2.*.body);
                 allocator.destroy(node2);
                 break;
+            } else {
+                token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
+                    return ParserError.ParsingFailure;
+                };
             }
+
+            allocator.destroy(node2);
         }
 
-        if (count == 1 and is_comma(node2.*.body)) {
-            allocator.free(node2.*.body);
-        } else {
-            token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
-                return ParserError.ParsingFailure;
-            };
+        var alist = parse_tokens(token_queue2, allocator) catch {
+            return ParserError.ParsingFailure;
+        };
+        if (!token_queue2.empty()) {
+            return ParserError.ParsingFailure;
         }
 
-        allocator.destroy(node2);
+        if (alist.items.len != 1) {
+            return ParserError.ParsingFailure;
+        }
+        if (alist.items.len != 1) {
+            return ParserError.ParsingFailure;
+        }
+        const a = alist.pop();
+        try children.append(a);
+        alist.deinit();
     }
 
     if (count != 0) {
         return ParserError.ParsingFailure;
     }
-
-    const children = parse_tokens(token_queue2, allocator) catch {
-        return ParserError.ParsingFailure;
-    };
 
     const t = allocator.create(TeleAst) catch {
         return ParserError.ParsingFailure;
@@ -342,53 +363,78 @@ test "parse tuple" {
     try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
     try std.testing.expect(result.*.children.?.items.len == 3);
 
-    // TODO: Check value of each child element
+    const c = result.*.children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "2"));
+    try std.testing.expect(c.items[1].children == null);
+    try std.testing.expect(c.items[2].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[2].body, "3"));
+    try std.testing.expect(c.items[2].children == null);
 
     tele_ast.free_tele_ast_list(result.children.?, test_allocator);
     test_allocator.destroy(result);
 }
 
 fn parse_list(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
+    var children = std.ArrayList(*TeleAst).init(allocator);
     var token_queue2 = TokenQueue.init(allocator) catch {
         return ParserError.ParsingFailure;
     };
     // Expected to have already parsed start of list so count starts at 1
     var count: usize = 1;
+    var end_of_list = false;
 
-    while (!token_queue.empty()) {
-        const node2 = token_queue.pop() catch {
-            return ParserError.ParsingFailure;
-        };
+    while (!token_queue.empty() and !end_of_list) {
+        while (!token_queue.empty()) {
+            const node2 = token_queue.pop() catch {
+                return ParserError.ParsingFailure;
+            };
 
-        if (is_list_start(node2.*.body)) {
-            count += 1;
-        } else if (is_list_end(node2.*.body)) {
-            count -= 1;
-            if (count == 0) {
+            if (is_list_start(node2.*.body)) {
+                count += 1;
+            } else if (is_list_end(node2.*.body)) {
+                count -= 1;
+                if (count == 0) {
+                    allocator.free(node2.*.body);
+                    allocator.destroy(node2);
+                    end_of_list = true;
+                    break;
+                }
+            }
+
+            if (count == 1 and is_comma(node2.*.body)) {
                 allocator.free(node2.*.body);
                 allocator.destroy(node2);
                 break;
+            } else {
+                token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
+                    return ParserError.ParsingFailure;
+                };
             }
+
+            allocator.destroy(node2);
         }
 
-        if (count == 1 and is_comma(node2.*.body)) {
-            allocator.free(node2.*.body);
-        } else {
-            token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
-                return ParserError.ParsingFailure;
-            };
+        var alist = parse_tokens(token_queue2, allocator) catch {
+            return ParserError.ParsingFailure;
+        };
+        if (!token_queue2.empty()) {
+            return ParserError.ParsingFailure;
         }
-
-        allocator.destroy(node2);
+        if (alist.items.len != 1) {
+            return ParserError.ParsingFailure;
+        }
+        const a = alist.pop();
+        try children.append(a);
+        alist.deinit();
     }
 
     if (count != 0) {
         return ParserError.ParsingFailure;
     }
-
-    const children = parse_tokens(token_queue2, allocator) catch {
-        return ParserError.ParsingFailure;
-    };
 
     const t = allocator.create(TeleAst) catch {
         return ParserError.ParsingFailure;
@@ -414,52 +460,78 @@ test "parse list" {
     try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
     try std.testing.expect(result.*.children.?.items.len == 3);
 
-    // TODO: Check value of each child element
+    const c = result.*.children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "2"));
+    try std.testing.expect(c.items[1].children == null);
+    try std.testing.expect(c.items[2].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[2].body, "3"));
+    try std.testing.expect(c.items[2].children == null);
 
     tele_ast.free_tele_ast_list(result.children.?, test_allocator);
     test_allocator.destroy(result);
 }
 
 fn parse_map(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
+    var children = std.ArrayList(*TeleAst).init(allocator);
     var token_queue2 = TokenQueue.init(allocator) catch {
         return ParserError.ParsingFailure;
     };
     var count: usize = 1;
+    var end_of_map = false;
 
-    while (!token_queue.empty()) {
-        const node2 = token_queue.pop() catch {
-            return ParserError.ParsingFailure;
-        };
+    while (!token_queue.empty() and !end_of_map) {
+        while (!token_queue.empty()) {
+            const node2 = token_queue.pop() catch {
+                return ParserError.ParsingFailure;
+            };
 
-        if (is_map_start(node2.*.body)) {
-            count += 1;
-        } else if (is_map_end(node2.*.body)) {
-            count -= 1;
-            if (count == 0) {
+            if (is_map_start(node2.*.body)) {
+                count += 1;
+            } else if (is_map_end(node2.*.body)) {
+                count -= 1;
+                if (count == 0) {
+                    allocator.free(node2.*.body);
+                    allocator.destroy(node2);
+                    end_of_map = true;
+                    break;
+                }
+            }
+
+            if (count == 1 and (is_comma(node2.*.body) or is_colon(node2.*.body))) {
                 allocator.free(node2.*.body);
                 allocator.destroy(node2);
                 break;
+            } else {
+                token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
+                    return ParserError.ParsingFailure;
+                };
             }
+
+            allocator.destroy(node2);
         }
 
-        if (count == 1 and is_comma(node2.*.body)) {
-            allocator.free(node2.*.body);
-        } else {
-            token_queue2.push(node2.*.body, node2.*.line, node2.*.col) catch {
-                return ParserError.ParsingFailure;
-            };
+        var alist = parse_tokens(token_queue2, allocator) catch {
+            return ParserError.ParsingFailure;
+        };
+        if (!token_queue2.empty()) {
+            return ParserError.ParsingFailure;
         }
 
-        allocator.destroy(node2);
+        if (alist.items.len != 1) {
+            return ParserError.ParsingFailure;
+        }
+        const a = alist.pop();
+        try children.append(a);
+        alist.deinit();
     }
 
     if (count != 0) {
         return ParserError.ParsingFailure;
     }
-
-    const children = parse_tokens(token_queue2, allocator) catch {
-        return ParserError.ParsingFailure;
-    };
 
     const t = allocator.create(TeleAst) catch {
         return ParserError.ParsingFailure;
@@ -470,6 +542,46 @@ fn parse_map(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
 
     token_queue2.deinit();
     return t;
+}
+
+test "parse map" {
+    const file = try std.fs.cwd().openFile(
+        "snippets/map.tl",
+        .{ .mode = .read_only },
+    );
+    defer file.close();
+    const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
+    defer token_queue.deinit();
+
+    const result = try parse_map(token_queue, test_allocator);
+    try std.testing.expect(result.*.ast_type == TeleAstType.map);
+    try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
+    try std.testing.expect(result.*.children.?.items.len == 6);
+
+    const c = result.*.children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "a"));
+    try std.testing.expect(c.items[1].children == null);
+
+    try std.testing.expect(c.items[2].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[2].body, "2"));
+    try std.testing.expect(c.items[2].children == null);
+    try std.testing.expect(c.items[3].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, c.items[3].body, "b"));
+    try std.testing.expect(c.items[3].children == null);
+
+    try std.testing.expect(c.items[4].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[4].body, "3"));
+    try std.testing.expect(c.items[4].children == null);
+    try std.testing.expect(c.items[5].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, c.items[5].body, "c"));
+    try std.testing.expect(c.items[5].children == null);
+
+    tele_ast.free_tele_ast_list(result.children.?, test_allocator);
+    test_allocator.destroy(result);
 }
 
 fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Allocator, current_col: usize) !*TeleAst {

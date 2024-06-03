@@ -1115,57 +1115,11 @@ fn parse_function_call(body: []const u8, token_queue: *TokenQueue, allocator: st
 
     var children: ?std.ArrayList(*TeleAst) = null;
     if (!is_paren_end(pn2.*.body)) {
-
-        // Function Call Body Token Queue
-        var token_queue2 = TokenQueue.init(allocator) catch {
-            return ParserError.ParsingFailure;
-        };
-
-        // TODO: Handle multiple arguments and nested commas
-
+        children = std.ArrayList(*TeleAst).init(allocator);
         while (!token_queue.empty()) {
-            const n2 = token_queue.pop() catch {
-                return ParserError.ParsingFailure;
-            };
-
-            if (is_paren_end(n2.*.body)) {
-                allocator.free(n2.*.body);
-                allocator.destroy(n2);
-                break;
-            }
-
-            token_queue2.push(n2.*.body, n2.*.line, n2.*.col) catch {
-                return ParserError.ParsingFailure;
-            };
-            allocator.destroy(n2);
+            const ast = try parse_function_call_arg(token_queue, allocator);
+            try children.?.append(ast);
         }
-
-        var alist = parse_tokens(token_queue2, allocator) catch {
-            return ParserError.ParsingFailure;
-        };
-
-        if (alist.items.len > 0) {
-            if (alist.items.len != 1) {
-                return ParserError.ParsingFailure;
-            }
-
-            // Only supports one argument right now
-            const a = alist.pop();
-
-            // Append Argument List Children
-            var c = std.ArrayList(*TeleAst).init(allocator);
-            c.append(a) catch {
-                return ParserError.ParsingFailure;
-            };
-            children = c;
-        }
-
-        alist.deinit();
-        if (!token_queue2.empty()) {
-            return ParserError.ParsingFailure;
-        }
-
-        token_queue2.deinit();
     } else {
         // Free Paren End Token
         const tn = token_queue.pop() catch {
@@ -1182,6 +1136,47 @@ fn parse_function_call(body: []const u8, token_queue: *TokenQueue, allocator: st
     t.*.ast_type = TeleAstType.function_call;
     t.*.children = children;
     return t;
+}
+
+fn parse_function_call_arg(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
+    // Function Call Body Token Queue
+    var buffer_token_queue = TokenQueue.init(allocator) catch {
+        return ParserError.ParsingFailure;
+    };
+
+    // TODO: Handle multiple arguments and nested commas
+
+    while (!token_queue.empty()) {
+        const n2 = token_queue.pop() catch {
+            return ParserError.ParsingFailure;
+        };
+
+        if (is_comma(n2.*.body) or is_paren_end(n2.*.body)) {
+            allocator.free(n2.*.body);
+            allocator.destroy(n2);
+            break;
+        }
+
+        buffer_token_queue.push(n2.*.body, n2.*.line, n2.*.col) catch {
+            return ParserError.ParsingFailure;
+        };
+        allocator.destroy(n2);
+    }
+
+    var alist = parse_tokens(buffer_token_queue, allocator) catch {
+        return ParserError.ParsingFailure;
+    };
+    if (!buffer_token_queue.empty()) {
+        return ParserError.ParsingFailure;
+    }
+    buffer_token_queue.deinit();
+    if (alist.items.len != 1) {
+        return ParserError.ParsingFailure;
+    }
+
+    const ast = alist.pop();
+    alist.deinit();
+    return ast;
 }
 
 fn is_float(buf: []const u8) bool {

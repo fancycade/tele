@@ -10,9 +10,10 @@ pub const Context = struct {
     const Self = @This();
 
     padding_stack: std.ArrayList(usize),
+    match_count: usize,
 
     pub fn init(allocator: std.mem.Allocator) Context {
-        return Context{ .padding_stack = std.ArrayList(usize).init(allocator) };
+        return Context{ .padding_stack = std.ArrayList(usize).init(allocator), .match_count = 0 };
     }
 
     pub fn deinit(self: *Self) void {
@@ -73,7 +74,11 @@ pub const Context = struct {
         while (loop) {
             try self.write_ast(w, a.children.?.items[i]);
 
-            _ = try w.write(" => ");
+            if (self.match_mode()) {
+                _ = try w.write(" := ");
+            } else {
+                _ = try w.write(" => ");
+            }
             try self.write_ast(w, a.children.?.items[i + 1]);
 
             const len = a.children.?.items.len;
@@ -121,11 +126,15 @@ pub const Context = struct {
         _ = try w.write("}");
     }
 
+    // Matching must be done on left side of operator
     pub fn write_op(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
         try self.push_padding(0);
         // TODO: Throw error if children is not length 2
+
+        self.push_match();
         try self.write_ast(w, a.children.?.items[0]);
+        self.pop_match();
 
         _ = try w.write(" ");
         _ = try w.write(a.body);
@@ -186,7 +195,9 @@ pub const Context = struct {
 
             try self.write_padding(w);
             _ = try w.write(a.body);
+            self.push_match();
             try self.write_function_signature(w, a.children.?.items[i]);
+            self.pop_match();
             _ = try w.write(" ->");
 
             i = i + 1;
@@ -228,7 +239,9 @@ pub const Context = struct {
     pub fn write_anonymous_function(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
         _ = try w.write("fun");
+        self.push_match();
         try self.write_function_signature(w, a.children.?.items[0]);
+        self.pop_match();
         _ = try w.write(" ->");
 
         var i: usize = 1;
@@ -322,7 +335,9 @@ pub const Context = struct {
     pub fn write_case_clause(self: *Self, w: anytype, a: *const Ast) !void {
         // TODO: Check that children are at least length of 2
 
+        self.push_match();
         try self.write_ast(w, a.children.?.items[0]);
+        self.pop_match();
 
         var i: usize = 1;
 
@@ -363,8 +378,8 @@ pub const Context = struct {
         _ = try w.write("case ");
         try self.push_padding(0);
         try self.write_ast(w, a.children.?.items[0]);
-        _ = try w.write(" of");
         try self.pop_padding();
+        _ = try w.write(" of");
 
         var i: usize = 1;
         var loop = true;
@@ -389,6 +404,21 @@ pub const Context = struct {
         _ = try w.write("\n");
         _ = try self.write_padding(w);
         _ = try w.write("end");
+    }
+
+    pub fn push_match(self: *Self) void {
+        self.*.match_count += 1;
+    }
+
+    pub fn pop_match(self: *Self) void {
+        if (self.*.match_count == 0) {
+            return;
+        }
+        self.*.match_count -= 1;
+    }
+
+    pub fn match_mode(self: *Self) bool {
+        return self.*.match_count > 0;
     }
 
     pub fn push_padding(self: *Self, padding: usize) !void {

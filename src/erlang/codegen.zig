@@ -27,15 +27,21 @@ pub const Context = struct {
 
     pub fn write_binary(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
-        _ = try w.write("<<");
-        _ = try w.write(a.body);
-        _ = try w.write(">>");
+
+        if (a.body[0] == '<') {
+            _ = try w.write(a.body);
+        } else {
+            _ = try w.write("<<");
+            _ = try w.write(a.body);
+            _ = try w.write(">>");
+        }
     }
 
     pub fn write_tuple(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
         _ = try w.write("{");
         var i: usize = 0;
+        try self.push_padding(0);
         for (a.children.?.items) |c| {
             try self.write_ast(w, c);
 
@@ -45,6 +51,7 @@ pub const Context = struct {
 
             i += 1;
         }
+        try self.pop_padding();
         _ = try w.write("}");
     }
 
@@ -52,6 +59,7 @@ pub const Context = struct {
         try self.write_padding(w);
         _ = try w.write("[");
         var i: usize = 0;
+        try self.push_padding(0);
         for (a.children.?.items) |c| {
             try self.write_ast(w, c);
 
@@ -60,6 +68,7 @@ pub const Context = struct {
             }
             i += 1;
         }
+        try self.pop_padding();
         _ = try w.write("]");
     }
 
@@ -71,6 +80,7 @@ pub const Context = struct {
 
         var loop = true;
         var i: usize = 0;
+        try self.push_padding(0);
         while (loop) {
             try self.write_ast(w, a.children.?.items[i]);
 
@@ -93,6 +103,7 @@ pub const Context = struct {
                 loop = false;
             }
         }
+        try self.pop_padding();
 
         _ = try w.write("}");
     }

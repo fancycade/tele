@@ -241,28 +241,9 @@ fn tele_to_erlang_binary(t: *const TeleAst, allocator: std.mem.Allocator) !*Erla
     const e = try allocator.create(ErlangAst);
     e.*.ast_type = ErlangAstType.binary;
     e.*.children = null;
-
-    if (t.body[0] == '"') {
-        const buf = try allocator.alloc(u8, t.*.body.len + 4);
-        buf[0] = '<';
-        buf[1] = '<';
-
-        var i: usize = 2;
-        for (t.*.body) |c| {
-            buf[i] = c;
-            i = i + 1;
-        }
-
-        buf[buf.len - 2] = '>';
-        buf[buf.len - 1] = '>';
-
-        e.*.body = buf;
-    } else if (t.*.body[0] == '<') {
-        const buf = try allocator.alloc(u8, t.*.body.len);
-        std.mem.copyForwards(u8, buf, t.*.body);
-        e.*.body = buf;
-    }
-
+    const buf = try allocator.alloc(u8, t.*.body.len);
+    std.mem.copyForwards(u8, buf, t.*.body);
+    e.*.body = buf;
     return e;
 }
 

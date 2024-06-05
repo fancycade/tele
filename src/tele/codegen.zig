@@ -29,6 +29,7 @@ pub const Context = struct {
 
         _ = try w.write("#(");
         var i: usize = 0;
+        try self.push_padding(0);
         for (a.children.?.items) |c| {
             try self.write_ast(w, c);
 
@@ -38,6 +39,7 @@ pub const Context = struct {
 
             i = i + 1;
         }
+        try self.pop_padding();
         _ = try w.write(")");
     }
 
@@ -46,6 +48,7 @@ pub const Context = struct {
 
         _ = try w.write("[");
         var i: usize = 0;
+        try self.push_padding(0);
         for (a.children.?.items) |c| {
             try self.write_ast(w, c);
 
@@ -54,6 +57,7 @@ pub const Context = struct {
             }
             i += 1;
         }
+        try self.pop_padding();
         _ = try w.write("]");
     }
 
@@ -65,6 +69,7 @@ pub const Context = struct {
 
         var loop = true;
         var i: usize = 0;
+        try self.push_padding(0);
         while (loop) {
             try self.write_ast(w, a.children.?.items[i]);
 
@@ -83,6 +88,7 @@ pub const Context = struct {
                 loop = false;
             }
         }
+        try self.pop_padding();
 
         _ = try w.write("}");
     }

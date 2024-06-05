@@ -18,7 +18,7 @@ pub fn preprocess(ta: *std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !s
 
     for (ta.items) |c| {
         if (c.ast_type == TeleAstType.function_def) {
-            const t2 = find_function_definition(c.body, ta2);
+            const t2 = find_function_definition(c, ta2);
             if (t2 != null) {
                 for (c.children.?.items) |c2| {
                     try t2.?.children.?.append(c2);
@@ -37,7 +37,15 @@ pub fn preprocess(ta: *std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !s
     return ta2;
 }
 
-pub fn find_function_definition(name: []const u8, ta: std.ArrayList(*TeleAst)) ?*TeleAst {
+pub fn find_function_definition(fdef: *TeleAst, ta: std.ArrayList(*TeleAst)) ?*TeleAst {
+    const name = fdef.*.body;
+    const sig1 = fdef.*.children.?.items[0];
+
+    var arg_count: usize = 0;
+    if (sig1.*.children != null) {
+        arg_count = sig1.*.children.?.items.len;
+    }
+
     var i: usize = 0;
     while (true) {
         if (i >= ta.items.len) {
@@ -48,7 +56,15 @@ pub fn find_function_definition(name: []const u8, ta: std.ArrayList(*TeleAst)) ?
 
         if (t.*.ast_type == TeleAstType.function_def) {
             if (std.mem.eql(u8, name, t.*.body)) {
-                return t;
+                const sig2 = t.*.children.?.items[0];
+                var arg_count2: usize = 0;
+                if (sig2.*.children != null) {
+                    arg_count2 = sig2.*.children.?.items.len;
+                }
+
+                if (arg_count2 == arg_count) {
+                    return t;
+                }
             }
         }
 

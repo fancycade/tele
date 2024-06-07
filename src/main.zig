@@ -40,6 +40,7 @@ pub fn main() !void {
     };
 
     const erlang_path = try erlang_name(code_path, allocator);
+    errdefer allocator.free(erlang_path);
 
     var input_file = try std.fs.cwd().openFile(code_path, .{ .mode = .read_only });
     defer input_file.close();
@@ -158,7 +159,12 @@ fn scan_function_metadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Alloca
             if (t.*.children == null) {
                 md.*.args = 0;
             } else if (t.*.children.?.items[0].*.ast_type == TeleAstType.function_signature) {
-                md.*.args = t.*.children.?.items[0].*.children.?.items.len;
+                const c = t.*.children.?.items[0];
+                if (c.*.children == null) {
+                    md.*.args = 0;
+                } else {
+                    md.*.args = c.*.children.?.items.len;
+                }
             }
 
             try metadata.append(md);

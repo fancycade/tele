@@ -9,6 +9,16 @@ pub const Ast = struct {
     ast_type: AstType,
 };
 
+pub fn free_tele_ast(t: *Ast, allocator: std.mem.Allocator) void {
+    if (t.*.children != null) {
+        free_tele_ast_list(t.*.children.?, allocator);
+    }
+    if (t.*.body.len > 0) {
+        allocator.free(t.*.body);
+    }
+    allocator.destroy(t);
+}
+
 pub fn free_tele_ast_list(ta: std.ArrayList(*Ast), allocator: std.mem.Allocator) void {
     for (ta.items) |c| {
         if (c.*.body.len > 0) {

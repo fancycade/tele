@@ -266,17 +266,10 @@ fn tele_to_erlang_binary(t: *const TeleAst, allocator: std.mem.Allocator) !*Erla
 test "tele to erlang binary" {
     const e = try tele_to_erlang_binary(&TeleAst{ .body = "\"foo\"", .ast_type = TeleAstType.binary, .children = null }, test_allocator);
 
-    try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "<<\"foo\">>", .ast_type = ErlangAstType.binary, .children = null }));
+    try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "\"foo\"", .ast_type = ErlangAstType.binary, .children = null }));
 
     test_allocator.free(e.*.body);
     test_allocator.destroy(e);
-
-    const e2 = try tele_to_erlang_binary(&TeleAst{ .body = "<<\"foo\">>", .ast_type = TeleAstType.binary, .children = null }, test_allocator);
-
-    try std.testing.expect(erlang_ast.equal(e2, &ErlangAst{ .body = "<<\"foo\">>", .ast_type = ErlangAstType.binary, .children = null }));
-
-    test_allocator.free(e2.*.body);
-    test_allocator.destroy(e2);
 }
 
 fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {

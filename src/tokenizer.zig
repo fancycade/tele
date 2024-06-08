@@ -111,7 +111,9 @@ pub fn read_tokens(r: anytype, allocator: std.mem.Allocator) !*TokenQueue {
     var ctx = TokenContext{ .leftover = 0, .line_number = 0, .col_number = 0, .next_line_number = 0, .next_col_number = 0 };
 
     while (!try read_token(r, &buffer, &ctx)) {
-        try queue.push(try buffer.toOwnedSlice(), ctx.line_number, ctx.col_number);
+        if (buffer.items.len > 0) {
+            try queue.push(try buffer.toOwnedSlice(), ctx.line_number, ctx.col_number);
+        }
     }
 
     return queue;
@@ -126,6 +128,38 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
 
     if (ctx.*.leftover != 0) {
         if (special_char(ctx.*.leftover)) {
+            if (ctx.*.leftover == '/') {
+                const b2 = r.readByte() catch |err| switch (err) {
+                    error.EndOfStream => {
+                        return true;
+                    },
+                    else => |e| return e,
+                };
+
+                if (b2 == '/') {
+                    // Parse comments
+                    while (true) {
+                        const b3 = r.readByte() catch |err| switch (err) {
+                            error.EndOfStream => {
+                                return true;
+                            },
+                            else => |e| return e,
+                        };
+
+                        if (b3 == '\n') {
+                            return false;
+                        }
+
+                        ctx.*.next_line_number += 1;
+                        ctx.*.next_col_number = 0;
+                    }
+                } else {
+                    ctx.*.leftover = b2;
+                    ctx.*.next_col_number += 1;
+                    return false;
+                }
+            }
+
             try l.append(ctx.*.leftover);
             if (ctx.*.leftover == '#') {
                 mode = TokenMode.hash;
@@ -165,6 +199,37 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
         switch (mode) {
             .none => {
                 if (special_char(b)) {
+                    if (b == '/') {
+                        const b2 = r.readByte() catch |err| switch (err) {
+                            error.EndOfStream => {
+                                return true;
+                            },
+                            else => |e| return e,
+                        };
+
+                        if (b2 == '/') {
+                            // Parse comments
+                            while (true) {
+                                const b3 = r.readByte() catch |err| switch (err) {
+                                    error.EndOfStream => {
+                                        return true;
+                                    },
+                                    else => |e| return e,
+                                };
+
+                                if (b3 == '\n') {
+                                    return false;
+                                }
+
+                                ctx.*.next_line_number += 1;
+                                ctx.*.next_col_number = 0;
+                            }
+                        } else {
+                            ctx.*.leftover = b2;
+                            ctx.*.next_col_number += 1;
+                        }
+                    }
+
                     try l.append(b);
                     ctx.*.next_col_number += 1;
 

@@ -627,7 +627,6 @@ fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Alloca
             allocator.destroy(node2);
             break;
         } else {
-            std.debug.print("{s}\n", .{node2.*.body});
             try token_queue2.push(node2.*.body, node2.*.line, node2.col);
         }
 

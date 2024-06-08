@@ -162,6 +162,12 @@ Function bodies starting on same line have to be one line. Multiline bodies must
 
     f2 = (x, y) -> f(x, y)
 
+Passing functions as values requires similar syntax as Erlang and Elixir:
+
+    foo/2
+
+This is to tell which function is being used by function arity.
+
 ### Variables
 
 Variables are lower case words

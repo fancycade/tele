@@ -111,7 +111,16 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserEr
         } else if (is_keyword(node.*.body)) {
             if (is_function_definition(node.*.body)) {
                 allocator.free(node.*.body);
-                const t = parse_function_definition(token_queue, allocator, node.*.col) catch {
+                const t = parse_function_definition(token_queue, allocator, node.*.col, false) catch {
+                    return ParserError.ParsingFailure;
+                };
+                errdefer tele_ast.free_tele_ast(t, allocator);
+                list.append(t) catch {
+                    return ParserError.ParsingFailure;
+                };
+            } else if (is_priv_function_definition(node.*.body)) {
+                allocator.free(node.*.body);
+                const t = parse_function_definition(token_queue, allocator, node.*.col, true) catch {
                     return ParserError.ParsingFailure;
                 };
                 errdefer tele_ast.free_tele_ast(t, allocator);
@@ -584,7 +593,7 @@ test "parse map" {
     test_allocator.destroy(result);
 }
 
-fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Allocator, current_col: usize) !*TeleAst {
+fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Allocator, current_col: usize, private: bool) !*TeleAst {
     const node3 = token_queue.pop() catch {
         return ParserError.ParsingFailure;
     };
@@ -670,7 +679,11 @@ fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Alloca
     // Assemble Function Definition Ast
     const t = try allocator.create(TeleAst);
     t.*.body = buf;
-    t.*.ast_type = TeleAstType.function_def;
+    if (private) {
+        t.*.ast_type = TeleAstType.function_defp;
+    } else {
+        t.*.ast_type = TeleAstType.function_def;
+    }
     t.*.children = children;
 
     token_queue3.deinit();
@@ -1474,6 +1487,9 @@ fn is_keyword(buf: []const u8) bool {
         if (std.mem.eql(u8, "def", buf)) {
             return true;
         }
+        if (std.mem.eql(u8, "defp", buf)) {
+            return true;
+        }
     }
 
     return false;
@@ -1508,6 +1524,10 @@ fn is_match_keyword(buf: []const u8) bool {
 
 fn is_function_definition(buf: []const u8) bool {
     return std.mem.eql(u8, "def", buf);
+}
+
+fn is_priv_function_definition(buf: []const u8) bool {
+    return std.mem.eql(u8, "defp", buf);
 }
 
 fn is_colon(buf: []const u8) bool {

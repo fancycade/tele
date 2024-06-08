@@ -54,7 +54,7 @@ pub fn find_function_definition(fdef: *TeleAst, ta: std.ArrayList(*TeleAst)) ?*T
 
         const t = ta.items[i];
 
-        if (t.*.ast_type == TeleAstType.function_def) {
+        if (t.*.ast_type == TeleAstType.function_def or t.*.ast_type == TeleAstType.function_defp) {
             if (std.mem.eql(u8, name, t.*.body)) {
                 const sig2 = t.*.children.?.items[0];
                 var arg_count2: usize = 0;
@@ -146,6 +146,11 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
             };
         },
         .function_def => {
+            return tele_to_erlang_function_def(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .function_defp => {
             return tele_to_erlang_function_def(t, allocator) catch {
                 return CompilerError.CompilingFailure;
             };

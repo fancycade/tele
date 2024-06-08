@@ -313,14 +313,18 @@ pub const Context = struct {
         try self.pop_padding();
     }
 
-    pub fn write_function_def(self: *Self, w: anytype, a: *const Ast) !void {
+    pub fn write_function_def(self: *Self, w: anytype, a: *const Ast, private: bool) !void {
         var i: usize = 0;
         while (true) {
             if (i >= a.children.?.items.len) {
                 break;
             }
             try self.write_padding(w);
-            _ = try w.write("def ");
+            if (private) {
+                _ = try w.write("defp ");
+            } else {
+                _ = try w.write("def ");
+            }
 
             _ = try w.write(a.body);
             try self.write_function_signature(w, a.children.?.items[i]);
@@ -462,7 +466,12 @@ pub const Context = struct {
                 };
             },
             .function_def => {
-                self.write_function_def(w, a) catch {
+                self.write_function_def(w, a, false) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .function_defp => {
+                self.write_function_def(w, a, true) catch {
                     return CodegenError.WritingFailure;
                 };
             },

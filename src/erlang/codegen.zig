@@ -247,6 +247,15 @@ pub const Context = struct {
         }
     }
 
+    pub fn write_type_def(self: *Self, w: anytype, a: *const Ast) !void {
+        _ = try w.write("-type ");
+        _ = try w.write(a.*.body);
+        // TODO: Handle type params
+        _ = try w.write("() :: ");
+        try self.write_ast(w, a.*.children.?.items[0]);
+        _ = try w.write("\n\n");
+    }
+
     pub fn write_anonymous_function(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
         _ = try w.write("fun");
@@ -517,6 +526,11 @@ pub const Context = struct {
             },
             .function_def => {
                 self.write_function_def(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .type_def => {
+                self.write_type_def(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

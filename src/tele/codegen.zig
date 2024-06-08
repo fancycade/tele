@@ -362,6 +362,18 @@ pub const Context = struct {
         }
     }
 
+    pub fn write_type_def(self: *Self, w: anytype, a: *const Ast) !void {
+        _ = try w.write("type ");
+        _ = try w.write(a.*.body);
+        _ = try w.write(":\n");
+
+        try self.push_padding(self.current_padding() + 2);
+        try self.write_ast(w, a.children.?.items[0]);
+        try self.pop_padding();
+
+        _ = try w.write("\n\n");
+    }
+
     pub fn push_padding(self: *Self, padding: usize) !void {
         try self.*.padding_stack.append(padding);
     }
@@ -472,6 +484,11 @@ pub const Context = struct {
             },
             .function_defp => {
                 self.write_function_def(w, a, true) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .type_def => {
+                self.write_type_def(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

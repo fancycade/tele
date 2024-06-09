@@ -306,31 +306,31 @@ Make multiple modules inside of a file.
       def foo(a, b):
         a + b
 
-### Type Annotations
+### Type Specifications 
 
 These are equivalent to Erlang function specs.
 
-Type annotations can go on function signatures.
+Type specifications can to apply defined functions function.
 
-    def add(int, int): int
+    spec add(int, int): int
     def add(x, y):
       x + y
 
-    def add2(int): int
+    spec add2(int): int
     def add2(x):
       x + 2
 
 Here is a full module with type signatures and sum types
 
-    def add(int, int): int 
+    spec add(int, int): int 
     def add(x, y):
       x + y
 
-    def add2(int): int
+    spec add2(int): int
     def add2(x):
       x + 2
 
-    def div(int, int):
+    spec div(int, int):
       #('ok, int) | #('error, binary)
     def div:
       (_, 0): #('error, 'div_by_zero)
@@ -352,9 +352,11 @@ Is not visually pleasing.
 
 Defining a function that accepts a function as argument and returns one looks like this:
 
-    def foo((int) -> int): (int) -> int
+    spec foo((int) -> int): (int) -> int
     def foo(f):
       (n) -> f(n)
+
+EXPERIMENTAL:
 
 Records with type annotations look like this:
 
@@ -374,10 +376,10 @@ Erlang has the concept of behaviours which are like module interfaces.
 
 defining a behaviour is as simple as defining a module with callbacks.
 
-    callback def up(#(int, int)): #(int, int)
-    callback def down(#(int, int)): #(int, int)
-    callback def left(#(int, int)): #(int, int)
-    callback def right(#(int, int)): #(int, int)
+    callback up(#(int, int)): #(int, int)
+    callback down(#(int, int)): #(int, int)
+    callback left(#(int, int)): #(int, int)
+    callback right(#(int, int)): #(int, int)
 
 TODO:
 
@@ -385,21 +387,21 @@ Determine if possible to get rid of callback keyword by function signature witho
 
 To make a module adhere to a behaviour:
 
-    behaviour: cursor 
+    behaviour cursor
      
-    def up(#(int, int)): #(int, int)
+    spec up(#(int, int)): #(int, int)
     def up(#(x, y)): 
       #(x, y - 1)
     
-    def down(#(int, int)): #(int, int)
+    spec down(#(int, int)): #(int, int)
     def down(#(x, y)):
       #(x, y + 1)
     
-    def left(#(int, int)): #(int, int)
+    spec left(#(int, int)): #(int, int)
     def left(#(x, y)):
       #(x - 1, y)
     
-    def right(#(int, int)): #(int, int)
+    spec right(#(int, int)): #(int, int)
     def right(#(x, y)):
       #(x + 1, y)
 
@@ -414,3 +416,20 @@ alias attribute to make it easier working with long module names.
 This could be used for other things as well. Simple string substitution like erlang macros.
 
 This doesn't have a direct correlation with erlang and so it would be handled at compile time.
+
+### Module Constants
+
+EXPERIMENTAL:
+
+Elixir has constants like:
+
+    @pi 3.14
+
+Erlang version would be:
+
+    -compile({inline, [pi/0]}).
+    pi() -> 3.14.
+
+def pi: 3.14
+
+defp pi: 3.14

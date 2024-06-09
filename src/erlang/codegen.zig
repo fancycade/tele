@@ -264,6 +264,15 @@ pub const Context = struct {
         }
     }
 
+    pub fn write_spec_def(self: *Self, w: anytype, a: *const Ast) !void {
+        _ = try w.write("-spec ");
+        _ = try w.write(a.body);
+        try self.write_function_signature(w, a.children.?.items[0]);
+        _ = try w.write(" -> ");
+        try self.write_ast(w, a.children.?.items[1]);
+        _ = try w.write(".\n");
+    }
+
     pub fn write_type_def(self: *Self, w: anytype, a: *const Ast) !void {
         _ = try w.write("-type ");
         _ = try w.write(a.*.body);
@@ -563,6 +572,11 @@ pub const Context = struct {
             },
             .record_def => {
                 self.write_record_def(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .spec_def => {
+                self.write_spec_def(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

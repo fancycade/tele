@@ -153,6 +153,15 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserEr
                 list.append(t) catch {
                     return ParserError.ParsingFailure;
                 };
+            } else if (is_spec_def(node.*.body)) {
+                allocator.free(node.*.body);
+                const t = parse_spec_definition(token_queue, allocator, node.*.col) catch {
+                    return ParserError.ParsingFailure;
+                };
+                errdefer tele_ast.free_tele_ast(t, allocator);
+                list.append(t) catch {
+                    return ParserError.ParsingFailure;
+                };
             } else {
                 return ParserError.ParsingFailure;
             }
@@ -812,6 +821,101 @@ fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Alloca
     } else {
         t.*.ast_type = TeleAstType.function_def;
     }
+    t.*.children = children;
+
+    token_queue2.deinit();
+    token_queue3.deinit();
+    return t;
+}
+
+fn parse_spec_definition(token_queue: *TokenQueue, allocator: std.mem.Allocator, current_col: usize) !*TeleAst {
+    const node3 = token_queue.pop() catch {
+        return ParserError.ParsingFailure;
+    };
+
+    // Spec Definition Name
+    const buf = node3.*.body;
+    allocator.destroy(node3);
+    errdefer allocator.free(buf);
+
+    // Spec Definition Signature
+    var token_queue2 = TokenQueue.init(allocator) catch {
+        allocator.free(node3.*.body);
+        allocator.destroy(node3);
+        return ParserError.ParsingFailure;
+    };
+    errdefer token_queue2.deinit();
+
+    var map_count: usize = 0;
+    while (!token_queue.empty()) {
+        const node2 = try token_queue.pop();
+        errdefer allocator.free(node2.*.body);
+        errdefer allocator.destroy(node2);
+
+        if (is_map_start(node2.*.body)) {
+            map_count += 1;
+        } else if (is_map_end(node2.*.body)) {
+            map_count -= 1;
+        }
+
+        if (map_count == 0 and is_colon(node2.*.body)) {
+            allocator.free(node2.*.body);
+            allocator.destroy(node2);
+            break;
+        } else {
+            try token_queue2.push(node2.*.body, node2.*.line, node2.col);
+        }
+
+        allocator.destroy(node2);
+    }
+
+    const func_sig = try parse_function_signature(token_queue2, allocator);
+
+    var children = std.ArrayList(*TeleAst).init(allocator);
+    errdefer tele_ast.free_tele_ast_list(children, allocator);
+    try children.append(func_sig);
+
+    // Function Definition Body
+    var token_queue3 = try TokenQueue.init(allocator);
+    errdefer token_queue3.deinit();
+    if (token_queue.empty()) {
+        return ParserError.ParsingFailure;
+    }
+
+    while (!token_queue.empty()) {
+        const peek_node2 = try token_queue.peek();
+        if (peek_node2.*.col <= current_col) {
+            break;
+        }
+
+        const node2 = try token_queue.pop();
+        errdefer allocator.free(node2.*.body);
+        errdefer allocator.destroy(node2);
+
+        try token_queue3.push(node2.*.body, node2.*.line, node2.*.col);
+        allocator.destroy(node2);
+    }
+
+    if (token_queue3.empty()) {
+        return ParserError.ParsingFailure;
+    }
+
+    var alist = parse_tokens(token_queue3, allocator) catch {
+        return ParserError.ParsingFailure;
+    };
+    errdefer tele_ast.free_tele_ast_list(alist, allocator);
+
+    if (alist.items.len != 1) {
+        return ParserError.ParsingFailure;
+    }
+    try children.append(alist.pop());
+
+    alist.deinit();
+
+    // Assemble Spec Definition Ast
+    const t = try allocator.create(TeleAst);
+    t.*.body = buf;
+    t.*.ast_type = TeleAstType.spec_def;
     t.*.children = children;
 
     token_queue2.deinit();
@@ -1782,6 +1886,12 @@ fn is_keyword(buf: []const u8) bool {
         }
     }
 
+    if (buf[0] == 's') {
+        if (std.mem.eql(u8, "spec", buf)) {
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -1826,6 +1936,10 @@ fn is_type_def(buf: []const u8) bool {
 
 fn is_record_def(buf: []const u8) bool {
     return std.mem.eql(u8, "record", buf);
+}
+
+fn is_spec_def(buf: []const u8) bool {
+    return std.mem.eql(u8, "spec", buf);
 }
 
 fn is_colon(buf: []const u8) bool {

@@ -137,6 +137,7 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
                 };
 
                 if (b2 == '/') {
+                    ctx.*.leftover = 0;
                     // Parse comments
                     while (true) {
                         const b3 = r.readByte() catch |err| switch (err) {
@@ -154,6 +155,7 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
                         ctx.*.next_col_number = 0;
                     }
                 } else {
+                    try l.append(ctx.*.leftover);
                     ctx.*.leftover = b2;
                     ctx.*.next_col_number += 1;
                     return false;
@@ -161,6 +163,7 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
             }
 
             try l.append(ctx.*.leftover);
+
             if (ctx.*.leftover == '#') {
                 mode = TokenMode.hash;
             } else if (!op_char(ctx.*.leftover)) {
@@ -208,6 +211,7 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
                         };
 
                         if (b2 == '/') {
+                            ctx.*.leftover = 0;
                             // Parse comments
                             while (true) {
                                 const b3 = r.readByte() catch |err| switch (err) {
@@ -226,14 +230,15 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
                             }
                         } else {
                             ctx.*.leftover = b2;
-                            ctx.*.next_col_number += 1;
                         }
                     }
 
                     try l.append(b);
                     ctx.*.next_col_number += 1;
 
-                    if (b == '#') {
+                    if (b == '/') {
+                        return false;
+                    } else if (b == '#') {
                         mode = .hash;
                     } else if (op_char(b)) {
                         mode = .op;
@@ -463,12 +468,13 @@ test "read token" {
     try expect(ctx.next_col_number == 0);
     list.clearAndFree();
 
+    try expect(ctx.leftover == 0);
     _ = try read_token(file.reader(), &list, &ctx);
     try expect(eql(u8, list.items, "/"));
     try expect(ctx.line_number == 10);
     try expect(ctx.col_number == 0);
-    try expect(ctx.next_line_number == 11);
-    try expect(ctx.next_col_number == 0);
+    try expect(ctx.next_line_number == 10);
+    try expect(ctx.next_col_number == 1);
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &ctx);
@@ -741,6 +747,54 @@ test "read token" {
     try expect(ctx.col_number == 0);
     try expect(ctx.next_line_number == 27);
     try expect(ctx.next_col_number == 0);
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, "a#person"));
+    try expect(ctx.line_number == 27);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 27);
+    try expect(ctx.next_col_number == 8);
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, "("));
+    try expect(ctx.line_number == 27);
+    try expect(ctx.col_number == 8);
+    try expect(ctx.next_line_number == 27);
+    try expect(ctx.next_col_number == 9);
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, "x"));
+    try expect(ctx.line_number == 27);
+    try expect(ctx.col_number == 9);
+    try expect(ctx.next_line_number == 27);
+    try expect(ctx.next_col_number == 10);
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, "="));
+    try expect(ctx.line_number == 27);
+    try expect(ctx.col_number == 10);
+    try expect(ctx.next_line_number == 27);
+    try expect(ctx.next_col_number == 11);
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, "2"));
+    try expect(ctx.line_number == 27);
+    try expect(ctx.col_number == 11);
+    try expect(ctx.next_line_number == 27);
+    try expect(ctx.next_col_number == 12);
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, ")"));
+    try expect(ctx.line_number == 27);
+    try expect(ctx.col_number == 12);
+    try expect(ctx.next_line_number == 27);
+    try expect(ctx.next_col_number == 13);
     list.clearAndFree();
 
     const eof = try read_token(file.reader(), &list, &ctx);

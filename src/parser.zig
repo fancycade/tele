@@ -66,6 +66,14 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserEr
             list.append(t) catch {
                 return ParserError.ParsingFailure;
             };
+        } else if (is_record_start(node.*.body)) {
+            const t = parse_record(token_queue, allocator, node.*.body, false) catch {
+                return ParserError.ParsingFailure;
+            };
+            errdefer tele_ast.free_tele_ast(t, allocator);
+            list.append(t) catch {
+                return ParserError.ParsingFailure;
+            };
         } else if (is_tuple_start(node.*.body)) {
             // Body not needed
             allocator.free(node.*.body);
@@ -142,14 +150,31 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserEr
         } else {
             // Check if function call
             if (!token_queue.empty() and try check_paren_start_peek(token_queue)) {
-                const t = parse_function_call(node.*.body, token_queue, allocator) catch {
-                    return ParserError.ParsingFailure;
-                };
-                errdefer tele_ast.free_tele_ast(t, allocator);
+                if (contains_hash(node.*.body)) {
+                    // Pop off paren start
+                    const temp = token_queue.pop() catch {
+                        return ParserError.ParsingFailure;
+                    };
+                    allocator.free(temp.*.body);
+                    allocator.destroy(temp);
+                    const t = parse_record(token_queue, allocator, node.*.body, true) catch {
+                        return ParserError.ParsingFailure;
+                    };
+                    errdefer tele_ast.free_tele_ast(t, allocator);
 
-                list.append(t) catch {
-                    return ParserError.ParsingFailure;
-                };
+                    list.append(t) catch {
+                        return ParserError.ParsingFailure;
+                    };
+                } else {
+                    const t = parse_function_call(node.*.body, token_queue, allocator) catch {
+                        return ParserError.ParsingFailure;
+                    };
+                    errdefer tele_ast.free_tele_ast(t, allocator);
+
+                    list.append(t) catch {
+                        return ParserError.ParsingFailure;
+                    };
+                }
             } else {
                 const t = parse_variable(node.*.body, allocator) catch {
                     return ParserError.ParsingFailure;
@@ -317,7 +342,7 @@ fn parse_tuple(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst
             const node2 = try token_queue.pop();
             errdefer allocator.destroy(node2);
 
-            if (is_tuple_start(node2.*.body) or is_paren_start(node2.*.body)) {
+            if (is_tuple_start(node2.*.body) or is_paren_start(node2.*.body) or is_record_start(node2.*.body)) {
                 count += 1;
             } else if (is_paren_end(node2.*.body)) {
                 count -= 1;
@@ -602,6 +627,92 @@ test "parse map" {
     test_allocator.destroy(result);
 }
 
+fn parse_record(token_queue: *TokenQueue, allocator: std.mem.Allocator, name: []const u8, variable: bool) !*TeleAst {
+    var children = std.ArrayList(*TeleAst).init(allocator);
+    errdefer tele_ast.free_tele_ast_list(children, allocator);
+    var buffer_token_queue = try TokenQueue.init(allocator);
+    errdefer buffer_token_queue.deinit();
+    errdefer allocator.free(name);
+
+    var count: usize = 1;
+    var end_of_record: bool = false;
+
+    while (!token_queue.empty() and !end_of_record) {
+        while (!token_queue.empty()) {
+            const node2 = try token_queue.pop();
+            errdefer allocator.free(node2.*.body);
+            errdefer allocator.destroy(node2);
+
+            if (is_tuple_start(node2.*.body) or is_paren_start(node2.*.body) or is_record_start(node2.*.body) or is_list_start(node2.*.body) or is_map_start(node2.*.body)) {
+                count += 1;
+            } else if (is_paren_end(node2.*.body) or is_list_end(node2.*.body) or is_map_end(node2.*.body)) {
+                count -= 1;
+                if (count == 0) {
+                    // Free paren end body
+                    allocator.free(node2.*.body);
+                    allocator.destroy(node2);
+                    end_of_record = true;
+                    break;
+                }
+            }
+
+            if (count == 1 and (is_comma(node2.*.body) or is_equal(node2.*.body))) {
+                allocator.free(node2.*.body);
+                allocator.destroy(node2);
+                break;
+            } else {
+                try buffer_token_queue.push(node2.*.body, node2.*.line, node2.*.col);
+            }
+
+            allocator.destroy(node2);
+        }
+
+        var alist = try parse_tokens(buffer_token_queue, allocator);
+        errdefer tele_ast.free_tele_ast_list(alist, allocator);
+        if (!buffer_token_queue.empty()) {
+            return ParserError.ParsingFailure;
+        }
+
+        if (alist.items.len != 1) {
+            return ParserError.ParsingFailure;
+        }
+        if (alist.items.len != 1) {
+            return ParserError.ParsingFailure;
+        }
+        const a = alist.pop();
+        errdefer tele_ast.free_tele_ast(a, allocator);
+        try children.append(a);
+        alist.deinit();
+    }
+
+    if (count != 0) {
+        return ParserError.ParsingFailure;
+    }
+
+    buffer_token_queue.deinit();
+    const t = try allocator.create(TeleAst);
+    if (variable) {
+        t.*.body = name;
+    } else {
+        t.*.body = try extract_record_name(name, allocator);
+        allocator.free(name);
+    }
+    t.*.ast_type = TeleAstType.record;
+    t.*.children = children;
+    return t;
+}
+
+fn extract_record_name(name: []const u8, allocator: std.mem.Allocator) ![]const u8 {
+    const buf = try allocator.alloc(u8, name.len - 2);
+    var i: usize = 1;
+    while (i < name.len - 1) {
+        buf[i - 1] = name[i];
+        i += 1;
+    }
+
+    return buf;
+}
+
 fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Allocator, current_col: usize, private: bool) !*TeleAst {
     const node3 = token_queue.pop() catch {
         return ParserError.ParsingFailure;
@@ -610,6 +721,7 @@ fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Alloca
     // Function Definition Name
     const buf = node3.*.body;
     allocator.destroy(node3);
+    errdefer allocator.free(buf);
 
     // Function Definition Signature
     var token_queue2 = TokenQueue.init(allocator) catch {
@@ -643,7 +755,6 @@ fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Alloca
     }
 
     const func_sig = try parse_function_signature(token_queue2, allocator);
-    token_queue2.deinit();
 
     var children = std.ArrayList(*TeleAst).init(allocator);
     errdefer tele_ast.free_tele_ast_list(children, allocator);
@@ -694,6 +805,7 @@ fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Alloca
     }
     t.*.children = children;
 
+    token_queue2.deinit();
     token_queue3.deinit();
     return t;
 }
@@ -1358,7 +1470,7 @@ fn parse_function_signature_param(token_queue: *TokenQueue, allocator: std.mem.A
             break;
         }
 
-        if (is_tuple_start(n2.*.body) or is_list_start(n2.*.body) or is_map_start(n2.*.body)) {
+        if (is_tuple_start(n2.*.body) or is_list_start(n2.*.body) or is_map_start(n2.*.body) or is_record_start(n2.*.body) or is_paren_start(n2.*.body)) {
             n_count += 1;
         } else if (is_paren_end(n2.*.body) or is_list_end(n2.*.body) or is_map_end(n2.*.body)) {
             n_count -= 1;
@@ -1434,7 +1546,7 @@ fn parse_function_call_arg(token_queue: *TokenQueue, allocator: std.mem.Allocato
             }
         }
 
-        if (is_paren_start(n2.*.body) or is_tuple_start(n2.*.body) or is_list_start(n2.*.body) or is_map_start(n2.*.body)) {
+        if (is_paren_start(n2.*.body) or is_tuple_start(n2.*.body) or is_list_start(n2.*.body) or is_map_start(n2.*.body) or is_record_start(n2.*.body)) {
             n_count += 1;
         } else if (is_paren_end(n2.*.body) or is_list_end(n2.*.body) or is_map_end(n2.*.body)) {
             n_count -= 1;
@@ -1524,6 +1636,23 @@ fn is_paren_start(buf: []const u8) bool {
 
 fn is_paren_end(buf: []const u8) bool {
     return buf[0] == ')';
+}
+
+fn is_record_start(buf: []const u8) bool {
+    if (buf[0] == '#') {
+        if (buf[1] == '(') {
+            return false;
+        }
+
+        if (buf[buf.len - 1] == '(') {
+            return true;
+        }
+    }
+    return false;
+}
+
+test "is record start" {
+    try std.testing.expect(is_record_start("#foobar("));
 }
 
 fn is_operator(buf: []const u8) bool {
@@ -1626,4 +1755,17 @@ fn is_comma(buf: []const u8) bool {
 
 fn is_space(buf: []const u8) bool {
     return buf[0] == ' ';
+}
+
+fn is_equal(buf: []const u8) bool {
+    return buf[0] == '=';
+}
+
+fn contains_hash(buf: []const u8) bool {
+    for (buf) |c| {
+        if (c == '#') {
+            return true;
+        }
+    }
+    return false;
 }

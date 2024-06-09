@@ -110,9 +110,16 @@ pub const Context = struct {
 
     pub fn write_record(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
-        _ = try w.write("#");
-        _ = try w.write(a.body);
+
+        if (contains_hash(a.body)) {
+            _ = try w.write(a.body);
+        } else {
+            _ = try w.write("#");
+            _ = try w.write(a.body);
+        }
         _ = try w.write("{");
+
+        try self.push_padding(0);
 
         var i: usize = 0;
         var loop = true;
@@ -134,7 +141,17 @@ pub const Context = struct {
             }
         }
 
+        try self.pop_padding();
         _ = try w.write("}");
+    }
+
+    fn contains_hash(buf: []const u8) bool {
+        for (buf) |c| {
+            if (c == '#') {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Matching must be done on left side of operator
@@ -253,7 +270,7 @@ pub const Context = struct {
         // TODO: Handle type params
         _ = try w.write("() :: ");
         try self.write_ast(w, a.*.children.?.items[0]);
-        _ = try w.write("\n\n");
+        _ = try w.write(".\n\n");
     }
 
     pub fn write_anonymous_function(self: *Self, w: anytype, a: *const Ast) !void {

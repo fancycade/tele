@@ -96,7 +96,7 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
             };
         },
         .variable => {
-            return tele_to_erlang_variable(t, allocator) catch {
+            return tele_to_erlang_variable(t, allocator, true) catch {
                 return CompilerError.CompilingFailure;
             };
         },
@@ -282,7 +282,7 @@ test "tele to erlang binary" {
     test_allocator.destroy(e);
 }
 
-fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator, capitalize: bool) !*ErlangAst {
     const e = try allocator.create(ErlangAst);
     e.*.ast_type = ErlangAstType.variable;
     e.*.children = null;
@@ -293,8 +293,10 @@ fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator) !*Er
     // TODO: Check if first character is ascii or not
     // If not add V prefix to var (does Erlang even support UTF-8 variables ?)
 
-    if (std.ascii.isLower(buf[0])) {
-        buf[0] = std.ascii.toUpper(buf[0]);
+    if (capitalize) {
+        if (std.ascii.isLower(buf[0])) {
+            buf[0] = std.ascii.toUpper(buf[0]);
+        }
     }
 
     e.*.body = buf;
@@ -302,14 +304,14 @@ fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator) !*Er
 }
 
 test "tele to erlang variable" {
-    const e = try tele_to_erlang_variable(&TeleAst{ .body = "foo", .ast_type = TeleAstType.variable, .children = null }, test_allocator);
+    const e = try tele_to_erlang_variable(&TeleAst{ .body = "foo", .ast_type = TeleAstType.variable, .children = null }, test_allocator, true);
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "Foo", .ast_type = ErlangAstType.variable, .children = null }));
 
     test_allocator.free(e.*.body);
     test_allocator.destroy(e);
 
-    const e2 = try tele_to_erlang_variable(&TeleAst{ .body = "Foo", .ast_type = TeleAstType.variable, .children = null }, test_allocator);
+    const e2 = try tele_to_erlang_variable(&TeleAst{ .body = "Foo", .ast_type = TeleAstType.variable, .children = null }, test_allocator, true);
 
     try std.testing.expect(erlang_ast.equal(e2, &ErlangAst{ .body = "Foo", .ast_type = ErlangAstType.variable, .children = null }));
 
@@ -428,15 +430,34 @@ fn tele_to_erlang_record(t: *const TeleAst, allocator: std.mem.Allocator) !*Erla
     e.*.ast_type = ErlangAstType.record;
     e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
 
-    const buf = try allocator.alloc(u8, t.*.body.len);
+    var buf = try allocator.alloc(u8, t.*.body.len);
     std.mem.copyForwards(u8, buf, t.*.body);
+    if (contains_hash(buf)) {
+        buf[0] = std.ascii.toUpper(buf[0]);
+    }
+
     e.*.body = buf;
 
+    var i: usize = 0;
     for (t.children.?.items) |c| {
-        try e.children.?.append(try tele_to_erlang(c, allocator));
+        if (i % 2 == 0) {
+            try e.children.?.append(try tele_to_erlang_variable(c, allocator, false));
+        } else {
+            try e.children.?.append(try tele_to_erlang(c, allocator));
+        }
+        i += 1;
     }
 
     return e;
+}
+
+fn contains_hash(buf: []const u8) bool {
+    for (buf) |c| {
+        if (c == '#') {
+            return true;
+        }
+    }
+    return false;
 }
 
 test "tele to erlang record" {
@@ -453,7 +474,7 @@ test "tele to erlang record" {
     var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
     defer e_children.deinit();
 
-    try e_children.append(&ErlangAst{ .body = "x", .ast_type = ErlangAstType.atom, .children = null });
+    try e_children.append(&ErlangAst{ .body = "x", .ast_type = ErlangAstType.variable, .children = null });
     try e_children.append(&ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null });
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "point", .ast_type = ErlangAstType.record, .children = e_children }));

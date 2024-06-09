@@ -96,9 +96,15 @@ pub const Context = struct {
     pub fn write_record(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
 
-        _ = try w.write("#");
-        _ = try w.write(a.body);
+        if (contains_hash(a.body)) {
+            _ = try w.write(a.body);
+        } else {
+            _ = try w.write("#");
+            _ = try w.write(a.body);
+        }
         _ = try w.write("(");
+
+        try self.push_padding(0);
 
         var i: usize = 0;
         var loop = true;
@@ -120,7 +126,17 @@ pub const Context = struct {
             }
         }
 
+        try self.pop_padding();
         _ = try w.write(")");
+    }
+
+    fn contains_hash(buf: []const u8) bool {
+        for (buf) |c| {
+            if (c == '#') {
+                return true;
+            }
+        }
+        return false;
     }
 
     pub fn write_op(self: *Self, w: anytype, a: *const Ast) !void {
@@ -795,7 +811,7 @@ test "write function def" {
     var a3 = Ast{ .body = "world", .ast_type = AstType.function_call, .children = null };
     try children.append(&a3);
 
-    try context.write_function_def(list.writer(), &Ast{ .body = "hello_world", .ast_type = AstType.function_def, .children = children });
+    try context.write_function_def(list.writer(), &Ast{ .body = "hello_world", .ast_type = AstType.function_def, .children = children }, false);
     try std.testing.expect(std.mem.eql(u8, list.items, "def hello_world():\n  hello()\n  world()\n\n"));
 }
 
@@ -831,7 +847,7 @@ test "write function def matching" {
     var a6 = Ast{ .body = "2", .ast_type = AstType.int, .children = null };
     try children.append(&a6);
 
-    try context.write_function_def(list.writer(), &Ast{ .body = "hello", .ast_type = AstType.function_def, .children = children });
+    try context.write_function_def(list.writer(), &Ast{ .body = "hello", .ast_type = AstType.function_def, .children = children }, false);
     try std.testing.expect(std.mem.eql(u8, list.items, "def hello(1):\n  1\ndef hello(2):\n  2\n\n"));
 }
 

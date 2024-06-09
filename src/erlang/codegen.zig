@@ -273,6 +273,16 @@ pub const Context = struct {
         _ = try w.write(".\n\n");
     }
 
+    pub fn write_record_def(self: *Self, w: anytype, a: *const Ast) !void {
+        _ = try w.write("-record(");
+        _ = try w.write(a.*.body);
+        _ = try w.write(", ");
+
+        // Expecting child to be tuple type
+        try self.write_ast(w, a.children.?.items[0]);
+        _ = try w.write(").\n\n");
+    }
+
     pub fn write_anonymous_function(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
         _ = try w.write("fun");
@@ -548,6 +558,11 @@ pub const Context = struct {
             },
             .type_def => {
                 self.write_type_def(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .record_def => {
+                self.write_record_def(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

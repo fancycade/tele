@@ -1734,7 +1734,7 @@ fn is_operator(buf: []const u8) bool {
     }
 
     switch (buf[0]) {
-        '+', '*', '/', '!', '-' => {
+        '+', '*', '/', '!', '-', '|' => {
             return true;
         },
         '<', '>', '=' => {

@@ -491,8 +491,17 @@ fn tele_to_erlang_function_call(t: *const TeleAst, allocator: std.mem.Allocator)
     const e = try allocator.create(ErlangAst);
     e.*.ast_type = ErlangAstType.function_call;
 
-    const buf = try allocator.alloc(u8, t.*.body.len);
+    var buf = try allocator.alloc(u8, t.*.body.len);
     std.mem.copyForwards(u8, buf, t.*.body);
+
+    var i: usize = 0;
+    while (i < buf.len) {
+        if (buf[i] == '.') {
+            buf[i] = ':';
+        }
+        i += 1;
+    }
+
     e.*.body = buf;
 
     if (t.children != null) {

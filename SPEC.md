@@ -140,31 +140,33 @@ The updated map must be the first element of the new map.
 
 ### Anonymous Functions
 
+Anonymous functions or "arrow" functions like they are called in JS.
+
 Anonymous functions can be defined on a single line.
 
-    (x, y) -> x + y
+    (x, y) => x + y
 
-    map((x) -> x + 2, [1, 2, 3])
+    map((x) => x + 2, [1, 2, 3])
 
 Anonymous functions can be multiple lines. Anonymous function bodies follow the same syntax rules as blocks.
 Function bodies starting on same line have to be one line. Multiline bodies must be after the beginning of the block.
 
     map(
-      (x) ->
+      (x) =>
         x2 = x + 2
         x2 + 2, 
       [1, 2, 3]
     )
 
-    f = (x, y) ->
+    f = (x, y) =>
           z = x + y
           z + 42
 
-    f2 = (x, y) -> f(x, y)
+    f2 = (x, y) => f(x, y)
 
 Passing functions as values requires similar syntax as Erlang and Elixir:
 
-    foo/2
+    #foo/2
 
 This is to tell which function is being used by function arity.
 
@@ -352,9 +354,9 @@ Is not visually pleasing.
 
 Defining a function that accepts a function as argument and returns one looks like this:
 
-    spec foo((int) -> int): (int) -> int
+    spec foo((int) => int): (int) => int
     def foo(f):
-      (n) -> f(n)
+      (n) => f(n)
 
 EXPERIMENTAL:
 
@@ -430,6 +432,20 @@ Erlang version would be:
     -compile({inline, [pi/0]}).
     pi() -> 3.14.
 
-def pi: 3.14
+Tele might look like:
 
-defp pi: 3.14
+    def pi: 3.14
+
+Notice no function signature.
+
+### Try Catch Statements
+
+Erlang can handle exceptions with try/catch statements. The syntax for this in tele is similar to match statements.
+
+    try 42 / 0:
+       result: result
+    catch:
+       _.exception:
+         'oops
+
+  

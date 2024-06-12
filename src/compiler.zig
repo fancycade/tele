@@ -130,6 +130,11 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
                 return CompilerError.CompilingFailure;
             };
         },
+        .paren_exp => {
+            return tele_to_erlang_paren_exp(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         .guard_clause => {
             return tele_to_erlang_guard_clause(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -576,6 +581,23 @@ test "tele to erlang op" {
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "+", .ast_type = ErlangAstType.function_call, .children = e_children }));
 
     erlang_ast.destroy(e, test_allocator);
+}
+
+fn tele_to_erlang_paren_exp(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.body = "";
+    e.*.ast_type = ErlangAstType.paren_exp;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    if (!(t.*.children.?.items.len > 0)) {
+        e.*.children.?.deinit();
+        allocator.destroy(e);
+        return CompilerError.CompilingFailure;
+    }
+
+    try e.children.?.append(try tele_to_erlang(t.*.children.?.items[0], allocator));
+
+    return e;
 }
 
 fn tele_to_erlang_guard_clause(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {

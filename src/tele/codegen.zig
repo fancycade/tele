@@ -153,6 +153,16 @@ pub const Context = struct {
         try self.pop_padding();
     }
 
+    // Expect paren_exp to only have 1 child element
+    pub fn write_paren_exp(self: *Self, w: anytype, a: *const Ast) !void {
+        try self.write_padding(w);
+        try self.push_padding(0);
+        _ = try w.write("(");
+        try self.write_ast(w, a.children.?.items[0]);
+        _ = try w.write(")");
+        try self.pop_padding();
+    }
+
     pub fn write_function_call(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
 
@@ -488,6 +498,11 @@ pub const Context = struct {
             },
             .op => {
                 self.write_op(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .paren_exp => {
+                self.write_paren_exp(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

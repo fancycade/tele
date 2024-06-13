@@ -299,9 +299,18 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
                 }
             },
             .hash => {
+                if (whitespace(b)) {
+                    ctx.*.leftover = b; // TODO: Is this needed?
+                    return false;
+                } else if (newline(b)) {
+                    ctx.*.next_col_number = 0;
+                    ctx.*.next_line_number += 1;
+                    return false;
+                }
+
                 try l.append(b);
                 ctx.*.next_col_number += 1;
-                if (b == '(') {
+                if (b == '(') { // Is tuple start
                     return false;
                 }
             },
@@ -795,6 +804,14 @@ test "read token" {
     try expect(ctx.col_number == 12);
     try expect(ctx.next_line_number == 27);
     try expect(ctx.next_col_number == 13);
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, "#foo/2"));
+    try expect(ctx.line_number == 28);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 29);
+    try expect(ctx.next_col_number == 0);
     list.clearAndFree();
 
     const eof = try read_token(file.reader(), &list, &ctx);

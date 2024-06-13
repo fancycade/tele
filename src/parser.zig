@@ -102,6 +102,15 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserEr
             list.append(t) catch {
                 return ParserError.ParsingFailure;
             };
+        } else if (is_fun_val(node.*.body)) {
+            const t = parse_fun_val(node.*.body, allocator) catch {
+                return ParserError.ParsingFailure;
+            };
+            allocator.free(node.*.body);
+            errdefer tele_ast.free_tele_ast(t, allocator);
+            list.append(t) catch {
+                return ParserError.ParsingFailure;
+            };
         } else if (is_operator(node.*.body)) {
             if (list.items.len == 0) {
                 // TODO: Error expected value on left side of operator
@@ -452,6 +461,21 @@ fn parse_value(body: []const u8, allocator: std.mem.Allocator, ast_type: TeleAst
     const t = try allocator.create(TeleAst);
     t.*.body = body;
     t.*.ast_type = ast_type;
+    t.*.children = null;
+    return t;
+}
+
+fn parse_fun_val(body: []const u8, allocator: std.mem.Allocator) !*TeleAst {
+    const buf = try allocator.alloc(u8, body.len - 1);
+    var i: usize = 1;
+    while (i < body.len) {
+        buf[i - 1] = body[i];
+        i = i + 1;
+    }
+
+    const t = try allocator.create(TeleAst);
+    t.*.body = buf;
+    t.*.ast_type = TeleAstType.fun_val;
     t.*.children = null;
     return t;
 }
@@ -1900,6 +1924,28 @@ fn is_binary(buf: []const u8) bool {
 
 fn is_tuple_start(buf: []const u8) bool {
     return std.mem.eql(u8, "#(", buf);
+}
+
+fn is_fun_val(buf: []const u8) bool {
+    if (buf[0] != '#') {
+        return false;
+    }
+
+    // Minimum number of characters for a fun val
+    if (buf.len < 4) {
+        return false;
+    }
+
+    // TODO: More strict validation
+    var i: usize = 1;
+    while (i < buf.len) {
+        if (buf[i] == '/') {
+            return true;
+        }
+        i = i + 1;
+    }
+
+    return false;
 }
 
 fn is_list_start(buf: []const u8) bool {

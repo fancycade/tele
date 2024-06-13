@@ -120,6 +120,11 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
                 return CompilerError.CompilingFailure;
             };
         },
+        .fun_val => {
+            return tele_to_erlang_fun_val(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         .function_call => {
             return tele_to_erlang_function_call(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -495,6 +500,27 @@ test "tele to erlang record" {
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "point", .ast_type = ErlangAstType.record, .children = e_children }));
 
     erlang_ast.destroy(e, test_allocator);
+}
+
+fn tele_to_erlang_fun_val(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.ast_type = ErlangAstType.fun_val;
+    e.*.children = null;
+
+    var buf = try allocator.alloc(u8, t.*.body.len);
+    std.mem.copyForwards(u8, buf, t.*.body);
+
+    var i: usize = 0;
+    while (i < buf.len) {
+        if (buf[i] == '.') {
+            buf[i] = ':';
+        }
+        i += 1;
+    }
+
+    e.*.body = buf;
+
+    return e;
 }
 
 fn tele_to_erlang_function_call(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {

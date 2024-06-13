@@ -3,4 +3,5 @@ zig-cache/
 zig-out/
 *.swp
 *.beam
-other.tl
+*.tl
+!basic.tl

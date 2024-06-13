@@ -154,6 +154,12 @@ pub const Context = struct {
         return false;
     }
 
+    pub fn write_fun_val(self: *Self, w: anytype, a: *const Ast) !void {
+        try self.write_padding(w);
+        _ = try w.write("fun ");
+        _ = try w.write(a.body);
+    }
+
     // Matching must be done on left side of operator
     pub fn write_op(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
@@ -541,6 +547,11 @@ pub const Context = struct {
             },
             .record => {
                 self.write_record(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .fun_val => {
+                self.write_fun_val(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

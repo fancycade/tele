@@ -3,11 +3,7 @@ const test_allocator = std.testing.allocator;
 
 pub const AstType = enum { int, float, binary, atom, tuple, list, map, record, attribute, function_def, function_defp, function_signature, anonymous_function, function_call, case, case_clause, guard_clause, op, variable, type_def, record_def, spec_def, paren_exp, fun_val };
 
-pub const Ast = struct {
-    children: ?std.ArrayList(*Ast),
-    body: []const u8,
-    ast_type: AstType,
-};
+pub const Ast = struct { children: ?std.ArrayList(*Ast), body: []const u8, ast_type: AstType, col: usize };
 
 pub fn free_tele_ast(t: *Ast, allocator: std.mem.Allocator) void {
     if (t.*.children != null) {

@@ -310,9 +310,11 @@ pub const Context = struct {
     pub fn write_anonymous_function(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
         _ = try w.write("fun");
+        try self.push_padding(0);
         self.push_match();
         try self.write_function_signature(w, a.children.?.items[0]);
         self.pop_match();
+        try self.pop_padding();
         _ = try w.write(" ->");
 
         var i: usize = 1;
@@ -337,7 +339,9 @@ pub const Context = struct {
             i = i + 1;
         }
 
-        _ = try w.write("\nend");
+        _ = try w.write("\n");
+        try self.write_padding(w);
+        _ = try w.write("end");
     }
 
     pub fn write_function_signature(self: *Self, w: anytype, a: *const Ast) !void {

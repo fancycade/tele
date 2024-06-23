@@ -212,7 +212,7 @@ fn tele_to_erlang_int(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangA
 }
 
 test "tele to erlang int" {
-    const e = try tele_to_erlang_int(&TeleAst{ .body = "1", .ast_type = TeleAstType.int, .children = null }, test_allocator);
+    const e = try tele_to_erlang_int(&TeleAst{ .body = "1", .ast_type = TeleAstType.int, .children = null, .col = 0 }, test_allocator);
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "1", .ast_type = ErlangAstType.int, .children = null }));
 
@@ -234,7 +234,7 @@ fn tele_to_erlang_float(t: *const TeleAst, allocator: std.mem.Allocator) !*Erlan
 }
 
 test "tele to erlang float" {
-    const e = try tele_to_erlang_float(&TeleAst{ .body = "42.42", .ast_type = TeleAstType.float, .children = null }, test_allocator);
+    const e = try tele_to_erlang_float(&TeleAst{ .body = "42.42", .ast_type = TeleAstType.float, .children = null, .col = 0 }, test_allocator);
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "42.42", .ast_type = ErlangAstType.float, .children = null }));
 
@@ -261,21 +261,21 @@ fn tele_to_erlang_atom(t: *const TeleAst, allocator: std.mem.Allocator) !*Erlang
 }
 
 test "tele to erlang atom" {
-    const e = try tele_to_erlang_atom(&TeleAst{ .body = "'foo", .ast_type = TeleAstType.atom, .children = null }, test_allocator);
+    const e = try tele_to_erlang_atom(&TeleAst{ .body = "'foo", .ast_type = TeleAstType.atom, .children = null, .col = 0 }, test_allocator);
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "foo", .ast_type = ErlangAstType.atom, .children = null }));
 
     test_allocator.free(e.*.body);
     test_allocator.destroy(e);
 
-    const e2 = try tele_to_erlang_atom(&TeleAst{ .body = "'Foo'", .ast_type = TeleAstType.atom, .children = null }, test_allocator);
+    const e2 = try tele_to_erlang_atom(&TeleAst{ .body = "'Foo'", .ast_type = TeleAstType.atom, .children = null, .col = 0 }, test_allocator);
 
     try std.testing.expect(erlang_ast.equal(e2, &ErlangAst{ .body = "'Foo'", .ast_type = ErlangAstType.atom, .children = null }));
 
     test_allocator.free(e2.*.body);
     test_allocator.destroy(e2);
 
-    const e3 = try tele_to_erlang_atom(&TeleAst{ .body = "foo", .ast_type = TeleAstType.atom, .children = null }, test_allocator);
+    const e3 = try tele_to_erlang_atom(&TeleAst{ .body = "foo", .ast_type = TeleAstType.atom, .children = null, .col = 0 }, test_allocator);
 
     try std.testing.expect(erlang_ast.equal(e3, &ErlangAst{ .body = "foo", .ast_type = ErlangAstType.atom, .children = null }));
 
@@ -294,7 +294,7 @@ fn tele_to_erlang_binary(t: *const TeleAst, allocator: std.mem.Allocator) !*Erla
 }
 
 test "tele to erlang binary" {
-    const e = try tele_to_erlang_binary(&TeleAst{ .body = "\"foo\"", .ast_type = TeleAstType.binary, .children = null }, test_allocator);
+    const e = try tele_to_erlang_binary(&TeleAst{ .body = "\"foo\"", .ast_type = TeleAstType.binary, .children = null, .col = 0 }, test_allocator);
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "\"foo\"", .ast_type = ErlangAstType.binary, .children = null }));
 
@@ -324,14 +324,14 @@ fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator, capi
 }
 
 test "tele to erlang variable" {
-    const e = try tele_to_erlang_variable(&TeleAst{ .body = "foo", .ast_type = TeleAstType.variable, .children = null }, test_allocator, true);
+    const e = try tele_to_erlang_variable(&TeleAst{ .body = "foo", .ast_type = TeleAstType.variable, .children = null, .col = 0 }, test_allocator, true);
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "Foo", .ast_type = ErlangAstType.variable, .children = null }));
 
     test_allocator.free(e.*.body);
     test_allocator.destroy(e);
 
-    const e2 = try tele_to_erlang_variable(&TeleAst{ .body = "Foo", .ast_type = TeleAstType.variable, .children = null }, test_allocator, true);
+    const e2 = try tele_to_erlang_variable(&TeleAst{ .body = "Foo", .ast_type = TeleAstType.variable, .children = null, .col = 0 }, test_allocator, true);
 
     try std.testing.expect(erlang_ast.equal(e2, &ErlangAst{ .body = "Foo", .ast_type = ErlangAstType.variable, .children = null }));
 
@@ -356,13 +356,13 @@ test "tele to erlang tuple" {
     var t_children = std.ArrayList(*TeleAst).init(test_allocator);
     defer t_children.deinit();
 
-    var t = TeleAst{ .body = "1", .ast_type = TeleAstType.int, .children = null };
+    var t = TeleAst{ .body = "1", .ast_type = TeleAstType.int, .children = null, .col = 0 };
     try t_children.append(&t);
 
-    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null };
+    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0 };
     try t_children.append(&t2);
 
-    const e = try tele_to_erlang_tuple(&TeleAst{ .body = "", .ast_type = TeleAstType.tuple, .children = t_children }, test_allocator);
+    const e = try tele_to_erlang_tuple(&TeleAst{ .body = "", .ast_type = TeleAstType.tuple, .children = t_children, .col = 0 }, test_allocator);
 
     var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
     defer e_children.deinit();
@@ -392,12 +392,12 @@ test "tele to erlang list" {
     var t_children = std.ArrayList(*TeleAst).init(test_allocator);
     defer t_children.deinit();
 
-    var t = TeleAst{ .body = "1", .ast_type = TeleAstType.int, .children = null };
+    var t = TeleAst{ .body = "1", .ast_type = TeleAstType.int, .children = null, .col = 0 };
     try t_children.append(&t);
-    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null };
+    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0 };
     try t_children.append(&t2);
 
-    const e = try tele_to_erlang_list(&TeleAst{ .body = "", .ast_type = TeleAstType.list, .children = t_children }, test_allocator);
+    const e = try tele_to_erlang_list(&TeleAst{ .body = "", .ast_type = TeleAstType.list, .children = t_children, .col = 0 }, test_allocator);
 
     var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
     defer e_children.deinit();
@@ -427,12 +427,12 @@ test "tele to erlang map" {
     var t_children = std.ArrayList(*TeleAst).init(test_allocator);
     defer t_children.deinit();
 
-    var t = TeleAst{ .body = "1", .ast_type = TeleAstType.int, .children = null };
+    var t = TeleAst{ .body = "1", .ast_type = TeleAstType.int, .children = null, .col = 0 };
     try t_children.append(&t);
-    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null };
+    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0 };
     try t_children.append(&t2);
 
-    const e = try tele_to_erlang_map(&TeleAst{ .body = "", .ast_type = TeleAstType.map, .children = t_children }, test_allocator);
+    const e = try tele_to_erlang_map(&TeleAst{ .body = "", .ast_type = TeleAstType.map, .children = t_children, .col = 0 }, test_allocator);
 
     var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
     defer e_children.deinit();
@@ -484,12 +484,12 @@ test "tele to erlang record" {
     var t_children = std.ArrayList(*TeleAst).init(test_allocator);
     defer t_children.deinit();
 
-    var t = TeleAst{ .body = "x", .ast_type = TeleAstType.atom, .children = null };
+    var t = TeleAst{ .body = "x", .ast_type = TeleAstType.atom, .children = null, .col = 0 };
     try t_children.append(&t);
-    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null };
+    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0 };
     try t_children.append(&t2);
 
-    const e = try tele_to_erlang_record(&TeleAst{ .body = "point", .ast_type = TeleAstType.record, .children = t_children }, test_allocator);
+    const e = try tele_to_erlang_record(&TeleAst{ .body = "point", .ast_type = TeleAstType.record, .children = t_children, .col = 0 }, test_allocator);
 
     var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
     defer e_children.deinit();
@@ -556,10 +556,10 @@ test "tele to erlang function call" {
     var t_children = std.ArrayList(*TeleAst).init(test_allocator);
     defer t_children.deinit();
 
-    var t = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null };
+    var t = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0 };
     try t_children.append(&t);
 
-    const e = try tele_to_erlang_function_call(&TeleAst{ .body = "add2", .ast_type = TeleAstType.function_call, .children = t_children }, test_allocator);
+    const e = try tele_to_erlang_function_call(&TeleAst{ .body = "add2", .ast_type = TeleAstType.function_call, .children = t_children, .col = 0 }, test_allocator);
 
     var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
     defer e_children.deinit();
@@ -591,12 +591,12 @@ test "tele to erlang op" {
     var t_children = std.ArrayList(*TeleAst).init(test_allocator);
     defer t_children.deinit();
 
-    var t = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null };
+    var t = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0 };
     try t_children.append(&t);
-    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null };
+    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0 };
     try t_children.append(&t2);
 
-    const e = try tele_to_erlang_function_call(&TeleAst{ .body = "+", .ast_type = TeleAstType.op, .children = t_children }, test_allocator);
+    const e = try tele_to_erlang_function_call(&TeleAst{ .body = "+", .ast_type = TeleAstType.op, .children = t_children, .col = 0 }, test_allocator);
 
     var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
     defer e_children.deinit();
@@ -643,16 +643,16 @@ test "tele to erlang guard clause" {
     var t_children = std.ArrayList(*TeleAst).init(test_allocator);
     defer t_children.deinit();
 
-    var t = TeleAst{ .body = "x", .ast_type = TeleAstType.variable, .children = null };
+    var t = TeleAst{ .body = "x", .ast_type = TeleAstType.variable, .children = null, .col = 0 };
     try t_children.append(&t);
 
     var t_children2 = std.ArrayList(*TeleAst).init(test_allocator);
     defer t_children2.deinit();
 
-    var t2 = TeleAst{ .body = "is_number", .ast_type = TeleAstType.function_call, .children = t_children };
+    var t2 = TeleAst{ .body = "is_number", .ast_type = TeleAstType.function_call, .children = t_children, .col = 0 };
     try t_children2.append(&t2);
 
-    const e = try tele_to_erlang_guard_clause(&TeleAst{ .body = "", .ast_type = TeleAstType.guard_clause, .children = t_children2 }, test_allocator);
+    const e = try tele_to_erlang_guard_clause(&TeleAst{ .body = "", .ast_type = TeleAstType.guard_clause, .children = t_children2, .col = 0 }, test_allocator);
 
     var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
     defer e_children.deinit();
@@ -688,7 +688,7 @@ fn tele_to_erlang_function_signature(t: *const TeleAst, allocator: std.mem.Alloc
 }
 
 test "tele to erlang function signature" {
-    const e = try tele_to_erlang_function_signature(&TeleAst{ .body = "", .ast_type = TeleAstType.function_signature, .children = null }, test_allocator);
+    const e = try tele_to_erlang_function_signature(&TeleAst{ .body = "", .ast_type = TeleAstType.function_signature, .children = null, .col = 0 }, test_allocator);
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "", .ast_type = ErlangAstType.function_signature, .children = null }));
 

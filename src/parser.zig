@@ -111,6 +111,26 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserEr
             list.append(t) catch {
                 return ParserError.ParsingFailure;
             };
+        } else if (is_arrow_operator(node.*.body)) {
+            if (list.items.len == 0) {
+                // TODO: Error expected value on left side of operator
+                return ParserError.ParsingFailure;
+            }
+            const ast1 = list.pop();
+            errdefer tele_ast.free_tele_ast(ast1, allocator);
+            if (ast1.*.ast_type != TeleAstType.paren_exp) {
+                // TODO: Error expected paren_exp
+                return ParserError.ParsingFailure;
+            }
+            // Free arrow operator body
+            allocator.free(node.*.body);
+            const t = parse_arrow_operator(token_queue, allocator, ast1) catch {
+                return ParserError.ParsingFailure;
+            };
+            errdefer tele_ast.free_tele_ast(t, allocator);
+            list.append(t) catch {
+                return ParserError.ParsingFailure;
+            };
         } else if (is_operator(node.*.body)) {
             if (list.items.len == 0) {
                 // TODO: Error expected value on left side of operator
@@ -127,7 +147,7 @@ fn parse_tokens(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserEr
             };
         } else if (is_paren_start(node.*.body)) {
             allocator.free(node.*.body);
-            const t = parse_paren_exp(token_queue, allocator) catch {
+            const t = parse_paren_exp(token_queue, allocator, node.*.col) catch {
                 return ParserError.ParsingFailure;
             };
             errdefer tele_ast.free_tele_ast(t, allocator);
@@ -251,6 +271,7 @@ fn parse_operator(body: []const u8, token_queue: *TokenQueue, allocator: std.mem
     t.*.body = body;
     t.*.ast_type = TeleAstType.op;
     t.*.children = children;
+    t.*.col = 0;
 
     return t;
 }
@@ -335,7 +356,7 @@ fn check_paren_start_peek(token_queue: *TokenQueue) !bool {
     return is_paren_start(peek_node.*.body);
 }
 
-fn parse_paren_exp(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
+fn parse_paren_exp(token_queue: *TokenQueue, allocator: std.mem.Allocator, col: usize) !*TeleAst {
     var children: ?std.ArrayList(*TeleAst) = null;
 
     const pn2 = try token_queue.peek();
@@ -389,6 +410,7 @@ fn parse_paren_exp(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*Tel
     tast.*.body = "";
     tast.*.ast_type = TeleAstType.paren_exp;
     tast.*.children = children;
+    tast.*.col = col;
 
     return tast;
 }
@@ -437,6 +459,84 @@ fn parse_paren_exp_element(token_queue: *TokenQueue, allocator: std.mem.Allocato
     return ast;
 }
 
+fn parse_arrow_operator(token_queue: *TokenQueue, allocator: std.mem.Allocator, paren_exp: *TeleAst) !*TeleAst {
+    var buffer_token_queue = try TokenQueue.init(allocator);
+    errdefer buffer_token_queue.deinit();
+    if (token_queue.empty()) {
+        return ParserError.ParsingFailure;
+    }
+
+    var children = std.ArrayList(*TeleAst).init(allocator);
+    errdefer tele_ast.free_tele_ast_list(children, allocator);
+
+    const func_sig = try paren_exp_to_function_signature(paren_exp, allocator);
+
+    // Free paren exp memory, copied children to func_sig
+    if (paren_exp.*.children != null) {
+        paren_exp.*.children.?.deinit();
+    }
+    allocator.destroy(paren_exp);
+    try children.append(func_sig);
+
+    while (!token_queue.empty()) {
+        const peek_node = try token_queue.peek();
+        if (paren_exp.*.col <= peek_node.*.col) {
+            break;
+        }
+
+        const node2 = try token_queue.pop();
+        errdefer allocator.free(node2.*.body);
+        errdefer allocator.destroy(node2);
+
+        try buffer_token_queue.push(node2.*.body, node2.*.line, node2.*.col);
+        allocator.destroy(node2);
+    }
+
+    if (buffer_token_queue.empty()) {
+        return ParserError.ParsingFailure;
+    }
+
+    var alist = parse_body(buffer_token_queue, allocator) catch {
+        return ParserError.ParsingFailure;
+    };
+    errdefer tele_ast.free_tele_ast_list(alist, allocator);
+
+    for (alist.items) |a| {
+        try children.append(a);
+    }
+    alist.deinit();
+
+    // Assemble Anonymous Function Definition Ast
+    const t = try allocator.create(TeleAst);
+    t.*.body = "";
+    t.*.ast_type = TeleAstType.anonymous_function;
+    t.*.children = children;
+    t.*.col = 0;
+
+    buffer_token_queue.deinit();
+    return t;
+}
+
+fn paren_exp_to_function_signature(paren_exp: *TeleAst, allocator: std.mem.Allocator) !*TeleAst {
+    const t = try allocator.create(TeleAst);
+    t.*.body = "";
+    t.*.ast_type = TeleAstType.function_signature;
+    t.*.children = null;
+    t.*.col = paren_exp.*.col;
+    errdefer tele_ast.free_tele_ast(t, allocator);
+
+    if (paren_exp.*.children != null) {
+        var children = std.ArrayList(*TeleAst).init(allocator);
+        errdefer tele_ast.free_tele_ast_list(children, allocator);
+
+        for (paren_exp.*.children.?.items) |c| {
+            try children.append(c);
+        }
+        t.*.children = children;
+    }
+    return t;
+}
+
 fn parse_float(body: []const u8, allocator: std.mem.Allocator) !*TeleAst {
     return try parse_value(body, allocator, TeleAstType.float);
 }
@@ -462,6 +562,7 @@ fn parse_value(body: []const u8, allocator: std.mem.Allocator, ast_type: TeleAst
     t.*.body = body;
     t.*.ast_type = ast_type;
     t.*.children = null;
+    t.*.col = 0;
     return t;
 }
 
@@ -477,6 +578,7 @@ fn parse_fun_val(body: []const u8, allocator: std.mem.Allocator) !*TeleAst {
     t.*.body = buf;
     t.*.ast_type = TeleAstType.fun_val;
     t.*.children = null;
+    t.*.col = 0;
     return t;
 }
 
@@ -545,6 +647,7 @@ fn parse_tuple(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst
     t.*.body = "";
     t.*.ast_type = TeleAstType.tuple;
     t.*.children = children;
+    t.*.col = 0;
     token_queue2.deinit();
     return t;
 }
@@ -638,6 +741,7 @@ fn parse_list(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst 
     t.*.body = "";
     t.*.ast_type = TeleAstType.list;
     t.*.children = children;
+    t.*.col = 0;
     token_queue2.deinit();
     return t;
 }
@@ -735,6 +839,7 @@ fn parse_map(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
     t.*.body = "";
     t.*.ast_type = TeleAstType.map;
     t.*.children = children;
+    t.*.col = 0;
 
     token_queue2.deinit();
     return t;
@@ -852,6 +957,7 @@ fn parse_record(token_queue: *TokenQueue, allocator: std.mem.Allocator, name: []
     }
     t.*.ast_type = TeleAstType.record;
     t.*.children = children;
+    t.*.col = 0;
     return t;
 }
 
@@ -957,6 +1063,7 @@ fn parse_function_definition(token_queue: *TokenQueue, allocator: std.mem.Alloca
         t.*.ast_type = TeleAstType.function_def;
     }
     t.*.children = children;
+    t.*.col = 0;
 
     token_queue2.deinit();
     token_queue3.deinit();
@@ -1052,6 +1159,7 @@ fn parse_spec_definition(token_queue: *TokenQueue, allocator: std.mem.Allocator,
     t.*.body = buf;
     t.*.ast_type = TeleAstType.spec_def;
     t.*.children = children;
+    t.*.col = 0;
 
     token_queue2.deinit();
     token_queue3.deinit();
@@ -1119,6 +1227,7 @@ fn parse_type_definition(token_queue: *TokenQueue, allocator: std.mem.Allocator,
     t.*.body = buf;
     t.*.ast_type = TeleAstType.type_def;
     t.*.children = children;
+    t.*.col = 0;
 
     token_queue3.deinit();
     return t;
@@ -1185,6 +1294,7 @@ fn parse_record_definition(token_queue: *TokenQueue, allocator: std.mem.Allocato
     t.*.body = buf;
     t.*.ast_type = TeleAstType.record_def;
     t.*.children = children;
+    t.*.col = 0;
 
     token_queue3.deinit();
     return t;
@@ -1378,6 +1488,7 @@ fn parse_match_expression(token_queue: *TokenQueue, allocator: std.mem.Allocator
     final_ast.*.body = "";
     final_ast.*.ast_type = TeleAstType.case;
     final_ast.*.children = children;
+    final_ast.*.col = 0;
     return final_ast;
 }
 
@@ -1453,6 +1564,7 @@ fn parse_match_body(token_queue: *TokenQueue, allocator: std.mem.Allocator) !std
         t.body = "";
         t.ast_type = TeleAstType.case_clause;
         t.children = children;
+        t.col = 0;
         errdefer tele_ast.free_tele_ast(t, allocator);
 
         try alist.append(t);
@@ -1762,13 +1874,13 @@ fn parse_function_signature(token_queue: *TokenQueue, allocator: std.mem.Allocat
     tast.*.body = "";
     tast.*.ast_type = TeleAstType.function_signature;
     tast.*.children = children;
+    tast.*.col = 0;
 
     return tast;
 }
 
 fn parse_function_signature_param(token_queue: *TokenQueue, allocator: std.mem.Allocator) !*TeleAst {
     var buffer_token_queue = try TokenQueue.init(allocator);
-    //errdefer buffer_token_queue.deinit();
 
     var n_count: usize = 1;
     while (!token_queue.empty()) {
@@ -1836,6 +1948,7 @@ fn parse_function_call(body: []const u8, token_queue: *TokenQueue, allocator: st
     t.*.body = body;
     t.*.ast_type = TeleAstType.function_call;
     t.*.children = children;
+    t.*.col = 0;
     return t;
 }
 
@@ -1987,6 +2100,14 @@ fn is_record_start(buf: []const u8) bool {
 
 test "is record start" {
     try std.testing.expect(is_record_start("#foobar("));
+}
+
+fn is_arrow_operator(buf: []const u8) bool {
+    if (buf.len != 2) {
+        return false;
+    }
+
+    return std.mem.eql(u8, buf, "=>");
 }
 
 fn is_operator(buf: []const u8) bool {

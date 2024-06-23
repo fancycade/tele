@@ -27,3 +27,6 @@ def wowzer():
 
 def wowzer_fun():
   #wowzer/0
+
+def woop():
+  (1, 2) => 2 + 2 

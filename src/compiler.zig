@@ -195,6 +195,21 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
                 return CompilerError.CompilingFailure;
             };
         },
+        .try_catch => {
+            return tele_to_erlang_try_catch(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .try_exp => {
+            return tele_to_erlang_try_exp(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .catch_exp => {
+            return tele_to_erlang_catch_exp(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
     }
 }
 
@@ -805,6 +820,51 @@ fn tele_to_erlang_case(t: *const TeleAst, allocator: std.mem.Allocator) !*Erlang
 }
 
 test "tele to erlang case" {}
+
+fn tele_to_erlang_try_catch(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.body = "";
+    e.*.ast_type = ErlangAstType.try_catch;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+test "tele to erlang try catch" {}
+
+fn tele_to_erlang_try_exp(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.body = "";
+    e.*.ast_type = ErlangAstType.try_exp;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+test "tele to erlang try exp" {}
+
+fn tele_to_erlang_catch_exp(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.body = "";
+    e.*.ast_type = ErlangAstType.catch_exp;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+test "tele to erlang catch exp" {}
 
 fn tele_to_erlang_attribute(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const e = try allocator.create(ErlangAst);

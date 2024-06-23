@@ -29,4 +29,11 @@ def wowzer_fun():
   #wowzer/0
 
 def woop():
-  (1, 2) => 2 + 2 
+  (1, 2) => 2 + 2
+
+def oopsie():
+  try stuff():
+    _: 'ok
+  catch:
+    error.e:
+      #('error, error, e)

@@ -1322,6 +1322,16 @@ fn parse_body(token_queue: *TokenQueue, allocator: std.mem.Allocator) ParserErro
                 alist.append(ast) catch {
                     return ParserError.ParsingFailure;
                 };
+            } else if (is_try_keyword(pnode.*.body)) {
+                const current_col = pnode.*.col;
+
+                const ast = parse_try_catch(token_queue, allocator, current_col) catch {
+                    return ParserError.ParsingFailure;
+                };
+                errdefer tele_ast.free_tele_ast(ast, allocator);
+                alist.append(ast) catch {
+                    return ParserError.ParsingFailure;
+                };
             } else {
                 return ParserError.ParsingFailure;
             }
@@ -1392,18 +1402,18 @@ fn parse_body_line(token_queue: *TokenQueue, allocator: std.mem.Allocator, curre
         return ParserError.ParsingFailure;
     };
     errdefer tele_ast.free_tele_ast_list(alist, allocator);
-    defer alist.deinit();
 
     if (!buffer_token_queue.empty()) {
         return ParserError.ParsingFailure;
     }
-    buffer_token_queue.deinit();
     if (alist.items.len != 1) {
         return ParserError.ParsingFailure;
     }
 
     // Statement should have one AST item that needs to be popped off
     const ast = alist.pop();
+    buffer_token_queue.deinit();
+    alist.deinit();
     return ast;
 }
 
@@ -1700,6 +1710,134 @@ test "parse match signature" {
     test_allocator.destroy(result);
 }
 
+fn parse_try_catch(token_queue: *TokenQueue, allocator: std.mem.Allocator, current_col: usize) !*TeleAst {
+    // Pop off try keyword
+    const n = try token_queue.pop();
+    allocator.free(n.*.body);
+    allocator.destroy(n);
+
+    var buffer_token_queue = try TokenQueue.init(allocator);
+    errdefer buffer_token_queue.deinit();
+
+    // Parse Try Expression
+    while (!token_queue.empty()) {
+        const pnode2 = token_queue.peek() catch {
+            return ParserError.ParsingFailure;
+        };
+
+        if (pnode2.*.col <= current_col) {
+            break;
+        } else {
+            const node = try token_queue.pop();
+            errdefer allocator.free(node.*.body);
+            errdefer allocator.destroy(node);
+
+            buffer_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                return ParserError.ParsingFailure;
+            };
+            allocator.destroy(node);
+        }
+    }
+
+    const signature_ast = try parse_match_signature(buffer_token_queue, allocator);
+    errdefer tele_ast.free_tele_ast(signature_ast, allocator);
+
+    var try_children = std.ArrayList(*TeleAst).init(allocator);
+    errdefer tele_ast.free_tele_ast_list(try_children, allocator);
+    try try_children.append(signature_ast);
+
+    var body = try parse_match_body(buffer_token_queue, allocator);
+    errdefer tele_ast.free_tele_ast_list(body, allocator);
+    if (!buffer_token_queue.empty()) {
+        return ParserError.ParsingFailure;
+    }
+
+    for (body.items) |c| {
+        try try_children.append(c);
+    }
+    body.deinit();
+
+    const try_ast = try allocator.create(TeleAst);
+    try_ast.*.body = "";
+    try_ast.*.ast_type = TeleAstType.try_exp;
+    try_ast.*.children = try_children;
+    try_ast.*.col = 0;
+
+    // Pop off catch keyword
+    const n_catch = try token_queue.pop();
+    errdefer allocator.free(n_catch.*.body);
+    errdefer allocator.destroy(n_catch);
+    if (!is_catch_keyword(n_catch.*.body)) {
+        return ParserError.ParsingFailure;
+    }
+    allocator.free(n_catch.*.body);
+    allocator.destroy(n_catch);
+
+    // Pop off colon
+    const n_colon = try token_queue.pop();
+    errdefer allocator.free(n_colon.*.body);
+    errdefer allocator.destroy(n_colon);
+    if (!is_colon(n_colon.*.body)) {
+        return ParserError.ParsingFailure;
+    }
+    allocator.free(n_colon.*.body);
+    allocator.destroy(n_colon);
+
+    // Parse Catch Expression
+    while (!token_queue.empty()) {
+        const pnode2 = token_queue.peek() catch {
+            return ParserError.ParsingFailure;
+        };
+
+        if (pnode2.*.col <= current_col) {
+            break;
+        } else {
+            const node = try token_queue.pop();
+            errdefer allocator.free(node.*.body);
+            errdefer allocator.destroy(node);
+
+            buffer_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                return ParserError.ParsingFailure;
+            };
+            allocator.destroy(node);
+        }
+    }
+
+    var catch_children = std.ArrayList(*TeleAst).init(allocator);
+    errdefer tele_ast.free_tele_ast_list(catch_children, allocator);
+    try try_children.append(signature_ast);
+
+    var body2 = try parse_match_body(buffer_token_queue, allocator);
+    errdefer tele_ast.free_tele_ast_list(body2, allocator);
+    if (!buffer_token_queue.empty()) {
+        return ParserError.ParsingFailure;
+    }
+
+    for (body2.items) |c| {
+        try catch_children.append(c);
+    }
+    body2.deinit();
+
+    const catch_ast = try allocator.create(TeleAst);
+    catch_ast.*.body = "";
+    catch_ast.*.ast_type = TeleAstType.catch_exp;
+    catch_ast.*.children = catch_children;
+    catch_ast.*.col = 0;
+
+    const final_ast = try allocator.create(TeleAst);
+    final_ast.*.body = "";
+    final_ast.*.ast_type = TeleAstType.try_catch;
+
+    var children = std.ArrayList(*TeleAst).init(allocator);
+    errdefer tele_ast.free_tele_ast_list(children, allocator);
+    try children.append(try_ast);
+    try children.append(catch_ast);
+    final_ast.*.children = children;
+    final_ast.*.col = 0;
+
+    buffer_token_queue.deinit();
+    return final_ast;
+}
 fn parse_case_clause_signature(token_queue: *TokenQueue, allocator: std.mem.Allocator, clause_col: *usize) !*TeleAst {
     var buffer_token_queue = try TokenQueue.init(allocator);
     errdefer buffer_token_queue.deinit();
@@ -2184,6 +2322,12 @@ fn is_body_keyword(buf: []const u8) bool {
         }
     }
 
+    if (buf[0] == 't') {
+        if (std.mem.eql(u8, "try", buf)) {
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -2194,6 +2338,32 @@ fn is_match_keyword(buf: []const u8) bool {
 
     if (buf[0] == 'm') {
         if (std.mem.eql(u8, "match", buf)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+fn is_try_keyword(buf: []const u8) bool {
+    if (buf.len != 3) {
+        return false;
+    }
+
+    if (buf[0] == 't') {
+        if (std.mem.eql(u8, "try", buf)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+fn is_catch_keyword(buf: []const u8) bool {
+    if (buf.len != 5) {
+        return false;
+    }
+
+    if (buf[0] == 'c') {
+        if (std.mem.eql(u8, "catch", buf)) {
             return true;
         }
     }

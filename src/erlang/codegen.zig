@@ -481,6 +481,61 @@ pub const Context = struct {
         _ = try w.write("end");
     }
 
+    pub fn write_try_catch(self: *Self, w: anytype, a: *const Ast) !void {
+        try self.write_try_exp(w, a.*.children.?.items[0]);
+        try self.write_catch_exp(w, a.*.children.?.items[1]);
+    }
+
+    pub fn write_try_exp(self: *Self, w: anytype, a: *const Ast) !void {
+        try self.write_padding(w);
+        // Check for children with minimum length of 2
+
+        _ = try w.write("try ");
+        try self.push_padding(0);
+        try self.write_ast(w, a.children.?.items[0]);
+        try self.pop_padding();
+        _ = try w.write(" of");
+
+        var i: usize = 1;
+        var loop = true;
+        try self.push_padding(self.current_padding() + 4);
+
+        while (loop) {
+            _ = try w.write("\n");
+            try self.write_ast(w, a.children.?.items[i]);
+            const len = a.children.?.items.len;
+
+            if (i + 1 != len) {
+                _ = try w.write(";");
+            }
+
+            i += 1;
+            if (i >= len) {
+                loop = false;
+            }
+        }
+        try self.pop_padding();
+
+        _ = try w.write("\n");
+    }
+
+    pub fn write_catch_exp(self: *Self, w: anytype, a: *const Ast) !void {
+        try self.write_padding(w);
+        // Check for children with minimum length of 1
+
+        _ = try w.write("catch\n");
+
+        try self.push_padding(self.current_padding() + 4);
+        for (a.*.children.?.items) |c| {
+            try self.write_ast(w, c);
+        }
+        try self.pop_padding();
+        _ = try w.write("\n");
+
+        try self.write_padding(w);
+        _ = try w.write("end");
+    }
+
     pub fn push_match(self: *Self) void {
         self.*.match_count += 1;
     }
@@ -636,6 +691,21 @@ pub const Context = struct {
             },
             .guard_clause => {
                 self.write_guard_clause(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .try_catch => {
+                self.write_try_catch(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .try_exp => {
+                self.write_try_exp(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .catch_exp => {
+                self.write_catch_exp(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

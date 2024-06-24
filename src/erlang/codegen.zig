@@ -33,7 +33,7 @@ pub const Context = struct {
         } else {
             _ = try w.write("<<");
             _ = try w.write(a.body);
-            _ = try w.write(">>");
+            _ = try w.write("/utf8>>");
         }
     }
 
@@ -749,7 +749,7 @@ test "write binary" {
 
     try context.write_binary(list.writer(), &Ast{ .body = "\"foobar\"", .ast_type = AstType.binary, .children = null });
 
-    try std.testing.expect(std.mem.eql(u8, list.items, "<<\"foobar\">>"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "<<\"foobar\"/utf8>>"));
 }
 
 test "write tuple" {
@@ -787,7 +787,7 @@ test "write list" {
 
     try context.write_list(list.writer(), &Ast{ .body = "", .children = children, .ast_type = AstType.list });
 
-    try std.testing.expect(std.mem.eql(u8, list.items, "[1, foo, 42.42, <<\"foobar\">>]"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "[1, foo, 42.42, <<\"foobar\"/utf8>>]"));
 }
 
 test "write map" {
@@ -827,7 +827,7 @@ test "write record" {
 
     try context.write_record(list.writer(), &Ast{ .body = "person", .ast_type = AstType.record, .children = children });
 
-    try std.testing.expect(std.mem.eql(u8, list.items, "#person{name=<<\"Joe\">>, age=68}"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "#person{name=<<\"Joe\"/utf8>>, age=68}"));
 }
 
 test "write op" {

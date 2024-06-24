@@ -64,14 +64,14 @@ pub fn main() !void {
     }
 
     // Generate formatted tele file
-    var tfile = try std.fs.cwd().createFile("other.tl", .{});
-    defer tfile.close();
-    var tcontext = TeleContext.init(allocator);
-    defer tcontext.deinit();
-    const tw = tfile.writer();
-    for (ta2.items) |c| {
-        try tcontext.write_ast(tw, c);
-    }
+    // var tfile = try std.fs.cwd().createFile("other.tl", .{});
+    // defer tfile.close();
+    // var tcontext = TeleContext.init(allocator);
+    // defer tcontext.deinit();
+    // const tw = tfile.writer();
+    // for (ta2.items) |c| {
+    //    try tcontext.write_ast(tw, c);
+    // }
 
     // Use code path to make output file name
     var file = try std.fs.cwd().createFile(erlang_path, .{});

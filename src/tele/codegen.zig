@@ -274,6 +274,7 @@ pub const Context = struct {
             }
 
             try self.write_ast(w, a.children.?.items[i]);
+            _ = try w.write("\n");
 
             i = i + 1;
         }
@@ -908,7 +909,7 @@ test "write anonymous function" {
     try children.append(&a3);
 
     try context.write_anonymous_function(list.writer(), &Ast{ .body = "", .ast_type = AstType.anonymous_function, .children = children, .col = 0 });
-    try std.testing.expect(std.mem.eql(u8, list.items, "() ->\n    hello()\n    world()\n"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "() =>\n  hello()\n  world()\n"));
 }
 
 test "write function def" {

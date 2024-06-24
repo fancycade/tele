@@ -329,13 +329,40 @@ fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator, capi
     // If not add V prefix to var (does Erlang even support UTF-8 variables ?)
 
     if (capitalize) {
-        if (std.ascii.isLower(buf[0])) {
+        if (buf[0] == '_' and buf.len > 1) {
+            if (std.ascii.isLower(buf[1])) {
+                buf[1] = std.ascii.toUpper(buf[1]);
+            }
+        } else if (std.ascii.isLower(buf[0])) {
             buf[0] = std.ascii.toUpper(buf[0]);
+        }
+
+        if (contains_dot(buf)) {
+            var i: usize = 0;
+            while (i < buf.len) {
+                if (buf[i] == '.') {
+                    buf[i] = ':';
+                    buf[i + 1] = std.ascii.toUpper(buf[i + 1]);
+                    break;
+                }
+                i = i + 1;
+            }
         }
     }
 
     e.*.body = buf;
     return e;
+}
+
+fn contains_dot(buf: []const u8) bool {
+    var i: usize = 0;
+    while (i < buf.len) {
+        if (buf[i] == '.') {
+            return true;
+        }
+        i = i + 1;
+    }
+    return false;
 }
 
 test "tele to erlang variable" {

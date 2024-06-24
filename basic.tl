@@ -37,3 +37,14 @@ def oopsie():
   catch:
     error.e:
       #('error, error, e)
+
+def foo():
+  match bar():
+    _result:
+      'ok
+
+def basic_bin():
+  "hello world"
+
+def hello_there():
+  io.format("~s~n", ["Hello, World!"])

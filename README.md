@@ -6,7 +6,7 @@ tele does not have a standard library or build tool as it is meant to be seamles
 
 For more detailed info see `SPEC.md`.
 
-# Install
+## Install
 
 Install latest version of Zig from [here](https://ziglang.org/download/).
 
@@ -14,7 +14,7 @@ Install Erlang, on Debian it would look like this:
 
     apt install erlang
 
-# Build
+## Build
 
 Building tele is simple:
 
@@ -22,7 +22,11 @@ Building tele is simple:
 
 The executable will be located at `./zig-out/bin/tele`.
 
-# Usage
+## Test
+
+    zig build test
+
+## Usage
 
 Make a simple tele module like this:
 

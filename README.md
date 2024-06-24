@@ -45,7 +45,7 @@ In the Erlang shell you can compile the Erlang code:
 
 Then you can call the `hello_world` function:
 
-    hello:hello_world()
+    hello:hello_world().
 
 ## License
 

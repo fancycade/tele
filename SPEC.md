@@ -2,7 +2,7 @@
 
 An Erlang frontend. A programming language designed to be compiled to Erlang that is easier to read and write than Erlang.
 
-This means that Telelang must have a 1 to 1 feature equivalent feature with Erlang.
+The intent is that telelang has a 1 to 1 equivalence with Erlang's core semantics.
 
 Inspired by [Mochi](https://github.com/i2y/mochi), [Rhombus](https://docs.racket-lang.org/rhombus/index.html), [Elixir](https://elixir-lang.org/), Haskell, OCaml, Python, Typescript, and Scheme.
 
@@ -88,12 +88,6 @@ Binaries are like Elixir
 
 This is equivalent to <<"foobar"/utf8>> in Erlang.
 
-### PID
-
-You won't need to declare syntax for PID. It is represented like it is in Erlang:
-
-    <0.54.0>
-
 ### Tuples
 
 Tuples are delimited by an opening `#(` and a closing paren `)`.
@@ -172,7 +166,7 @@ This is to tell which function is being used by function arity.
 
 ### Variables
 
-Variables are lower case words
+Variables are lower case words with underscores also being allowed.
 
     a_var = "foobar"
     b_var = 12
@@ -340,7 +334,7 @@ Here is a full module with type signatures and sum types
 
 Type Annotations of anonymous functions look like this:
 
-    (int) -> int
+    (int) => int
 
 NOT
 
@@ -350,7 +344,7 @@ Despite the second looking like a function definition, this is because it makes 
 
     def foo((int): int): (int): int
 
-Is not visually pleasing.
+The above example is difficult to mentally parse.
 
 Defining a function that accepts a function as argument and returns one looks like this:
 
@@ -382,10 +376,6 @@ defining a behaviour is as simple as defining a module with callbacks.
     callback down(#(int, int)): #(int, int)
     callback left(#(int, int)): #(int, int)
     callback right(#(int, int)): #(int, int)
-
-TODO:
-
-Determine if possible to get rid of callback keyword by function signature without implementation.
 
 To make a module adhere to a behaviour:
 
@@ -447,5 +437,3 @@ Erlang can handle exceptions with try/catch statements. The syntax for this in t
     catch:
        _.exception:
          'oops
-
-  

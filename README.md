@@ -4,6 +4,8 @@ tele is an alternate syntax for Erlang. tele code compiles directly to Erlang co
 
 tele does not have a standard library or build tool as it is meant to be seamlessly integrated into Erlang projects.
 
+For more detailed info see `SPEC.md`.
+
 # Install
 
 Install latest version of Zig from [here](https://ziglang.org/download/).

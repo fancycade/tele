@@ -12,6 +12,7 @@ const TeleAstType = tast.AstType;
 const tokenizer = @import("tokenizer.zig");
 const parser = @import("parser.zig");
 const compiler = @import("compiler.zig");
+const test_allocator = std.testing.allocator;
 
 const ExecutionError = error{Empty};
 
@@ -39,7 +40,10 @@ pub fn main() !void {
         return error.InvalidArgs;
     };
 
-    const erlang_path = try erlang_name(code_path, allocator);
+    var output_path: ?[]const u8 = null;
+    output_path = arg_it.next();
+
+    const erlang_path = try erlang_name(code_path, output_path, allocator);
     errdefer allocator.free(erlang_path);
 
     var input_file = try std.fs.cwd().openFile(code_path, .{ .mode = .read_only });
@@ -125,16 +129,41 @@ fn free_erlang_ast_list(ta: std.ArrayList(*const Ast), allocator: std.mem.Alloca
     ta.deinit();
 }
 
-fn erlang_name(path: []const u8, allocator: std.mem.Allocator) ![]const u8 {
+fn erlang_name(path: []const u8, output_prefix: ?[]const u8, allocator: std.mem.Allocator) ![]const u8 {
     const base = std.fs.path.basename(path);
 
-    const buf = try allocator.alloc(u8, base.len + 1);
-    std.mem.copyForwards(u8, buf, base[0 .. base.len - 2]);
-    buf[buf.len - 3] = 'e';
-    buf[buf.len - 2] = 'r';
-    buf[buf.len - 1] = 'l';
+    var buf: []u8 = undefined;
+    if (output_prefix == null) {
+        buf = try allocator.alloc(u8, base.len + 1);
+        std.mem.copyForwards(u8, buf, base[0 .. base.len - 2]);
+    } else if (output_prefix.?[output_prefix.?.len - 1] != '/') { // TODO: Make work for windows
+        buf = try allocator.alloc(u8, (output_prefix.?.len + 1) + (base.len + 1));
+        std.mem.copyForwards(u8, buf, output_prefix.?);
+        buf[output_prefix.?.len] = '/';
+        std.mem.copyForwards(u8, buf[output_prefix.?.len + 1 .. buf.len], base[0 .. base.len - 2]);
+    } else {
+        buf = try allocator.alloc(u8, output_prefix.?.len + base.len + 1);
+        std.mem.copyForwards(u8, buf, output_prefix.?);
+        std.mem.copyForwards(u8, buf[output_prefix.?.len..buf.len], base[0 .. base.len - 2]);
+    }
+    std.mem.copyForwards(u8, buf[buf.len - 3 .. buf.len], "erl");
 
     return buf;
+}
+
+test "erlang name" {
+    const tele_path = "src/foobar/foobar.tl";
+    const erlang_path = try erlang_name(tele_path, "", test_allocator);
+    try std.testing.expect(std.mem.eql(u8, erlang_path, "foobar.erl"));
+    test_allocator.free(erlang_path);
+
+    const erlang_path2 = try erlang_name(tele_path, "_build/tele/", test_allocator);
+    try std.testing.expect(std.mem.eql(u8, erlang_path2, "_build/tele/foobar.erl"));
+    test_allocator.free(erlang_path2);
+
+    const erlang_path3 = try erlang_name(tele_path, "_build/tele", test_allocator);
+    try std.testing.expect(std.mem.eql(u8, erlang_path3, "_build/tele/foobar.erl"));
+    test_allocator.free(erlang_path3);
 }
 
 fn write_function_metadata(w: anytype, md: *const FunctionMetadata) !void {

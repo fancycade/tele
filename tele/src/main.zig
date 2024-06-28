@@ -84,7 +84,7 @@ pub fn main() !void {
     var w = file.writer();
 
     _ = try w.write("-module(");
-    _ = try w.write(erlang_path[0 .. erlang_path.len - 4]);
+    _ = try w.write(std.fs.path.basename(erlang_path[0 .. erlang_path.len - 4]));
     _ = try w.write(").\n");
     _ = try w.write("-export([");
 

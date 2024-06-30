@@ -1,14 +1,14 @@
-def foobar():
+fun foobar():
   () => 2
 
-def foobar2():
+fun foobar2():
   (x) => x + 2
 
-def foobar3(x):
+fun foobar3(x):
   (y) => x + y
 
-def foobar4():
+fun foobar4():
   (y) => (x) => x + y
 
-def foobar5():
+fun foobar5():
   (x, y) => x + y

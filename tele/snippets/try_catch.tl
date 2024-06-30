@@ -1,4 +1,4 @@
-def stuff():
+fun stuff():
   try foo():
     result:
       result

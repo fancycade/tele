@@ -245,23 +245,22 @@ The double semicolon is like an inline type annotation.
 
 ### Function Definitions
 
-    def add(x, y): x + y
+    fun add(x, y): x + y
 
-    def add(x, y):
+    fun add(x, y):
       x + y
 
 Pattern matching with a function definition.
 
-    def foo(x, [1, 2]): x
-    def foo(_x, b): b
+    fun foo(x, [1, 2]): x
+    fun foo(_x, b): b
 
-This is similar to Elixir.
 
 EXPERIMENTAL:
 
 Type annotation syntax in pattern matching that can be translated to guards. Inspired by Rhombus.
 
-    def foo:
+    fun foo:
       (x :: int): x
       (y :: float): y
 
@@ -275,22 +274,22 @@ modules are defined by creating a file and using the name of the file.
 
 A file, `basic.tl`, would be the `basic` module.  
 
-    def hello():
+    fun hello():
       io.format("Hello, World!")
 
-    def foobar(x, y):
+    fun foobar(x, y):
       2 + 2
 
 Functions by default are exported. To prevent this make a private function
 
-    defp foobar(): 2 + 2
+    funp foobar(): 2 + 2
 
 The module might look like this
 
-    def add4(x):
+    fun add4(x):
       add2(add2(x))
 
-    defp add2(x):
+    funp add2(x):
       x + 2
 
 EXPERIMENTAL:
@@ -299,7 +298,7 @@ Make multiple modules inside of a file.
 
     module foobar:
 
-      def foo(a, b):
+      fun foo(a, b):
         a + b
 
 ### Type Specifications 
@@ -309,26 +308,26 @@ These are equivalent to Erlang function specs.
 Type specifications can to apply defined functions function.
 
     spec add(int, int): int
-    def add(x, y):
+    fun add(x, y):
       x + y
 
     spec add2(int): int
-    def add2(x):
+    fun add2(x):
       x + 2
 
 Here is a full module with type signatures and sum types
 
     spec add(int, int): int 
-    def add(x, y):
+    fun add(x, y):
       x + y
 
     spec add2(int): int
-    def add2(x):
+    fun add2(x):
       x + 2
 
     spec div(int, int):
       #('ok, int) | #('error, binary)
-    def div:
+    fun div:
       (_, 0): #('error, 'div_by_zero)
       (a, b): #('ok, a / b)
 
@@ -342,14 +341,14 @@ NOT
 
 Despite the second looking like a function definition, this is because it makes the type annotation clearer.
 
-    def foo((int): int): (int): int
+    fun foo((int): int): (int): int
 
 The above example is difficult to mentally parse.
 
 Defining a function that accepts a function as argument and returns one looks like this:
 
     spec foo((int) => int): (int) => int
-    def foo(f):
+    fun foo(f):
       (n) => f(n)
 
 EXPERIMENTAL:
@@ -382,19 +381,19 @@ To make a module adhere to a behaviour:
     behaviour cursor
      
     spec up(#(int, int)): #(int, int)
-    def up(#(x, y)): 
+    fun up(#(x, y)): 
       #(x, y - 1)
     
     spec down(#(int, int)): #(int, int)
-    def down(#(x, y)):
+    fun down(#(x, y)):
       #(x, y + 1)
     
     spec left(#(int, int)): #(int, int)
-    def left(#(x, y)):
+    fun left(#(x, y)):
       #(x - 1, y)
     
     spec right(#(int, int)): #(int, int)
-    def right(#(x, y)):
+    fun right(#(x, y)):
       #(x + 1, y)
 
 ### Module Aliases
@@ -424,7 +423,7 @@ Erlang version would be:
 
 Tele might look like:
 
-    def pi: 3.14
+    fun pi: 3.14
 
 Notice no function signature.
 

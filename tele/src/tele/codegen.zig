@@ -397,9 +397,9 @@ pub const Context = struct {
             }
             try self.write_padding(w);
             if (private) {
-                _ = try w.write("defp ");
+                _ = try w.write("funp ");
             } else {
-                _ = try w.write("def ");
+                _ = try w.write("fun ");
             }
 
             _ = try w.write(a.body);
@@ -966,7 +966,7 @@ test "write function def matching" {
     try children.append(&a6);
 
     try context.write_function_def(list.writer(), &Ast{ .body = "hello", .ast_type = AstType.function_def, .children = children, .col = 0 }, false);
-    try std.testing.expect(std.mem.eql(u8, list.items, "def hello(1):\n  1\ndef hello(2):\n  2\n\n"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "fun hello(1):\n  1\nfun hello(2):\n  2\n\n"));
 }
 
 test "write case clause" {

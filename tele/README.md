@@ -30,7 +30,7 @@ The executable will be located at `./zig-out/bin/tele`.
 
 Make a simple tele module like this:
 
-    def hello_world():
+    fun hello_world():
       io.format("~s~n", ["Hello, World!"])
 
 Name the file something like `hello.tl`.

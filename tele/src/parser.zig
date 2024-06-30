@@ -68,9 +68,9 @@ pub const Parser = struct {
                     try self.parse_type_definition();
                 } else if (is_spec_keyword(pn.*.body)) {
                     try self.parse_spec_definition();
-                } else if (is_def_keyword(pn.*.body)) {
+                } else if (is_fun_keyword(pn.*.body)) {
                     try self.parse_function_definition(false);
-                } else if (is_defp_keyword(pn.*.body)) {
+                } else if (is_funp_keyword(pn.*.body)) {
                     try self.parse_function_definition(true);
                 } else if (is_record_keyword(pn.*.body)) {
                     try self.parse_record_definition();
@@ -1634,8 +1634,8 @@ fn is_statement_keyword(buf: []const u8) bool {
         return is_spec_keyword(buf);
     }
 
-    if (buf[0] == 'd') {
-        return is_def_keyword(buf) or is_defp_keyword(buf);
+    if (buf[0] == 'f') {
+        return is_fun_keyword(buf) or is_funp_keyword(buf);
     }
 
     if (buf[0] == 't') {
@@ -1650,8 +1650,8 @@ fn is_statement_keyword(buf: []const u8) bool {
 }
 
 test "is statement keyword" {
-    try std.testing.expect(is_statement_keyword("def"));
-    try std.testing.expect(is_statement_keyword("defp"));
+    try std.testing.expect(is_statement_keyword("fun"));
+    try std.testing.expect(is_statement_keyword("funp"));
     try std.testing.expect(is_statement_keyword("spec"));
     try std.testing.expect(is_statement_keyword("type"));
     try std.testing.expect(is_statement_keyword("record"));
@@ -1673,12 +1673,12 @@ fn is_spec_keyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "spec");
 }
 
-fn is_def_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "def");
+fn is_fun_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "fun");
 }
 
-fn is_defp_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "defp");
+fn is_funp_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "funp");
 }
 
 fn is_record_keyword(buf: []const u8) bool {
@@ -1688,8 +1688,8 @@ fn is_record_keyword(buf: []const u8) bool {
 test "is keywords" {
     try std.testing.expect(is_type_keyword("type"));
     try std.testing.expect(is_spec_keyword("spec"));
-    try std.testing.expect(is_def_keyword("def"));
-    try std.testing.expect(is_defp_keyword("defp"));
+    try std.testing.expect(is_fun_keyword("fun"));
+    try std.testing.expect(is_funp_keyword("funp"));
     try std.testing.expect(is_record_keyword("record"));
 }
 
@@ -2291,61 +2291,6 @@ fn is_operator(buf: []const u8) bool {
     return false;
 }
 
-fn is_keyword(buf: []const u8) bool {
-    if (buf.len == 0) {
-        return false;
-    }
-
-    if (buf[0] == 'd') {
-        if (std.mem.eql(u8, "def", buf)) {
-            return true;
-        }
-        if (std.mem.eql(u8, "defp", buf)) {
-            return true;
-        }
-    }
-
-    if (buf[0] == 't') {
-        if (std.mem.eql(u8, "type", buf)) {
-            return true;
-        }
-    }
-
-    if (buf[0] == 'r') {
-        if (std.mem.eql(u8, "record", buf)) {
-            return true;
-        }
-    }
-
-    if (buf[0] == 's') {
-        if (std.mem.eql(u8, "spec", buf)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-fn is_body_keyword(buf: []const u8) bool {
-    if (buf.len == 0) {
-        return false;
-    }
-
-    if (buf[0] == 'm') {
-        if (std.mem.eql(u8, "match", buf)) {
-            return true;
-        }
-    }
-
-    if (buf[0] == 't') {
-        if (std.mem.eql(u8, "try", buf)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 fn is_match_keyword(buf: []const u8) bool {
     if (buf.len == 0) {
         return false;
@@ -2386,11 +2331,11 @@ fn is_catch_keyword(buf: []const u8) bool {
 }
 
 fn is_function_definition(buf: []const u8) bool {
-    return std.mem.eql(u8, "def", buf);
+    return std.mem.eql(u8, "fun", buf);
 }
 
 fn is_priv_function_definition(buf: []const u8) bool {
-    return std.mem.eql(u8, "defp", buf);
+    return std.mem.eql(u8, "funp", buf);
 }
 
 fn is_type_def(buf: []const u8) bool {

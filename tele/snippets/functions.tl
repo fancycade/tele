@@ -1,5 +1,5 @@
-def foo():
+fun foo():
   a + b
 
-def bar():
+fun bar():
   c + d

@@ -858,7 +858,7 @@ test "tokenize functions" {
     var ctx = TokenContext{ .leftover = 0, .line_number = 0, .col_number = 0, .next_line_number = 0, .next_col_number = 0 };
     _ = try read_token(file.reader(), &list, &ctx);
 
-    try expect(eql(u8, list.items, "def"));
+    try expect(eql(u8, list.items, "fun"));
     try expect(ctx.line_number == 0);
     try expect(ctx.col_number == 0);
     try expect(ctx.next_col_number == 3);
@@ -922,7 +922,7 @@ test "tokenize functions" {
     list.clearAndFree();
 
     _ = try read_token(file.reader(), &list, &ctx);
-    try expect(eql(u8, list.items, "def"));
+    try expect(eql(u8, list.items, "fun"));
     try expect(ctx.line_number == 3);
     try expect(ctx.col_number == 0);
     try expect(ctx.next_col_number == 3);

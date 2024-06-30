@@ -13,6 +13,7 @@ pub const TokenQueue = struct {
 
     head: ?*TokenQueueNode,
     tail: ?*TokenQueueNode,
+    len: usize,
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*Self {
@@ -20,6 +21,7 @@ pub const TokenQueue = struct {
         queue.*.allocator = allocator;
         queue.*.head = null;
         queue.*.tail = null;
+        queue.*.len = 0;
         return queue;
     }
 
@@ -50,6 +52,7 @@ pub const TokenQueue = struct {
             self.tail.?.next = node;
             self.tail = self.tail.?.next;
         }
+        self.len += 1;
     }
 
     pub fn pop(self: *Self) !*TokenQueueNode {
@@ -61,6 +64,7 @@ pub const TokenQueue = struct {
             node.?.next = null;
             return node.?;
         }
+        self.len -= 1;
     }
 
     pub fn peek(self: *Self) !*TokenQueueNode {
@@ -73,6 +77,10 @@ pub const TokenQueue = struct {
 
     pub fn empty(self: *Self) bool {
         return self.head == null;
+    }
+
+    pub fn count(self: *Self) usize {
+        return self.len;
     }
 };
 

@@ -48,3 +48,32 @@ def basic_bin():
 
 def hello_there():
   io.format("~s~n", ["Hello, World!"])
+
+def hello_there2():
+  io.format(
+    "~s~n",
+    ["Hello, World!"]
+  )
+
+def multi_line_arrow():
+  () =>
+    a = 2
+    b = 3
+    a + b
+
+def multi_line_paren_op():
+  (2 + 4) +
+  (3 + 4)
+
+def multi_line_match_equal():
+  a =
+  match 42:
+    _x: 'ok
+  a
+
+def multi_line_arrow_equal():
+  a =
+  () =>
+    x = 2
+    x + 4
+  a

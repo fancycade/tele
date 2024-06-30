@@ -337,7 +337,7 @@ fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator, capi
             buf[0] = std.ascii.toUpper(buf[0]);
         }
 
-        if (contains_dot(buf)) {
+        if (contains_dot(buf) and !contains_hash(buf)) {
             var i: usize = 0;
             while (i < buf.len) {
                 if (buf[i] == '.') {

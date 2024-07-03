@@ -128,9 +128,19 @@ Erlang has map update syntax like this:
 Tele could do map update syntax like this:
 
     m = {}
-    {m, "foo": "bar"}
+    {m | "foo": "bar"}
 
-The updated map must be the first element of the new map.
+This is similar to Elm. However, Erlang already has the cons operator, would make sense to make it similar:
+
+    {"foo": "bar" | m}
+
+The downside of this is that it can't be pattern matched like the list cons operator can. Which makes it not like
+the list cons operator and misleading.
+
+Keeping the value at the front of the expression makes it clearer that there is a map update happening. This map
+update syntax is not too far from the Erlang syntax.
+
+    M#{<<"foo">> => <<"bar">>}
 
 ### Anonymous Functions
 

@@ -244,6 +244,8 @@ pub const Parser = struct {
 
     fn parse_function_signature_param(self: *Self, token_queue: *TokenQueue) !void {
         var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
+        defer buffer_token_queue.deinit();
 
         var n_count: usize = 1;
         while (!token_queue.empty()) {

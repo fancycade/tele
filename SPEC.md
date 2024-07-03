@@ -193,9 +193,20 @@ Variables are lower case words with underscores also being allowed.
 
 ### Records
 
-Instantiating a record.
+Defining a record looks like this:
 
     record thing: #(a, b)
+
+To specify optional values for the keys:
+
+   record thing: #(a = 42, b)
+
+To specify the types of the keys:
+
+   record thing:
+     #(a = 42: integer, b: integer)
+
+Instantiating a record.
 
     a = #thing(a=12, b=43)
     b = #thing(12, 43)

@@ -335,6 +335,16 @@ Type specifications can to apply defined functions function.
     fun add2(x):
       x + 2
 
+Ending parenthesis on a type specification are completely optional.
+
+    spec add(int(), int()): int()
+
+OR
+
+    spec add(int, int): int
+
+The tele compiler will be able to do this automatically.
+
 Here is a full module with type signatures and sum types
 
     spec add(int, int): int 

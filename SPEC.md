@@ -104,6 +104,16 @@ Lists are the same as in Erlang
 
 Similar to Erlang, Javascript, and Python.
 
+cons operator for list is same as in Erlang.
+
+    l = [2, 3]
+    [1 | l]
+
+This also includes cons multiple values like Erlang.
+
+    l = []
+    [1, 2, 3 | l]
+
 ### Maps
 
 Maps are delimited with '{' and '}': 

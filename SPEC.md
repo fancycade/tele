@@ -346,7 +346,7 @@ Type specifications can to apply defined functions function.
     fun add2(x):
       x + 2
 
-Ending parenthesis on a type specification are completely optional.
+Matching parenthesis on a type specification are completely optional.
 
     spec add(int(), int()): int()
 
@@ -355,6 +355,15 @@ OR
     spec add(int, int): int
 
 The tele compiler will be able to do this automatically.
+
+The tradeoff with lowercase variables and optional parens for types is that Erlang's when syntax in types
+is not possible. The reason is that it cannot be determined what a variable is.
+
+    spec add(n, integer) when n :: integer(): integer
+
+The above is not allowed. Meaning spec constraints are not possible in tele. Considering this is minor niche
+feature it is not a huge loss. Whereas making parens optional helps reduce the number of syntax errors when
+writing tele programs.
 
 Here is a full module with type signatures and sum types
 
@@ -396,14 +405,14 @@ EXPERIMENTAL:
 
 Records with type annotations look like this:
 
-    type foo: #(a: int, b: int)
+    type foo: #(a: integer b: integer)
 
 ### Type Aliases
 
 Make a new type with a type alias
 
-    type foo: int
-    type id: int
+    type foo: integer
+    type id: integer
     type options: 'foo | 'bar | 'baz
 
 ### Behaviours
@@ -412,10 +421,10 @@ Erlang has the concept of behaviours which are like module interfaces.
 
 defining a behaviour is as simple as defining a module with callbacks.
 
-    callback up(#(int, int)): #(int, int)
-    callback down(#(int, int)): #(int, int)
-    callback left(#(int, int)): #(int, int)
-    callback right(#(int, int)): #(int, int)
+    callback up(#(integer, integer)): #(integer, integer)
+    callback down(#(integer, integer)): #(integer, integer)
+    callback left(#(integer, integer)): #(integer, integer)
+    callback right(#(integer, integer)): #(integer, integer)
 
 To make a module adhere to a behaviour:
 

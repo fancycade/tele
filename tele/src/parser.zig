@@ -1531,7 +1531,17 @@ pub const Parser = struct {
             if (self.ast_stack.items.len < 1) {
                 return ParserError.ParsingFailure;
             }
-            try children.append(self.ast_stack.pop());
+            const ast = self.ast_stack.pop();
+            if (ast.ast_type == TeleAstType.guard_clause) {
+                errdefer tele_ast.free_tele_ast(ast, self.allocator);
+                if (self.ast_stack.items.len < 1) {
+                    return ParserError.ParsingFailure;
+                }
+                try children.append(self.ast_stack.pop());
+                try children.append(ast);
+            } else {
+                try children.append(ast);
+            }
 
             var case_clause_body = try self.parse_case_clause_body(token_queue, clause_col);
             errdefer tele_ast.free_tele_ast_list(case_clause_body, self.allocator);
@@ -1716,7 +1726,12 @@ pub const Parser = struct {
 
         try self.parse_exp(buffer_token_queue);
         if (!buffer_token_queue.empty()) {
-            return ParserError.ParsingFailure;
+            const pn = try buffer_token_queue.peek();
+            if (std.mem.eql(u8, "when", pn.*.body)) {
+                try self.parse_guard_clause(buffer_token_queue);
+            } else {
+                return ParserError.ParsingFailure;
+            }
         }
         buffer_token_queue.deinit();
     }

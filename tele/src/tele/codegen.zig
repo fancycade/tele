@@ -289,7 +289,9 @@ pub const Context = struct {
 
         if (a.children.?.items[1].ast_type == AstType.guard_clause) {
             _ = try w.write(" ");
+            try self.push_padding(0);
             try self.write_guard_clause(w, a.children.?.items[1]);
+            try self.pop_padding();
 
             i = i + 1;
         }

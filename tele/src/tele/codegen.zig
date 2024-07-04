@@ -221,10 +221,8 @@ pub const Context = struct {
 
         // Look for guard clause
         var guard: bool = false;
-        for (a.children.?.items) |c| {
-            if (c.ast_type == AstType.guard_clause) {
-                guard = true;
-            }
+        if (a.children.?.items[a.children.?.items.len - 1] == AstType.guard_clause) {
+            guard = true;
         }
 
         var len = a.children.?.items.len;

@@ -212,19 +212,22 @@ pub const Parser = struct {
         self.allocator.destroy(ini);
 
         var children: ?std.ArrayList(*TeleAst) = null;
+        errdefer free_null_children(children, self.allocator);
 
         const pn2 = try token_queue.peek();
 
         if (!is_paren_end(pn2.*.body)) {
             children = std.ArrayList(*TeleAst).init(self.allocator);
-            errdefer tele_ast.free_tele_ast_list(children.?, self.allocator);
 
             while (!token_queue.empty()) {
-                try self.parse_function_signature_param(token_queue, type_exp);
+                const found_end = try self.parse_function_signature_param(token_queue, type_exp);
                 if (self.ast_stack.items.len < 1) {
                     return ParserError.ParsingFailure;
                 }
                 try children.?.append(self.ast_stack.pop());
+                if (found_end) {
+                    break;
+                }
             }
         } else {
             // Free Paren End Token
@@ -233,7 +236,21 @@ pub const Parser = struct {
             self.allocator.destroy(tn);
         }
 
-        // TODO: Support guard clauses for function signatures
+        if (!token_queue.empty()) {
+            if (children == null) {
+                return ParserError.ParsingFailure;
+            }
+            const pn = try token_queue.peek();
+            if (std.mem.eql(u8, "when", pn.*.body)) {
+                try self.parse_guard_clause(token_queue);
+                if (self.ast_stack.items.len < 1) {
+                    return ParserError.ParsingFailure;
+                }
+                try children.?.append(self.ast_stack.pop());
+            } else {
+                return ParserError.ParsingFailure;
+            }
+        }
 
         const tast = try self.allocator.create(TeleAst);
         tast.*.body = "";
@@ -244,10 +261,18 @@ pub const Parser = struct {
         try self.ast_stack.append(tast);
     }
 
-    fn parse_function_signature_param(self: *Self, token_queue: *TokenQueue, type_exp: bool) !void {
+    fn free_null_children(children: ?std.ArrayList(*TeleAst), allocator: std.mem.Allocator) void {
+        if (children != null) {
+            tele_ast.free_tele_ast_list(children.?, allocator);
+        }
+    }
+
+    fn parse_function_signature_param(self: *Self, token_queue: *TokenQueue, type_exp: bool) !bool {
         var buffer_token_queue = try TokenQueue.init(self.allocator);
         errdefer buffer_token_queue.deinit();
         defer buffer_token_queue.deinit();
+
+        var found_end: bool = false;
 
         var n_count: usize = 1;
         while (!token_queue.empty()) {
@@ -256,6 +281,9 @@ pub const Parser = struct {
             errdefer self.allocator.destroy(n2);
 
             if (n_count == 1 and (is_comma(n2.*.body) or is_paren_end(n2.*.body))) {
+                if (is_paren_end(n2.*.body)) {
+                    found_end = true;
+                }
                 self.allocator.free(n2.*.body);
                 self.allocator.destroy(n2);
                 break;
@@ -276,6 +304,25 @@ pub const Parser = struct {
         } else {
             try self.parse_exp(buffer_token_queue);
         }
+
+        return found_end;
+    }
+
+    fn parse_guard_clause(self: *Self, token_queue: *TokenQueue) !void {
+        // Pop off when keyword
+        const n = try token_queue.pop();
+        self.allocator.free(n.*.body);
+        self.allocator.destroy(n);
+
+        const alist = try self.parse_body(token_queue);
+
+        const t = try self.allocator.create(TeleAst);
+        t.*.body = "";
+        t.*.ast_type = TeleAstType.guard_clause;
+        t.*.children = alist;
+        t.*.col = 0;
+
+        try self.ast_stack.append(t);
     }
 
     fn parse_spec_definition(self: *Self) !void {
@@ -1414,7 +1461,6 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         }
         const signature_ast = self.ast_stack.pop();
-        errdefer tele_ast.free_tele_ast(signature_ast, self.allocator);
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.free_tele_ast_list(children, self.allocator);

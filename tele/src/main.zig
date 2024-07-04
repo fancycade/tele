@@ -192,7 +192,13 @@ fn scan_function_metadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Alloca
                 if (c.*.children == null) {
                     md.*.args = 0;
                 } else {
-                    md.*.args = c.*.children.?.items.len;
+                    var count: usize = 0;
+                    for (c.*.children.?.items) |ch| {
+                        if (ch.ast_type != TeleAstType.guard_clause) {
+                            count += 1;
+                        }
+                    }
+                    md.*.args = count;
                 }
             }
 

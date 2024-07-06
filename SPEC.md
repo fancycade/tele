@@ -332,6 +332,98 @@ Make multiple modules inside of a file.
       fun foo(a, b):
         a + b
 
+### Module Attributes
+
+## Not Supported
+
+- module
+- export
+- export_all
+
+## import
+
+Tele equivalent of this Erlang code:
+
+    -import(foo_mod, [do_thing/1, do_thing2/3]).
+
+Would be:
+
+    import foo_mod: [#do_thing/1, #do_thing2/3]
+
+## compile
+
+    compile: 'inline
+    compile: #('inline, [#pi/0])
+
+## vsn
+
+    vsn: 2
+
+## on_load
+
+    on_load: #init_info/2
+
+## nifs
+
+    nifs: [#native_call/2, #native_other_call/3]
+
+## behaviour
+
+
+    behaviour: 'gen_server
+
+EXPERIMENTAL:
+
+Since it might be common to forget the ' at the beginning,
+can support an atom as optional and could be a variable.
+
+    behaviour: gen_server
+
+## callback
+
+    callback do_thing(integer): integer
+
+## include
+
+    include: "include/some/header.hrl"
+
+## include_lib
+
+    include_lib: "kernel/include/file.htl"
+
+## define
+
+    define NUMBER: 42
+    define MACRO1(x, y):
+      #('a, x, 'b, y)
+
+## file
+
+For now not supported until use case determined. Can use tuple to get around arity of 2 issue.
+
+    file #("some/path", 17)
+
+## doc
+
+    doc: "this is a documentation"
+
+    doc: """
+    This is a multiline
+    comment that goes on and on...
+    """
+
+## moduledoc
+
+    moduledoc: "this is module doc"
+    
+    moduledoc: """
+    this is a multiline module doc
+    """
+
+## feature
+
+    feature maybe_exp: 'enable
+
 ### Type Specifications 
 
 These are equivalent to Erlang function specs.

@@ -11,8 +11,7 @@ fun fooboo():
   a = a#point(x=42)
   a#point.x
 
-record point:
-  #('a, 'b)
+record point: #(a, b)
 
 type stuff: int() | float()
 

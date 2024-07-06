@@ -509,11 +509,12 @@ pub const Parser = struct {
         const current_col = n.*.col;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
+
+        // Record Definition Name
         const node3 = self.token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
 
-        // type Definition Name
         const buf = node3.*.body;
         self.allocator.destroy(node3);
 
@@ -524,10 +525,7 @@ pub const Parser = struct {
         self.allocator.free(cn.*.body);
         self.allocator.destroy(cn);
 
-        var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
-
-        // type Definition Body
+        // Record Definition Body
         var token_queue3 = try TokenQueue.init(self.allocator);
         errdefer token_queue3.deinit();
         if (self.token_queue.empty()) {
@@ -552,17 +550,38 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         }
 
-        self.parse_tuple(token_queue3, false) catch {
+        // Skip tuple start
+        const cn2 = token_queue3.pop() catch {
             return ParserError.ParsingFailure;
         };
+        self.allocator.free(cn2.*.body);
+        self.allocator.destroy(cn2);
+
+        var children: ?std.ArrayList(*TeleAst) = null;
+
+        const pn = try token_queue3.peek();
+        if (!is_paren_end(pn.*.body)) {
+            children = std.ArrayList(*TeleAst).init(self.allocator);
+
+            while (!token_queue3.empty()) {
+                const found_end = try self.parse_record_field(token_queue3, true);
+                if (self.ast_stack.items.len < 1) {
+                    return ParserError.ParsingFailure;
+                }
+                try children.?.append(self.ast_stack.pop());
+                if (found_end) {
+                    break;
+                }
+            }
+        } else {
+            const temp = try token_queue3.pop();
+            self.allocator.free(temp.*.body);
+            self.allocator.destroy(temp);
+        }
+
         if (!token_queue3.empty()) {
             return ParserError.ParsingFailure;
         }
-        if (self.ast_stack.items.len < 1) {
-            return ParserError.ParsingFailure;
-        }
-
-        try children.append(self.ast_stack.pop());
 
         // Assemble Record Definition Ast
         const t = try self.allocator.create(TeleAst);
@@ -572,6 +591,134 @@ pub const Parser = struct {
         t.*.col = 0;
 
         token_queue3.deinit();
+
+        try self.ast_stack.append(t);
+    }
+
+    fn parse_record_field(self: *Self, token_queue: *TokenQueue, type_exp: bool) !bool {
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        defer buffer_token_queue.deinit();
+
+        var found_end: bool = false;
+        var n_count: usize = 0;
+        while (!token_queue.empty()) {
+            const n = try token_queue.pop();
+
+            if (n_count == 0 and is_paren_end(n.*.body)) {
+                self.allocator.free(n.*.body);
+                self.allocator.destroy(n);
+                found_end = true;
+                break;
+            } else if (n_count == 0 and is_comma(n.*.body)) {
+                self.allocator.free(n.*.body);
+                self.allocator.destroy(n);
+                break;
+            }
+
+            if (is_paren_start(n.*.body) or is_record_start(n.*.body) or is_map_start(n.*.body) or is_tuple_start(n.*.body) or is_list_start(n.*.body)) {
+                n_count += 1;
+            } else if (is_paren_end(n.*.body) or is_map_end(n.*.body) or is_list_end(n.*.body)) {
+                n_count -= 1;
+            }
+
+            try buffer_token_queue.push(n.*.body, n.*.col, n.*.line);
+            self.allocator.destroy(n);
+        }
+
+        if (buffer_token_queue.empty()) {
+            return ParserError.ParsingFailure;
+        }
+
+        // Parse Field Key
+        const key = try buffer_token_queue.pop();
+        const name = key.*.body;
+        errdefer self.allocator.free(name);
+        self.allocator.destroy(key);
+
+        var children: ?std.ArrayList(*TeleAst) = std.ArrayList(*TeleAst).init(self.allocator);
+        if (!buffer_token_queue.empty()) {
+            const op = try buffer_token_queue.pop();
+            //errdefer self.allocator.free(op.*.body);
+            //errdefer self.allocator.destroy(op);
+
+            if (is_equal(op.*.body)) {
+                try self.parse_record_field_value(buffer_token_queue);
+                if (self.ast_stack.items.len < 1) {
+                    return ParserError.ParsingFailure;
+                }
+                try children.?.append(self.ast_stack.pop());
+            } else if (is_colon(op.*.body) and type_exp) {
+                try self.parse_record_field_type(buffer_token_queue);
+                if (self.ast_stack.items.len < 1) {
+                    return ParserError.ParsingFailure;
+                }
+                try children.?.append(self.ast_stack.pop());
+            } else {
+                return ParserError.ParsingFailure;
+            }
+            self.allocator.free(op.*.body);
+            self.allocator.destroy(op);
+        }
+
+        if (!buffer_token_queue.empty() and type_exp) {
+            if (children == null) {
+                return ParserError.ParsingFailure;
+            }
+
+            const op = try buffer_token_queue.pop();
+            //errdefer self.allocator.free(op.*.body);
+            //errdefer self.allocator.destroy(op);
+
+            if (is_colon(op.*.body) and type_exp) {
+                try self.parse_record_field_type(buffer_token_queue);
+                if (self.ast_stack.items.len < 1) {
+                    return ParserError.ParsingFailure;
+                }
+                try children.?.append(self.ast_stack.pop());
+            } else {
+                return ParserError.ParsingFailure;
+            }
+            self.allocator.free(op.*.body);
+            self.allocator.destroy(op);
+        }
+
+        const t = try self.allocator.create(TeleAst);
+        t.*.body = name;
+        t.*.children = children;
+        t.*.ast_type = TeleAstType.record_field;
+        t.*.col = 0;
+
+        try self.ast_stack.append(t);
+
+        return found_end;
+    }
+
+    fn parse_record_field_value(self: *Self, token_queue: *TokenQueue) !void {
+        try self.parse_exp(token_queue);
+        if (self.ast_stack.items.len < 1) {
+            return ParserError.ParsingFailure;
+        }
+        const t = try self.allocator.create(TeleAst);
+        t.*.body = "";
+        t.*.children = std.ArrayList(*TeleAst).init(self.allocator);
+        try t.*.children.?.append(self.ast_stack.pop());
+        t.*.ast_type = TeleAstType.record_field_value;
+        t.*.col = 0;
+
+        try self.ast_stack.append(t);
+    }
+
+    fn parse_record_field_type(self: *Self, token_queue: *TokenQueue) !void {
+        try self.parse_type_exp(token_queue);
+        if (self.ast_stack.items.len < 1) {
+            return ParserError.ParsingFailure;
+        }
+        const t = try self.allocator.create(TeleAst);
+        t.*.body = "";
+        t.*.children = std.ArrayList(*TeleAst).init(self.allocator);
+        try t.*.children.?.append(self.ast_stack.pop());
+        t.*.ast_type = TeleAstType.record_field_type;
+        t.*.col = 0;
 
         try self.ast_stack.append(t);
     }
@@ -627,7 +774,7 @@ pub const Parser = struct {
                 return ParserError.ParsingFailure;
             };
         } else if (is_record_start(pn.*.body)) {
-            self.parse_record(token_queue, false, "") catch {
+            self.parse_record(token_queue, false, "", false) catch {
                 return ParserError.ParsingFailure;
             };
         } else if (is_list_start(pn.*.body)) {
@@ -659,7 +806,7 @@ pub const Parser = struct {
                 };
                 if (res) {
                     if (contains_hash(n.*.body)) {
-                        self.parse_record(token_queue, true, n.*.body) catch { // Is a record variable
+                        self.parse_record(token_queue, true, n.*.body, false) catch { // Is a record variable
                             return ParserError.ParsingFailure;
                         };
                     } else { // Is a function call
@@ -741,7 +888,9 @@ pub const Parser = struct {
                 return ParserError.ParsingFailure;
             };
         } else if (is_record_start(pn.*.body)) {
-            return ParserError.ParsingFailure;
+            self.parse_record(token_queue, false, "", true) catch {
+                return ParserError.ParsingFailure;
+            };
         } else if (is_list_start(pn.*.body)) {
             self.parse_list(token_queue, true) catch {
                 return ParserError.ParsingFailure;
@@ -1237,73 +1386,66 @@ pub const Parser = struct {
         try self.ast_stack.append(t);
     }
 
-    fn parse_record(self: *Self, token_queue: *TokenQueue, variable: bool, buf: []const u8) !void {
+    fn parse_record(self: *Self, token_queue: *TokenQueue, variable: bool, buf: []const u8, type_exp: bool) !void {
         var buf2: []const u8 = undefined;
         if (!variable) {
             const node = try token_queue.pop();
             buf2 = node.*.body;
-            defer self.allocator.destroy(node);
+            self.allocator.destroy(node);
         } else {
             buf2 = buf;
+            const node = try token_queue.pop();
+            self.allocator.free(node.*.body);
+            self.allocator.destroy(node);
+        }
 
-            // Pop off paren start
-            const pn = try token_queue.pop();
-            self.allocator.free(pn.*.body);
-            self.allocator.destroy(pn);
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
+
+        var count: usize = 0;
+
+        while (!token_queue.empty()) {
+            const node2 = try token_queue.pop();
+            errdefer self.allocator.free(node2.*.body);
+            errdefer self.allocator.destroy(node2);
+
+            if (count == 0 and is_paren_end(node2.*.body)) {
+                break;
+            }
+
+            if (is_tuple_start(node2.*.body) or is_paren_start(node2.*.body) or is_record_start(node2.*.body) or is_list_start(node2.*.body) or is_map_start(node2.*.body)) {
+                count += 1;
+            } else if (is_paren_end(node2.*.body) or is_list_end(node2.*.body) or is_map_end(node2.*.body)) {
+                count -= 1;
+            }
+            try buffer_token_queue.push(node2.*.body, node2.*.line, node2.*.col);
+
+            self.allocator.destroy(node2);
         }
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.free_tele_ast_list(children, self.allocator);
-        var buffer_token_queue = try TokenQueue.init(self.allocator);
-        errdefer buffer_token_queue.deinit();
 
-        var count: usize = 1;
-        var end_of_record: bool = false;
-
-        while (!token_queue.empty() and !end_of_record) {
-            while (!token_queue.empty()) {
-                const node2 = try token_queue.pop();
-                errdefer self.allocator.free(node2.*.body);
-                errdefer self.allocator.destroy(node2);
-
-                if (is_tuple_start(node2.*.body) or is_paren_start(node2.*.body) or is_record_start(node2.*.body) or is_list_start(node2.*.body) or is_map_start(node2.*.body)) {
-                    count += 1;
-                } else if (is_paren_end(node2.*.body) or is_list_end(node2.*.body) or is_map_end(node2.*.body)) {
-                    count -= 1;
-                    if (count == 0) {
-                        // Free paren end body
-                        self.allocator.free(node2.*.body);
-                        self.allocator.destroy(node2);
-                        end_of_record = true;
-                        break;
-                    }
+        const pn = try buffer_token_queue.peek();
+        if (!is_paren_end(pn.*.body)) {
+            while (!buffer_token_queue.empty()) {
+                const found_end = try self.parse_record_field(buffer_token_queue, type_exp);
+                if (self.ast_stack.items.len < 1) {
+                    return ParserError.ParsingFailure;
                 }
-
-                if (count == 1 and (is_comma(node2.*.body) or is_equal(node2.*.body))) {
-                    self.allocator.free(node2.*.body);
-                    self.allocator.destroy(node2);
+                try children.append(self.ast_stack.pop());
+                if (found_end) {
                     break;
-                } else {
-                    try buffer_token_queue.push(node2.*.body, node2.*.line, node2.*.col);
                 }
-
-                self.allocator.destroy(node2);
             }
-
-            try self.parse_exp(buffer_token_queue);
-            if (!buffer_token_queue.empty()) {
-                return ParserError.ParsingFailure;
-            }
-            if (self.ast_stack.items.len < 1) {
-                return ParserError.ParsingFailure;
-            }
-            const a = self.ast_stack.pop();
-
-            errdefer tele_ast.free_tele_ast(a, self.allocator);
-            try children.append(a);
+        } else {
+            // Pop off paren end
+            const tmp2 = try buffer_token_queue.pop();
+            self.allocator.free(tmp2.*.body);
+            self.allocator.destroy(tmp2);
         }
 
-        if (count != 0) {
+        if (!buffer_token_queue.empty()) {
             return ParserError.ParsingFailure;
         }
 

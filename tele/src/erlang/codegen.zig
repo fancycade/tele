@@ -122,23 +122,13 @@ pub const Context = struct {
         try self.push_padding(0);
 
         var i: usize = 0;
-        var loop = true;
-        while (loop) {
-            try self.write_ast(w, a.children.?.items[i]);
-            _ = try w.write("=");
-            try self.write_ast(w, a.children.?.items[i + 1]);
+        for (a.children.?.items) |c| {
+            try self.write_ast(w, c);
 
-            const len = a.children.?.items.len;
-
-            if (i + 2 != len) {
+            if (i + 1 < a.children.?.items.len) {
                 _ = try w.write(", ");
             }
-
-            i += 2;
-
-            if (i >= len) {
-                loop = false;
-            }
+            i += 1;
         }
 
         try self.pop_padding();
@@ -300,11 +290,70 @@ pub const Context = struct {
     pub fn write_record_def(self: *Self, w: anytype, a: *const Ast) !void {
         _ = try w.write("-record(");
         _ = try w.write(a.*.body);
-        _ = try w.write(", ");
+        _ = try w.write(", #{");
 
-        // Expecting child to be tuple type
+        try self.push_padding(0);
+        var i: usize = 0;
+        for (a.children.?.items) |c| {
+            try self.write_ast(w, c);
+
+            if (i + 1 < a.children.?.items.len) {
+                _ = try w.write(", ");
+            }
+            i += 1;
+        }
+        try self.pop_padding();
+
+        _ = try w.write("}).\n\n");
+    }
+
+    pub fn write_record_field(self: *Self, w: anytype, a: *const Ast) !void {
+        _ = try w.write(a.*.body);
+
+        if (a.*.children != null) {
+            if (a.*.children.?.items.len == 0) {} else if (a.*.children.?.items.len == 1) {
+                const a2 = a.*.children.?.items[0];
+                if (a2.ast_type == AstType.record_field_value) {
+                    try self.write_record_field_value(w, a2);
+                } else if (a2.ast_type == AstType.record_field_type) {
+                    try self.write_record_field_type(w, a2);
+                } else {
+                    return CodegenError.WritingFailure;
+                }
+            } else if (a.*.children.?.items.len == 2) {
+                const a2 = a.*.children.?.items[0];
+                if (a2.ast_type == AstType.record_field_value) {
+                    try self.write_record_field_value(w, a2);
+                } else {
+                    return CodegenError.WritingFailure;
+                }
+
+                const a3 = a.*.children.?.items[1];
+                if (a3.ast_type == AstType.record_field_type) {
+                    try self.write_record_field_type(w, a3);
+                } else {
+                    return CodegenError.WritingFailure;
+                }
+            } else {
+                return CodegenError.WritingFailure;
+            }
+        }
+    }
+
+    pub fn write_record_field_value(self: *Self, w: anytype, a: *const Ast) !void {
+        _ = try w.write("=");
+        if (a.children.?.items.len < 1) {
+            return CodegenError.WritingFailure;
+        }
         try self.write_ast(w, a.children.?.items[0]);
-        _ = try w.write(").\n\n");
+    }
+
+    pub fn write_record_field_type(self: *Self, w: anytype, a: *const Ast) !void {
+        _ = try w.write(" :: ");
+        if (a.children.?.items.len < 1) {
+            return CodegenError.WritingFailure;
+        }
+        try self.write_ast(w, a.children.?.items[0]);
     }
 
     pub fn write_anonymous_function(self: *Self, w: anytype, a: *const Ast) !void {
@@ -651,6 +700,21 @@ pub const Context = struct {
             },
             .record_def => {
                 self.write_record_def(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .record_field => {
+                self.write_record_field(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .record_field_value => {
+                self.write_record_field_value(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .record_field_type => {
+                self.write_record_field_type(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

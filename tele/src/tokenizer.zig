@@ -56,6 +56,10 @@ pub const TokenQueue = struct {
     }
 
     pub fn pop(self: *Self) !*TokenQueueNode {
+        if (self.len == 0) {
+            return TokenQueueError.MissingHead;
+        }
+
         if (self.head == null) {
             return TokenQueueError.MissingHead;
         } else {

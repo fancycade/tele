@@ -50,18 +50,21 @@ pub fn main() !void {
     defer input_file.close();
 
     var ta = try parser.parse_reader(input_file.reader(), allocator);
+    errdefer tast.free_tele_ast_list(ta, allocator);
 
     if (ta.items.len == 0) {
         return ExecutionError.Empty;
     }
 
     const ta2 = try compiler.preprocess(&ta, allocator);
+    errdefer tast.free_tele_ast_list(ta2, allocator);
 
     if (ta2.items.len == 0) {
         return ExecutionError.Empty;
     }
 
     var east_list = std.ArrayList(*const Ast).init(allocator);
+    errdefer ast.free_erlang_ast_list(east_list, allocator);
 
     for (ta2.items) |c| {
         try east_list.append(try compiler.tele_to_erlang(c, allocator));

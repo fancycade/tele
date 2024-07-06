@@ -1410,6 +1410,8 @@ pub const Parser = struct {
             errdefer self.allocator.destroy(node2);
 
             if (count == 0 and is_paren_end(node2.*.body)) {
+                try buffer_token_queue.push(node2.*.body, node2.*.line, node2.*.col);
+                self.allocator.destroy(node2);
                 break;
             }
 
@@ -1421,6 +1423,10 @@ pub const Parser = struct {
             try buffer_token_queue.push(node2.*.body, node2.*.line, node2.*.col);
 
             self.allocator.destroy(node2);
+        }
+
+        if (buffer_token_queue.empty()) {
+            return ParserError.ParsingFailure;
         }
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);

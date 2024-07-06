@@ -51,3 +51,10 @@ pub fn destroy(a: *const Ast, allocator: std.mem.Allocator) void {
 
     allocator.destroy(a);
 }
+
+pub fn free_erlang_ast_list(e: std.ArrayList(*const Ast), allocator: std.mem.Allocator) void {
+    for (e.items) |c| {
+        destroy(c, allocator);
+    }
+    e.deinit();
+}

@@ -278,6 +278,15 @@ pub const Context = struct {
         _ = try w.write(".\n");
     }
 
+    pub fn write_callback_def(self: *Self, w: anytype, a: *const Ast) !void {
+        _ = try w.write("-callback ");
+        _ = try w.write(a.body);
+        try self.write_function_signature(w, a.children.?.items[0]);
+        _ = try w.write(" -> ");
+        try self.write_ast(w, a.children.?.items[1]);
+        _ = try w.write(".\n");
+    }
+
     pub fn write_type_def(self: *Self, w: anytype, a: *const Ast) !void {
         _ = try w.write("-type ");
         _ = try w.write(a.*.body);
@@ -720,6 +729,11 @@ pub const Context = struct {
             },
             .spec_def => {
                 self.write_spec_def(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .callback_def => {
+                self.write_callback_def(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

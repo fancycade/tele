@@ -195,6 +195,11 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
                 return CompilerError.CompilingFailure;
             };
         },
+        .callback_def => {
+            return tele_to_erlang_callback_def(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         .case_clause => {
             return tele_to_erlang_case_clause(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -863,6 +868,22 @@ fn tele_to_erlang_record_field_type(t: *const TeleAst, allocator: std.mem.Alloca
 fn tele_to_erlang_spec_def(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const e = try allocator.create(ErlangAst);
     e.*.ast_type = ErlangAstType.spec_def;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    const buf = try allocator.alloc(u8, t.*.body.len);
+    std.mem.copyForwards(u8, buf, t.*.body);
+    e.*.body = buf;
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+fn tele_to_erlang_callback_def(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.ast_type = ErlangAstType.callback_def;
     e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
 
     const buf = try allocator.alloc(u8, t.*.body.len);

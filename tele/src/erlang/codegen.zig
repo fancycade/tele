@@ -269,6 +269,26 @@ pub const Context = struct {
         }
     }
 
+    pub fn write_macro_def(self: *Self, w: anytype, a: *const Ast) !void {
+        try self.write_padding(w);
+        _ = try w.write("-define(");
+        _ = try w.write(a.body);
+
+        if (a.children.?.items.len == 1) {
+            _ = try w.write(", ");
+            try self.write_ast(w, a.children.?.items[0]);
+        } else {
+            try self.write_function_signature(w, a.children.?.items[0]);
+            _ = try w.write(", begin ");
+            for (a.children.?.items[1..a.children.?.items.len]) |c| {
+                _ = try w.write("\n");
+                try self.write_ast(w, c);
+            }
+            _ = try w.write("\nend");
+        }
+        _ = try w.write(").\n\n");
+    }
+
     pub fn write_spec_def(self: *Self, w: anytype, a: *const Ast) !void {
         _ = try w.write("-spec ");
         _ = try w.write(a.body);
@@ -699,6 +719,11 @@ pub const Context = struct {
             },
             .function_def => {
                 self.write_function_def(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .macro_def => {
+                self.write_macro_def(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

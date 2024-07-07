@@ -165,6 +165,11 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
                 return CompilerError.CompilingFailure;
             };
         },
+        .macro_def => {
+            return tele_to_erlang_macro_def(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         .type_def => {
             return tele_to_erlang_type_def(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -771,6 +776,22 @@ test "tele to erlang anonymous function" {}
 fn tele_to_erlang_function_def(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const e = try allocator.create(ErlangAst);
     e.*.ast_type = ErlangAstType.function_def;
+    e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+
+    const buf = try allocator.alloc(u8, t.*.body.len);
+    std.mem.copyForwards(u8, buf, t.*.body);
+    e.*.body = buf;
+
+    for (t.children.?.items) |c| {
+        try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+fn tele_to_erlang_macro_def(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.ast_type = ErlangAstType.macro_def;
     e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
 
     const buf = try allocator.alloc(u8, t.*.body.len);

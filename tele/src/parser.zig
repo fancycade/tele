@@ -14,12 +14,17 @@ pub fn parse_reader(r: anytype, allocator: std.mem.Allocator) !std.ArrayList(*Te
     const token_queue = try tokenizer.read_tokens(r, allocator);
 
     const parser = try Parser.init(token_queue, allocator);
-    defer parser.deinit(false);
+
+    errdefer allocator.destroy(parser);
+    errdefer parser.token_queue.deinit();
+    errdefer tele_ast.free_tele_ast_list(parser.*.ast_stack, allocator);
     const result = try parser.parse();
 
     if (!token_queue.empty()) {
         return ParserError.ParsingFailure;
     }
+    parser.token_queue.deinit();
+    allocator.destroy(parser);
 
     return result;
 }
@@ -37,14 +42,6 @@ pub const Parser = struct {
         parser.*.token_queue = token_queue;
         parser.*.ast_stack = std.ArrayList(*TeleAst).init(allocator);
         return parser;
-    }
-
-    pub fn deinit(self: *Self, ast: bool) void {
-        if (ast) {
-            tele_ast.free_tele_ast_list(self.ast_stack, self.allocator);
-        }
-        self.token_queue.deinit();
-        self.allocator.destroy(self);
     }
 
     pub fn parse(self: *Self) !std.ArrayList(*TeleAst) {
@@ -65,15 +62,41 @@ pub const Parser = struct {
 
             if (is_statement_keyword(pn.*.body)) {
                 if (is_type_keyword(pn.*.body)) {
-                    try self.parse_type_definition();
+                    try self.parse_type_definition(self.token_queue);
                 } else if (is_spec_keyword(pn.*.body)) {
-                    try self.parse_spec_definition();
+                    try self.parse_spec_definition(self.token_queue);
                 } else if (is_fun_keyword(pn.*.body)) {
-                    try self.parse_function_definition(false);
+                    try self.parse_function_definition(self.token_queue, false);
                 } else if (is_funp_keyword(pn.*.body)) {
-                    try self.parse_function_definition(true);
+                    try self.parse_function_definition(self.token_queue, true);
                 } else if (is_record_keyword(pn.*.body)) {
-                    try self.parse_record_definition();
+                    try self.parse_record_definition(self.token_queue);
+                } else if (is_behaviour_keyword(pn.*.body)) {
+                    try self.parse_attribute(self.token_queue);
+                } else if (is_include_keyword(pn.*.body)) {
+                    try self.parse_attribute(self.token_queue);
+                } else if (is_include_lib_keyword(pn.*.body)) {
+                    try self.parse_attribute(self.token_queue);
+                } else if (is_vsn_keyword(pn.*.body)) {
+                    try self.parse_attribute(self.token_queue);
+                } else if (is_compile_keyword(pn.*.body)) {
+                    try self.parse_attribute(self.token_queue);
+                } else if (is_nifs_keyword(pn.*.body)) {
+                    try self.parse_attribute(self.token_queue);
+                } else if (is_doc_keyword(pn.*.body)) {
+                    try self.parse_attribute(self.token_queue);
+                } else if (is_moduledoc_keyword(pn.*.body)) {
+                    try self.parse_attribute(self.token_queue);
+                } else if (is_on_load_keyword(pn.*.body)) {
+                    return self.parse_attribute(self.token_queue);
+                } else if (is_callback_keyword(pn.*.body)) {
+                    return ParserError.ParsingFailure;
+                } else if (is_import_keyword(pn.*.body)) {
+                    return ParserError.ParsingFailure;
+                } else if (is_define_keyword(pn.*.body)) {
+                    return ParserError.ParsingFailure;
+                } else if (is_feature_keyword(pn.*.body)) {
+                    return ParserError.ParsingFailure;
                 } else {
                     return ParserError.InvalidStatement;
                 }
@@ -91,17 +114,17 @@ pub const Parser = struct {
         }
     }
 
-    fn parse_function_definition(self: *Self, private: bool) !void {
+    fn parse_function_definition(self: *Self, token_queue: *TokenQueue, private: bool) !void {
 
         // Pop off def/defp
-        const n = self.token_queue.pop() catch {
+        const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
         const current_col = n.*.col;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
-        const node3 = self.token_queue.pop() catch {
+        const node3 = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
 
@@ -118,8 +141,8 @@ pub const Parser = struct {
 
         // Gather tokens for function signature
         var map_count: usize = 0;
-        while (!self.token_queue.empty()) {
-            const node2 = try self.token_queue.pop();
+        while (!token_queue.empty()) {
+            const node2 = try token_queue.pop();
             errdefer self.allocator.free(node2.*.body);
             errdefer self.allocator.destroy(node2);
 
@@ -150,18 +173,18 @@ pub const Parser = struct {
         // Function Definition Body
         var token_queue3 = try TokenQueue.init(self.allocator);
         errdefer token_queue3.deinit();
-        if (self.token_queue.empty()) {
+        if (token_queue.empty()) {
             return ParserError.ParsingFailure;
         }
 
         // Gather tokens for function body
-        while (!self.token_queue.empty()) {
-            const peek_node2 = try self.token_queue.peek();
+        while (!token_queue.empty()) {
+            const peek_node2 = try token_queue.peek();
             if (peek_node2.*.col <= current_col) {
                 break;
             }
 
-            const node2 = try self.token_queue.pop();
+            const node2 = try token_queue.pop();
             errdefer self.allocator.free(node2.*.body);
             errdefer self.allocator.destroy(node2);
 
@@ -325,15 +348,15 @@ pub const Parser = struct {
         try self.ast_stack.append(t);
     }
 
-    fn parse_spec_definition(self: *Self) !void {
+    fn parse_spec_definition(self: *Self, token_queue: *TokenQueue) !void {
         // Pop off spec keyword
-        const n = try self.token_queue.pop();
+        const n = try token_queue.pop();
         const current_col = n.*.col;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
         // Spec Definition Name
-        const node3 = self.token_queue.pop() catch {
+        const node3 = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
 
@@ -350,8 +373,8 @@ pub const Parser = struct {
         errdefer token_queue2.deinit();
 
         var map_count: usize = 0;
-        while (!self.token_queue.empty()) {
-            const node2 = try self.token_queue.pop();
+        while (!token_queue.empty()) {
+            const node2 = try token_queue.pop();
             errdefer self.allocator.free(node2.*.body);
             errdefer self.allocator.destroy(node2);
 
@@ -384,17 +407,17 @@ pub const Parser = struct {
         // Spec Definition Body
         var token_queue3 = try TokenQueue.init(self.allocator);
         errdefer token_queue3.deinit();
-        if (self.token_queue.empty()) {
+        if (token_queue.empty()) {
             return ParserError.ParsingFailure;
         }
 
-        while (!self.token_queue.empty()) {
-            const peek_node2 = try self.token_queue.peek();
+        while (!token_queue.empty()) {
+            const peek_node2 = try token_queue.peek();
             if (peek_node2.*.col <= current_col) {
                 break;
             }
 
-            const node2 = try self.token_queue.pop();
+            const node2 = try token_queue.pop();
             errdefer self.allocator.free(node2.*.body);
             errdefer self.allocator.destroy(node2);
 
@@ -430,15 +453,15 @@ pub const Parser = struct {
         try self.ast_stack.append(t);
     }
 
-    fn parse_type_definition(self: *Self) !void {
+    fn parse_type_definition(self: *Self, token_queue: *TokenQueue) !void {
         // Free type keyword
-        const n = self.token_queue.pop() catch {
+        const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
         const current_col = n.*.col;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
-        const node3 = self.token_queue.pop() catch {
+        const node3 = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
 
@@ -447,7 +470,7 @@ pub const Parser = struct {
         self.allocator.destroy(node3);
 
         // Skip colon
-        const cn = self.token_queue.pop() catch {
+        const cn = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
         self.allocator.free(cn.*.body);
@@ -459,17 +482,17 @@ pub const Parser = struct {
         // type Definition Body
         var token_queue3 = try TokenQueue.init(self.allocator);
         errdefer token_queue3.deinit();
-        if (self.token_queue.empty()) {
+        if (token_queue.empty()) {
             return ParserError.ParsingFailure;
         }
 
-        while (!self.token_queue.empty()) {
-            const peek_node2 = try self.token_queue.peek();
+        while (!token_queue.empty()) {
+            const peek_node2 = try token_queue.peek();
             if (peek_node2.*.col <= current_col) {
                 break;
             }
 
-            const node2 = try self.token_queue.pop();
+            const node2 = try token_queue.pop();
             errdefer self.allocator.free(node2.*.body);
             errdefer self.allocator.destroy(node2);
 
@@ -502,8 +525,8 @@ pub const Parser = struct {
         try self.ast_stack.append(t);
     }
 
-    fn parse_record_definition(self: *Self) !void {
-        const n = self.token_queue.pop() catch {
+    fn parse_record_definition(self: *Self, token_queue: *TokenQueue) !void {
+        const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
         const current_col = n.*.col;
@@ -511,7 +534,7 @@ pub const Parser = struct {
         self.allocator.destroy(n);
 
         // Record Definition Name
-        const node3 = self.token_queue.pop() catch {
+        const node3 = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
 
@@ -519,7 +542,7 @@ pub const Parser = struct {
         self.allocator.destroy(node3);
 
         // Skip colon
-        const cn = self.token_queue.pop() catch {
+        const cn = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
         self.allocator.free(cn.*.body);
@@ -528,17 +551,17 @@ pub const Parser = struct {
         // Record Definition Body
         var token_queue3 = try TokenQueue.init(self.allocator);
         errdefer token_queue3.deinit();
-        if (self.token_queue.empty()) {
+        if (token_queue.empty()) {
             return ParserError.ParsingFailure;
         }
 
-        while (!self.token_queue.empty()) {
-            const peek_node2 = try self.token_queue.peek();
+        while (!token_queue.empty()) {
+            const peek_node2 = try token_queue.peek();
             if (peek_node2.*.col <= current_col) {
                 break;
             }
 
-            const node2 = try self.token_queue.pop();
+            const node2 = try token_queue.pop();
             errdefer self.allocator.free(node2.*.body);
             errdefer self.allocator.destroy(node2);
 
@@ -1991,6 +2014,63 @@ pub const Parser = struct {
         }
         buffer_token_queue.deinit();
     }
+
+    fn parse_attribute(self: *Self, token_queue: *TokenQueue) !void {
+        //Pop off attribute name
+        const name_node = try token_queue.pop();
+        const name = name_node.*.body;
+        const current_col = name_node.*.col;
+        self.allocator.destroy(name_node);
+        errdefer self.allocator.free(name);
+
+        // Pop off colon
+        const colon_node = try token_queue.pop();
+        const err = !is_colon(colon_node.*.body);
+        self.allocator.free(colon_node.*.body);
+        self.allocator.destroy(colon_node);
+        if (err) {
+            return ParserError.ParsingFailure;
+        }
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
+
+        // Gather tokens for attribute body
+        while (!token_queue.empty()) {
+            const pn = try token_queue.peek();
+            if (pn.*.col <= current_col) {
+                break;
+            }
+
+            const n = try token_queue.pop();
+            errdefer self.allocator.free(n.*.body);
+            errdefer self.allocator.destroy(n);
+            try buffer_token_queue.push(n.*.body, n.*.line, n.*.col);
+            self.allocator.destroy(n);
+        }
+        if (buffer_token_queue.empty()) {
+            return ParserError.ParsingFailure;
+        }
+
+        try self.parse_exp(buffer_token_queue);
+        if (self.ast_stack.items.len < 1) {
+            return ParserError.ParsingFailure;
+        }
+        if (!buffer_token_queue.empty()) {
+            return ParserError.ParsingFailure;
+        }
+        buffer_token_queue.deinit();
+
+        var children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        try children.append(self.ast_stack.pop());
+
+        const t = try self.allocator.create(TeleAst);
+        t.*.body = name;
+        t.*.children = children;
+        t.*.ast_type = TeleAstType.attribute;
+
+        try self.ast_stack.append(t);
+    }
 };
 
 fn is_statement_keyword(buf: []const u8) bool {
@@ -1999,7 +2079,7 @@ fn is_statement_keyword(buf: []const u8) bool {
     }
 
     if (buf[0] == 'f') {
-        return is_fun_keyword(buf) or is_funp_keyword(buf);
+        return is_fun_keyword(buf) or is_funp_keyword(buf) or is_feature_keyword(buf);
     }
 
     if (buf[0] == 't') {
@@ -2008,6 +2088,38 @@ fn is_statement_keyword(buf: []const u8) bool {
 
     if (buf[0] == 'r') {
         return is_record_keyword(buf);
+    }
+
+    if (buf[0] == 'b') {
+        return is_behaviour_keyword(buf);
+    }
+
+    if (buf[0] == 'i') {
+        return is_include_keyword(buf) or is_include_lib_keyword(buf) or is_import_keyword(buf);
+    }
+
+    if (buf[0] == 'm') {
+        return is_moduledoc_keyword(buf);
+    }
+
+    if (buf[0] == 'o') {
+        return is_on_load_keyword(buf);
+    }
+
+    if (buf[0] == 'n') {
+        return is_nifs_keyword(buf);
+    }
+
+    if (buf[0] == 'd') {
+        return is_doc_keyword(buf) or is_define_keyword(buf);
+    }
+
+    if (buf[0] == 'c') {
+        return is_callback_keyword(buf) or is_compile_keyword(buf);
+    }
+
+    if (buf[0] == 'v') {
+        return is_vsn_keyword(buf);
     }
 
     return false;
@@ -2019,6 +2131,19 @@ test "is statement keyword" {
     try std.testing.expect(is_statement_keyword("spec"));
     try std.testing.expect(is_statement_keyword("type"));
     try std.testing.expect(is_statement_keyword("record"));
+    try std.testing.expect(is_statement_keyword("behaviour"));
+    try std.testing.expect(is_statement_keyword("compile"));
+    try std.testing.expect(is_statement_keyword("import"));
+    try std.testing.expect(is_statement_keyword("vsn"));
+    try std.testing.expect(is_statement_keyword("onload"));
+    try std.testing.expect(is_statement_keyword("nifs"));
+    try std.testing.expect(is_statement_keyword("callback"));
+    try std.testing.expect(is_statement_keyword("include"));
+    try std.testing.expect(is_statement_keyword("include_lib"));
+    try std.testing.expect(is_statement_keyword("doc"));
+    try std.testing.expect(is_statement_keyword("moduledoc"));
+    try std.testing.expect(is_statement_keyword("define"));
+    try std.testing.expect(is_statement_keyword("feature"));
 
     try std.testing.expect(!is_statement_keyword("["));
     try std.testing.expect(!is_statement_keyword("]"));
@@ -2047,6 +2172,58 @@ fn is_funp_keyword(buf: []const u8) bool {
 
 fn is_record_keyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "record");
+}
+
+fn is_behaviour_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "behaviour");
+}
+
+fn is_feature_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "feature");
+}
+
+fn is_compile_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "compile");
+}
+
+fn is_doc_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "doc");
+}
+
+fn is_moduledoc_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "moduledoc");
+}
+
+fn is_callback_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "callback");
+}
+
+fn is_vsn_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "vsn");
+}
+
+fn is_on_load_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "on_load");
+}
+
+fn is_nifs_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "nifs");
+}
+
+fn is_include_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "include");
+}
+
+fn is_include_lib_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "include_lib");
+}
+
+fn is_define_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "define");
+}
+
+fn is_import_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "import");
 }
 
 test "is keywords" {

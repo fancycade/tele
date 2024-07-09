@@ -479,7 +479,16 @@ test "tele to erlang list" {
 
 fn tele_to_erlang_map(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const e = try allocator.create(ErlangAst);
-    e.*.body = "";
+    if (std.mem.eql(u8, t.*.body, "")) {
+        e.*.body = "";
+    } else {
+        const buf = try allocator.alloc(u8, t.*.body.len);
+        std.mem.copyForwards(u8, buf, t.*.body);
+        if (std.ascii.isLower(buf[0])) {
+            buf[0] = std.ascii.toUpper(buf[0]);
+        }
+        e.*.body = buf;
+    }
     e.*.ast_type = ErlangAstType.map;
     e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
 

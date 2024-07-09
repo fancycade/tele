@@ -76,31 +76,36 @@ pub const Context = struct {
 
     fn write_map(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
+        if (!std.mem.eql(u8, a.*.body, "")) {
+            _ = try w.write(a.*.body);
+        }
         _ = try w.write("#{");
 
         var loop = true;
         var i: usize = 0;
         try self.push_padding(0);
-        while (loop) {
-            try self.write_ast(w, a.children.?.items[i]);
+        if (a.children != null and a.children.?.items.len > 0) {
+            while (loop) {
+                try self.write_ast(w, a.children.?.items[i]);
 
-            if (self.match_mode()) {
-                _ = try w.write(" := ");
-            } else {
-                _ = try w.write(" => ");
-            }
-            try self.write_ast(w, a.children.?.items[i + 1]);
+                if (self.match_mode()) {
+                    _ = try w.write(" := ");
+                } else {
+                    _ = try w.write(" => ");
+                }
+                try self.write_ast(w, a.children.?.items[i + 1]);
 
-            const len = a.children.?.items.len;
+                const len = a.children.?.items.len;
 
-            if (i + 2 != len) {
-                _ = try w.write(", ");
-            }
+                if (i + 2 != len) {
+                    _ = try w.write(", ");
+                }
 
-            i += 2;
+                i += 2;
 
-            if (i >= len) {
-                loop = false;
+                if (i >= len) {
+                    loop = false;
+                }
             }
         }
         try self.pop_padding();

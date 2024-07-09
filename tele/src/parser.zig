@@ -1560,77 +1560,106 @@ pub const Parser = struct {
         try self.ast_stack.append(t);
     }
 
+    // TODO: Handle empty maps properly
     fn parse_map(self: *Self, token_queue: *TokenQueue, type_exp: bool) !void {
         // Pop off {
         const n = try token_queue.pop();
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
+        const t = try self.allocator.create(TeleAst);
+        errdefer tele_ast.free_tele_ast(t, self.allocator);
+        t.*.body = "";
+        t.*.children = null;
+
         var children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.free_tele_ast_list(children, self.allocator);
-        var token_queue2 = try TokenQueue.init(self.allocator);
-        errdefer token_queue2.deinit();
-        var count: usize = 1;
-        var end_of_map: bool = false;
 
-        while (!token_queue.empty() and !end_of_map) {
-            while (!token_queue.empty()) {
-                const node2 = token_queue.pop() catch {
-                    return ParserError.ParsingFailure;
-                };
-                errdefer self.allocator.free(node2.*.body);
-                errdefer self.allocator.destroy(node2);
+        const pn_end = try token_queue.peek();
+        if (is_map_end(pn_end.*.body)) {
+            const n2 = try token_queue.pop();
+            self.allocator.free(n2.*.body);
+            self.allocator.destroy(n2);
+        } else {
+            var token_queue2 = try TokenQueue.init(self.allocator);
+            errdefer token_queue2.deinit();
+            var count: usize = 1;
+            var end_of_map: bool = false;
+            var map_update: bool = false;
 
-                if (is_map_start(node2.*.body)) {
-                    count += 1;
-                } else if (is_map_end(node2.*.body)) {
-                    count -= 1;
-                    if (count == 0) {
+            while (!token_queue.empty() and !end_of_map) {
+                while (!token_queue.empty()) {
+                    const node2 = token_queue.pop() catch {
+                        return ParserError.ParsingFailure;
+                    };
+                    errdefer self.allocator.free(node2.*.body);
+                    errdefer self.allocator.destroy(node2);
+
+                    if (is_map_start(node2.*.body)) {
+                        count += 1;
+                    } else if (is_map_end(node2.*.body)) {
+                        count -= 1;
+                        if (count == 0) {
+                            self.allocator.free(node2.*.body);
+                            self.allocator.destroy(node2);
+                            end_of_map = true;
+                            break;
+                        }
+                    }
+
+                    if (count == 1 and (is_comma(node2.*.body) or is_colon(node2.*.body))) {
                         self.allocator.free(node2.*.body);
                         self.allocator.destroy(node2);
-                        end_of_map = true;
                         break;
+                    } else if (count == 1 and is_pipe_operator(node2.*.body)) {
+                        self.allocator.free(node2.*.body);
+                        self.allocator.destroy(node2);
+                        map_update = true;
+                        break;
+                    } else {
+                        try token_queue2.push(node2.*.body, node2.*.line, node2.*.col);
+                    }
+
+                    self.allocator.destroy(node2);
+                }
+
+                if (type_exp) {
+                    try self.parse_type_exp(token_queue2);
+                } else {
+                    if (map_update) {
+                        const name_node = try token_queue2.pop();
+                        t.*.body = name_node.*.body;
+                        self.allocator.destroy(name_node);
+                    } else {
+                        try self.parse_exp(token_queue2);
                     }
                 }
-
-                if (count == 1 and (is_comma(node2.*.body) or is_colon(node2.*.body))) {
-                    self.allocator.free(node2.*.body);
-                    self.allocator.destroy(node2);
-                    break;
-                } else {
-                    try token_queue2.push(node2.*.body, node2.*.line, node2.*.col);
+                if (!token_queue2.empty()) {
+                    return ParserError.ParsingFailure;
                 }
-
-                self.allocator.destroy(node2);
+                if (map_update) {
+                    map_update = false;
+                } else {
+                    if (self.ast_stack.items.len < 1) {
+                        return ParserError.ParsingFailure;
+                    }
+                    const a = self.ast_stack.pop();
+                    errdefer tele_ast.free_tele_ast(a, self.allocator);
+                    try children.append(a);
+                }
             }
 
-            if (type_exp) {
-                try self.parse_type_exp(token_queue2);
-            } else {
-                try self.parse_exp(token_queue2);
-            }
-            if (!token_queue2.empty()) {
+            if (count != 0) {
                 return ParserError.ParsingFailure;
             }
-            if (self.ast_stack.items.len < 1) {
-                return ParserError.ParsingFailure;
-            }
-            const a = self.ast_stack.pop();
-            errdefer tele_ast.free_tele_ast(a, self.allocator);
-            try children.append(a);
+
+            token_queue2.deinit();
         }
 
-        if (count != 0) {
-            return ParserError.ParsingFailure;
-        }
-
-        const t = try self.allocator.create(TeleAst);
-        t.*.body = "";
         t.*.ast_type = TeleAstType.map;
         t.*.children = children;
         t.*.col = 0;
 
-        token_queue2.deinit();
         try self.ast_stack.append(t);
     }
 

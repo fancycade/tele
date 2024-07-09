@@ -66,6 +66,10 @@ pub const Context = struct {
     pub fn write_map(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
         _ = try w.write("{");
+        if (!std.mem.eql(u8, a.*.body, "")) {
+            _ = try w.write(a.*.body);
+            _ = try w.write(" | ");
+        }
 
         var loop = true;
         var i: usize = 0;

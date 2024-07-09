@@ -1494,60 +1494,70 @@ pub const Parser = struct {
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.free_tele_ast_list(children, self.allocator);
-        var token_queue2 = try TokenQueue.init(self.allocator);
-        errdefer token_queue2.deinit();
 
-        // Expected to have already parsed start of list so count starts at 1
-        var count: usize = 1;
-        var end_of_list = false;
+        const pn_end = try token_queue.peek();
+        if (is_list_end(pn_end.*.body)) {
+            const n2 = try token_queue.pop();
+            self.allocator.free(n2.*.body);
+            self.allocator.destroy(n2);
+        } else {
+            var token_queue2 = try TokenQueue.init(self.allocator);
+            errdefer token_queue2.deinit();
 
-        while (!token_queue.empty() and !end_of_list) {
-            while (!token_queue.empty()) {
-                const node2 = try token_queue.pop();
-                errdefer self.allocator.destroy(node2);
+            // Expected to have already parsed start of list so count starts at 1
+            var count: usize = 1;
+            var end_of_list = false;
 
-                if (is_list_start(node2.*.body)) {
-                    count += 1;
-                } else if (is_list_end(node2.*.body)) {
-                    count -= 1;
-                    if (count == 0) {
+            while (!token_queue.empty() and !end_of_list) {
+                while (!token_queue.empty()) {
+                    const node2 = try token_queue.pop();
+                    errdefer self.allocator.destroy(node2);
+
+                    if (is_list_start(node2.*.body)) {
+                        count += 1;
+                    } else if (is_list_end(node2.*.body)) {
+                        count -= 1;
+                        if (count == 0) {
+                            self.allocator.free(node2.*.body);
+                            self.allocator.destroy(node2);
+                            end_of_list = true;
+                            break;
+                        }
+                    }
+
+                    if (count == 1 and is_comma(node2.*.body)) {
                         self.allocator.free(node2.*.body);
                         self.allocator.destroy(node2);
-                        end_of_list = true;
                         break;
+                    } else {
+                        try token_queue2.push(node2.*.body, node2.*.line, node2.*.col);
                     }
-                }
 
-                if (count == 1 and is_comma(node2.*.body)) {
-                    self.allocator.free(node2.*.body);
                     self.allocator.destroy(node2);
-                    break;
-                } else {
-                    try token_queue2.push(node2.*.body, node2.*.line, node2.*.col);
                 }
 
-                self.allocator.destroy(node2);
+                if (type_exp) {
+                    try self.parse_type_exp(token_queue2);
+                } else {
+                    try self.parse_exp(token_queue2);
+                }
+
+                if (!token_queue2.empty()) {
+                    return ParserError.ParsingFailure;
+                }
+                if (self.ast_stack.items.len < 1) {
+                    return ParserError.ParsingFailure;
+                }
+                const a = self.ast_stack.pop();
+                errdefer tele_ast.free_tele_ast(a, self.allocator);
+                try children.append(a);
             }
 
-            if (type_exp) {
-                try self.parse_type_exp(token_queue2);
-            } else {
-                try self.parse_exp(token_queue2);
-            }
-
-            if (!token_queue2.empty()) {
+            if (count != 0) {
                 return ParserError.ParsingFailure;
             }
-            if (self.ast_stack.items.len < 1) {
-                return ParserError.ParsingFailure;
-            }
-            const a = self.ast_stack.pop();
-            errdefer tele_ast.free_tele_ast(a, self.allocator);
-            try children.append(a);
-        }
 
-        if (count != 0) {
-            return ParserError.ParsingFailure;
+            token_queue2.deinit();
         }
 
         const t = try self.allocator.create(TeleAst);
@@ -1555,7 +1565,6 @@ pub const Parser = struct {
         t.*.ast_type = TeleAstType.list;
         t.*.children = children;
         t.*.col = 0;
-        token_queue2.deinit();
 
         try self.ast_stack.append(t);
     }

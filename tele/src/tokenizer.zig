@@ -205,6 +205,7 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
         ctx.*.leftover = 0;
     }
 
+    var funval_mode: bool = false;
     while (true) {
         const b = r.readByte() catch |err| switch (err) {
             error.EndOfStream => {
@@ -322,6 +323,15 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
                     ctx.*.next_col_number = 0;
                     ctx.*.next_line_number += 1;
                     return false;
+                } else if (special_char(b)) {
+                    if (!funval_mode) {
+                        if (b == '/') {
+                            funval_mode = true;
+                        }
+                    } else {
+                        ctx.*.leftover = b;
+                        return false;
+                    }
                 }
 
                 try l.append(b);
@@ -843,6 +853,22 @@ test "read token" {
     try expect(ctx.col_number == 0);
     try expect(ctx.next_line_number == 29);
     try expect(ctx.next_col_number == 9);
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, "#foo/2"));
+    try expect(ctx.line_number == 30);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 30);
+    try expect(ctx.next_col_number == 6);
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, "]"));
+    try expect(ctx.line_number == 30);
+    try expect(ctx.col_number == 6);
+    try expect(ctx.next_line_number == 30);
+    try expect(ctx.next_col_number == 7);
     list.clearAndFree();
 
     const eof = try read_token(file.reader(), &list, &ctx);

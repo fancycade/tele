@@ -220,6 +220,11 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
                 return CompilerError.CompilingFailure;
             };
         },
+        .custom_attribute => {
+            return tele_to_erlang_custom_attribute(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         .try_catch => {
             return tele_to_erlang_try_catch(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -1013,6 +1018,35 @@ fn tele_to_erlang_attribute(t: *const TeleAst, allocator: std.mem.Allocator) !*E
 
     for (t.children.?.items) |c| {
         try e.children.?.append(try tele_to_erlang(c, allocator));
+    }
+
+    return e;
+}
+
+fn tele_to_erlang_custom_attribute(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const e = try allocator.create(ErlangAst);
+    e.*.ast_type = ErlangAstType.custom_attribute;
+
+    var buf = try allocator.alloc(u8, t.*.body.len);
+    std.mem.copyForwards(u8, buf, t.*.body);
+
+    var i: usize = 0;
+    while (i < buf.len) {
+        if (buf[i] == '.') {
+            buf[i] = ':';
+        }
+        i += 1;
+    }
+
+    e.*.body = buf;
+
+    if (t.children != null) {
+        e.*.children = std.ArrayList(*const ErlangAst).init(allocator);
+        for (t.children.?.items) |c| {
+            try e.children.?.append(try tele_to_erlang(c, allocator));
+        }
+    } else {
+        e.children = null;
     }
 
     return e;

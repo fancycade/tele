@@ -97,6 +97,8 @@ pub const Parser = struct {
                     try self.parse_macro_definition(self.token_queue);
                 } else if (is_feature_keyword(pn.*.body)) {
                     try self.parse_named_attribute(self.token_queue);
+                } else if (is_attr_keyword(pn.*.body)) {
+                    try self.parse_custom_attribute(self.token_queue);
                 } else {
                     return ParserError.InvalidStatement;
                 }
@@ -2335,6 +2337,48 @@ pub const Parser = struct {
         try self.ast_stack.append(t);
     }
 
+    fn parse_custom_attribute(self: *Self, token_queue: *TokenQueue) !void {
+        // Pop off attr
+        const a_node = try token_queue.pop();
+        const current_col = a_node.*.col;
+        self.allocator.free(a_node.*.body);
+        self.allocator.destroy(a_node);
+
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
+
+        // Gather tokens for attribute body
+        while (!token_queue.empty()) {
+            const pn = try token_queue.peek();
+            if (pn.*.col <= current_col) {
+                break;
+            }
+
+            const n = try token_queue.pop();
+            errdefer self.allocator.free(n.*.body);
+            errdefer self.allocator.destroy(n);
+            try buffer_token_queue.push(n.*.body, n.*.line, n.*.col);
+            self.allocator.destroy(n);
+        }
+        if (buffer_token_queue.empty()) {
+            return ParserError.ParsingFailure;
+        }
+
+        // TODO: Restrict to function call only
+        try self.parse_exp(buffer_token_queue);
+        if (self.ast_stack.items.len < 1) {
+            return ParserError.ParsingFailure;
+        }
+        if (!buffer_token_queue.empty()) {
+            return ParserError.ParsingFailure;
+        }
+        buffer_token_queue.deinit();
+
+        var ast = self.ast_stack.pop();
+        ast.ast_type = TeleAstType.custom_attribute;
+        try self.ast_stack.append(ast);
+    }
+
     fn parse_named_attribute(self: *Self, token_queue: *TokenQueue) !void {
         //Pop off attribute name
         const name_node = try token_queue.pop();
@@ -2396,6 +2440,10 @@ pub const Parser = struct {
 };
 
 fn is_statement_keyword(buf: []const u8) bool {
+    if (buf[0] == 'a') {
+        return is_attr_keyword(buf);
+    }
+
     if (buf[0] == 's') {
         return is_spec_keyword(buf);
     }
@@ -2502,6 +2550,10 @@ fn is_behaviour_keyword(buf: []const u8) bool {
 
 fn is_feature_keyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "feature");
+}
+
+fn is_attr_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "attr");
 }
 
 fn is_compile_keyword(buf: []const u8) bool {

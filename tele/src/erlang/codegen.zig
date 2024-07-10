@@ -223,6 +223,13 @@ pub const Context = struct {
         _ = try w.write(").\n");
     }
 
+    pub fn write_custom_attribute(self: *Self, w: anytype, a: *const Ast) !void {
+        try self.write_padding(w);
+        _ = try w.write("-");
+        try self.write_function_call(w, a);
+        _ = try w.write(".\n\n");
+    }
+
     pub fn write_function_def(self: *Self, w: anytype, a: *const Ast) !void {
         var i: usize = 0;
 
@@ -714,6 +721,11 @@ pub const Context = struct {
             },
             .attribute => {
                 self.write_attribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .custom_attribute => {
+                self.write_custom_attribute(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

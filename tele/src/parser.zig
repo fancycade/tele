@@ -72,14 +72,10 @@ pub const Parser = struct {
                 } else if (is_record_keyword(pn.*.body)) {
                     try self.parse_record_definition(self.token_queue);
                 } else if (is_behaviour_keyword(pn.*.body)) {
-                    try self.parse_attribute(self.token_queue);
+                    try self.parse_behaviour(self.token_queue);
                 } else if (is_include_keyword(pn.*.body)) {
                     try self.parse_attribute(self.token_queue);
                 } else if (is_include_lib_keyword(pn.*.body)) {
-                    try self.parse_attribute(self.token_queue);
-                } else if (is_vsn_keyword(pn.*.body)) {
-                    try self.parse_attribute(self.token_queue);
-                } else if (is_compile_keyword(pn.*.body)) {
                     try self.parse_attribute(self.token_queue);
                 } else if (is_nifs_keyword(pn.*.body)) {
                     try self.parse_attribute(self.token_queue);
@@ -95,8 +91,6 @@ pub const Parser = struct {
                     try self.parse_named_attribute(self.token_queue);
                 } else if (is_define_keyword(pn.*.body)) {
                     try self.parse_macro_definition(self.token_queue);
-                } else if (is_feature_keyword(pn.*.body)) {
-                    try self.parse_named_attribute(self.token_queue);
                 } else if (is_attr_keyword(pn.*.body)) {
                     try self.parse_custom_attribute(self.token_queue);
                 } else {
@@ -2288,14 +2282,6 @@ pub const Parser = struct {
         self.allocator.destroy(name_node);
         errdefer self.allocator.free(name);
 
-        // Pop off colon
-        const colon_node = try token_queue.pop();
-        const err = !is_colon(colon_node.*.body);
-        self.allocator.free(colon_node.*.body);
-        self.allocator.destroy(colon_node);
-        if (err) {
-            return ParserError.ParsingFailure;
-        }
         var buffer_token_queue = try TokenQueue.init(self.allocator);
         errdefer buffer_token_queue.deinit();
 
@@ -2379,6 +2365,35 @@ pub const Parser = struct {
         try self.ast_stack.append(ast);
     }
 
+    fn parse_behaviour(self: *Self, token_queue: *TokenQueue) !void {
+        // Pop off behaviour
+        const name_node = try token_queue.pop();
+        const name = name_node.*.body;
+        errdefer self.allocator.free(name);
+        self.allocator.destroy(name_node);
+
+        try self.parse_exp(token_queue);
+        if (self.ast_stack.items.len < 1) {
+            return ParserError.ParsingFailure;
+        }
+
+        var bast = self.ast_stack.pop();
+        // Check that bast is type variable
+        bast.ast_type = TeleAstType.atom;
+
+        var children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        try children.append(bast);
+
+        const t = try self.allocator.create(TeleAst);
+        t.*.body = name;
+        t.*.ast_type = TeleAstType.attribute;
+        t.*.children = children;
+        t.*.col = 0;
+
+        try self.ast_stack.append(t);
+    }
+
     fn parse_named_attribute(self: *Self, token_queue: *TokenQueue) !void {
         //Pop off attribute name
         const name_node = try token_queue.pop();
@@ -2449,7 +2464,7 @@ fn is_statement_keyword(buf: []const u8) bool {
     }
 
     if (buf[0] == 'f') {
-        return is_fun_keyword(buf) or is_funp_keyword(buf) or is_feature_keyword(buf);
+        return is_fun_keyword(buf) or is_funp_keyword(buf);
     }
 
     if (buf[0] == 't') {
@@ -2485,11 +2500,7 @@ fn is_statement_keyword(buf: []const u8) bool {
     }
 
     if (buf[0] == 'c') {
-        return is_callback_keyword(buf) or is_compile_keyword(buf);
-    }
-
-    if (buf[0] == 'v') {
-        return is_vsn_keyword(buf);
+        return is_callback_keyword(buf);
     }
 
     return false;
@@ -2502,9 +2513,7 @@ test "is statement keyword" {
     try std.testing.expect(is_statement_keyword("type"));
     try std.testing.expect(is_statement_keyword("record"));
     try std.testing.expect(is_statement_keyword("behaviour"));
-    try std.testing.expect(is_statement_keyword("compile"));
     try std.testing.expect(is_statement_keyword("import"));
-    try std.testing.expect(is_statement_keyword("vsn"));
     try std.testing.expect(is_statement_keyword("onload"));
     try std.testing.expect(is_statement_keyword("nifs"));
     try std.testing.expect(is_statement_keyword("callback"));
@@ -2513,7 +2522,6 @@ test "is statement keyword" {
     try std.testing.expect(is_statement_keyword("doc"));
     try std.testing.expect(is_statement_keyword("moduledoc"));
     try std.testing.expect(is_statement_keyword("define"));
-    try std.testing.expect(is_statement_keyword("feature"));
 
     try std.testing.expect(!is_statement_keyword("["));
     try std.testing.expect(!is_statement_keyword("]"));

@@ -334,11 +334,17 @@ Make multiple modules inside of a file.
 
 ### Module Attributes
 
-## Not Supported
+Inside attributes, besides `define`, any fun vals are converted to `name/arity` syntax instead of prefixed with fun.
 
-- module
-- export
-- export_all
+For example:
+
+    nifs [#hello/2]
+
+Becomes:
+
+    -nifs(hello/2).
+
+The reason for this is to unify the syntaxes for function values instead of having a special syntax for attributes but not expressions.
 
 ## import
 
@@ -350,34 +356,24 @@ Would be:
 
     import foo_mod: [#do_thing/1, #do_thing2/3]
 
-## compile
-
-    compile: 'inline
-    compile: #('inline, [#pi/0])
-
-## vsn
-
-    vsn: 2
-
 ## on_load
 
-    on_load: #init_info/2
+    on_load #init_info/2
 
 ## nifs
 
-    nifs: [#native_call/2, #native_other_call/3]
+    nifs [#native_call/2, #native_other_call/3]
 
 ## behaviour
 
 
-    behaviour: 'gen_server
+    behaviour gen_server
 
-EXPERIMENTAL:
+OR
 
-Since it might be common to forget the ' at the beginning,
-can support an atom as optional and could be a variable.
+    behaviour 'gen_server
 
-    behaviour: gen_server
+Technically, the atom version is correct, but for convenience it can be an atom or a variable.
 
 ## callback
 
@@ -385,11 +381,11 @@ can support an atom as optional and could be a variable.
 
 ## include
 
-    include: "include/some/header.hrl"
+    include "include/some/header.hrl"
 
 ## include_lib
 
-    include_lib: "kernel/include/file.htl"
+    include_lib "kernel/include/file.htl"
 
 ## define
 
@@ -397,32 +393,42 @@ can support an atom as optional and could be a variable.
     define MACRO1(x, y):
       #('a, x, 'b, y)
 
-## file
-
-For now not supported until use case determined. Can use tuple to get around arity of 2 issue.
-
-    file #("some/path", 17)
-
 ## doc
 
-    doc: "this is a documentation"
+    doc "this is a documentation"
 
-    doc: """
+    doc """
     This is a multiline
     comment that goes on and on...
     """
 
 ## moduledoc
 
-    moduledoc: "this is module doc"
+    moduledoc "this is module doc"
     
-    moduledoc: """
+    moduledoc """
     this is a multiline module doc
     """
 
-## feature
+## Not Supported
 
-    feature maybe_exp: 'enable
+- module
+- export
+- export_all
+- compile
+- feature
+- vsn
+- file
+
+## Custom Attributes
+
+If an erlang attribute is not supported by a builtin tele attribute you can use the `attr` prefix to specify an attribute.
+
+    attr compile('inline)
+
+Compiles into:
+
+    -compile(inline).
 
 ### Type Specifications 
 

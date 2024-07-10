@@ -11,9 +11,10 @@ pub const Context = struct {
 
     padding_stack: std.ArrayList(usize),
     match_count: usize,
+    attribute_mode: bool,
 
     pub fn init(allocator: std.mem.Allocator) Context {
-        return Context{ .padding_stack = std.ArrayList(usize).init(allocator), .match_count = 0 };
+        return Context{ .padding_stack = std.ArrayList(usize).init(allocator), .match_count = 0, .attribute_mode = false };
     }
 
     pub fn deinit(self: *Self) void {
@@ -151,7 +152,9 @@ pub const Context = struct {
 
     pub fn write_fun_val(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
-        _ = try w.write("fun ");
+        if (!self.attribute_mode) {
+            _ = try w.write("fun ");
+        }
         _ = try w.write(a.body);
     }
 
@@ -206,6 +209,7 @@ pub const Context = struct {
 
     pub fn write_attribute(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
+        self.attribute_mode = true;
         _ = try w.write("-");
         _ = try w.write(a.body);
         _ = try w.write("(");
@@ -221,13 +225,16 @@ pub const Context = struct {
         }
 
         _ = try w.write(").\n");
+        self.attribute_mode = false;
     }
 
     pub fn write_custom_attribute(self: *Self, w: anytype, a: *const Ast) !void {
+        self.attribute_mode = true;
         try self.write_padding(w);
         _ = try w.write("-");
         try self.write_function_call(w, a);
         _ = try w.write(".\n\n");
+        self.attribute_mode = false;
     }
 
     pub fn write_function_def(self: *Self, w: anytype, a: *const Ast) !void {

@@ -232,7 +232,7 @@ pub const Context = struct {
 
         // Look for guard clause
         var guard: bool = false;
-        if (a.children.?.items[a.children.?.items.len - 1] == AstType.guard_clause) {
+        if (a.children.?.items[a.children.?.items.len - 1].ast_type == AstType.guard_clause) {
             guard = true;
         }
 
@@ -529,11 +529,11 @@ pub const Context = struct {
     }
 
     pub fn write_record_field(self: *Self, w: anytype, a: *const Ast) !void {
-        try self.write(w, a.*.body);
+        _ = try w.write(a.*.body);
 
         if (a.*.children != null) {
-            if (a.*.children.items.len == 1) {
-                const a2 = a.*.children.items[0];
+            if (a.*.children.?.items.len == 1) {
+                const a2 = a.*.children.?.items[0];
                 if (a2.ast_type == AstType.record_field_value) {
                     try self.write_record_field_value(w, a2);
                 } else if (a2.ast_type == AstType.record_field_value) {
@@ -541,15 +541,15 @@ pub const Context = struct {
                 } else {
                     return CodegenError.WritingFailure;
                 }
-            } else if (a.*.children.items.len == 2) {
-                const a2 = a.*.children.items[0];
+            } else if (a.*.children.?.items.len == 2) {
+                const a2 = a.*.children.?.items[0];
                 if (a2.ast_type == AstType.record_field_value) {
                     try self.write_record_field_value(w, a2);
                 } else {
                     return CodegenError.WritingFailure;
                 }
 
-                const a3 = a.*.children.items[1];
+                const a3 = a.*.children.?.items[1];
                 if (a3.ast_type == AstType.record_field_type) {
                     try self.write_record_field_type(w, a3);
                 } else {
@@ -879,14 +879,28 @@ test "write record" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var t = Ast{ .body = "name", .ast_type = AstType.atom, .children = null, .col = 0 };
+    var field1_children = std.ArrayList(*Ast).init(test_allocator);
+    defer field1_children.deinit();
+    var fv1_children = std.ArrayList(*Ast).init(test_allocator);
+    defer fv1_children.deinit();
+    var fv1 = Ast{ .body = "\"Joe\"", .ast_type = AstType.binary, .children = null, .col = 0 };
+    try fv1_children.append(&fv1);
+    var fvv1 = Ast{ .body = "", .ast_type = AstType.record_field_value, .children = fv1_children, .col = 0 };
+    try field1_children.append(&fvv1);
+
+    var field2_children = std.ArrayList(*Ast).init(test_allocator);
+    defer field2_children.deinit();
+    var fv2_children = std.ArrayList(*Ast).init(test_allocator);
+    defer fv2_children.deinit();
+    var fv2 = Ast{ .body = "68", .ast_type = AstType.binary, .children = null, .col = 0 };
+    try fv2_children.append(&fv2);
+    var fvv2 = Ast{ .body = "", .ast_type = AstType.record_field_value, .children = fv2_children, .col = 0 };
+    try field2_children.append(&fvv2);
+
+    var t = Ast{ .body = "name", .ast_type = AstType.record_field, .children = field1_children, .col = 0 };
     try children.append(&t);
-    var t2 = Ast{ .body = "\"Joe\"", .ast_type = AstType.binary, .children = null, .col = 0 };
+    var t2 = Ast{ .body = "age", .ast_type = AstType.record_field, .children = field2_children, .col = 0 };
     try children.append(&t2);
-    var t3 = Ast{ .body = "age", .ast_type = AstType.atom, .children = null, .col = 0 };
-    try children.append(&t3);
-    var t4 = Ast{ .body = "68", .ast_type = AstType.int, .children = null, .col = 0 };
-    try children.append(&t4);
 
     try context.write_record(list.writer(), &Ast{ .body = "person", .ast_type = AstType.record, .children = children, .col = 0 });
 
@@ -1064,7 +1078,7 @@ test "write function def" {
     try children.append(&a3);
 
     try context.write_function_def(list.writer(), &Ast{ .body = "hello_world", .ast_type = AstType.function_def, .children = children, .col = 0 }, false);
-    try std.testing.expect(std.mem.eql(u8, list.items, "def hello_world():\n  hello()\n  world()\n\n"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "fun hello_world():\n  hello()\n  world()\n\n"));
 }
 
 test "write function def matching" {

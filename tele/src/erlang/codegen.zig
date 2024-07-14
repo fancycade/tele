@@ -944,10 +944,27 @@ test "write record" {
     var children = std.ArrayList(*const Ast).init(test_allocator);
     defer children.deinit();
 
-    try children.append(&Ast{ .body = "name", .ast_type = AstType.atom, .children = null });
-    try children.append(&Ast{ .body = "\"Joe\"", .ast_type = AstType.binary, .children = null });
-    try children.append(&Ast{ .body = "age", .ast_type = AstType.atom, .children = null });
-    try children.append(&Ast{ .body = "68", .ast_type = AstType.int, .children = null });
+    var field1_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer field1_children.deinit();
+
+    var fv1_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer fv1_children.deinit();
+    try fv1_children.append(&Ast{ .body = "\"Joe\"", .ast_type = AstType.binary, .children = null });
+
+    try field1_children.append(&Ast{ .body = "", .ast_type = AstType.record_field_value, .children = fv1_children });
+
+    var field2_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer field2_children.deinit();
+    var fv2_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer fv2_children.deinit();
+    try fv2_children.append(&Ast{ .body = "68", .ast_type = AstType.int, .children = null });
+    try field2_children.append(&Ast{ .body = "", .ast_type = AstType.record_field_value, .children = fv2_children });
+
+    const field1 = Ast{ .body = "name", .ast_type = AstType.record_field, .children = field1_children };
+    const field2 = Ast{ .body = "age", .ast_type = AstType.record_field, .children = field2_children };
+
+    try children.append(&field1);
+    try children.append(&field2);
 
     var context = Context.init(test_allocator);
     defer context.deinit();

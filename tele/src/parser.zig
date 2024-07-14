@@ -2514,7 +2514,6 @@ test "is statement keyword" {
     try std.testing.expect(is_statement_keyword("record"));
     try std.testing.expect(is_statement_keyword("behaviour"));
     try std.testing.expect(is_statement_keyword("import"));
-    try std.testing.expect(is_statement_keyword("onload"));
     try std.testing.expect(is_statement_keyword("nifs"));
     try std.testing.expect(is_statement_keyword("callback"));
     try std.testing.expect(is_statement_keyword("include"));

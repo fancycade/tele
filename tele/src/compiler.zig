@@ -561,18 +561,26 @@ test "tele to erlang record" {
     var t_children = std.ArrayList(*TeleAst).init(test_allocator);
     defer t_children.deinit();
 
-    var t = TeleAst{ .body = "x", .ast_type = TeleAstType.atom, .children = null, .col = 0 };
-    try t_children.append(&t);
+    var field_children = std.ArrayList(*TeleAst).init(test_allocator);
+    defer field_children.deinit();
+
     var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0 };
-    try t_children.append(&t2);
+    try field_children.append(&t2);
+
+    var t_field = TeleAst{ .body = "x", .ast_type = TeleAstType.record_field, .children = field_children, .col = 0 };
+    try t_children.append(&t_field);
 
     const e = try tele_to_erlang_record(&TeleAst{ .body = "point", .ast_type = TeleAstType.record, .children = t_children, .col = 0 }, test_allocator);
 
     var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
     defer e_children.deinit();
 
-    try e_children.append(&ErlangAst{ .body = "x", .ast_type = ErlangAstType.variable, .children = null });
-    try e_children.append(&ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null });
+    var e_field_children = std.ArrayList(*const ErlangAst).init(test_allocator);
+    defer e_field_children.deinit();
+    try e_field_children.append(&ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null });
+
+    const e_field = ErlangAst{ .body = "x", .ast_type = ErlangAstType.record_field, .children = e_field_children };
+    try e_children.append(&e_field);
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "point", .ast_type = ErlangAstType.record, .children = e_children }));
 

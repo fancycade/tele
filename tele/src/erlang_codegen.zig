@@ -1,5 +1,5 @@
 const std = @import("std");
-const ast = @import("ast.zig");
+const ast = @import("erlang_ast.zig");
 const Ast = ast.Ast;
 const AstType = ast.AstType;
 const test_allocator = std.testing.allocator;

@@ -1,11 +1,11 @@
 const std = @import("std");
 const test_allocator = std.testing.allocator;
 
-const tele_ast = @import("tele/ast.zig");
+const tele_ast = @import("tele_ast.zig");
 const TeleAst = tele_ast.Ast;
 const TeleAstType = tele_ast.AstType;
 
-const erlang_ast = @import("erlang/ast.zig");
+const erlang_ast = @import("erlang_ast.zig");
 const ErlangAst = erlang_ast.Ast;
 const ErlangAstType = erlang_ast.AstType;
 

@@ -54,6 +54,10 @@ pub const Parser = struct {
         return self.ast_stack;
     }
 
+    pub fn pop(self: *Self) *TeleAst {
+        return self.ast_stack.pop();
+    }
+
     pub fn parse_statements(self: *Self, allow_exps: bool) !void {
         while (!self.token_queue.empty()) {
             const pn = self.token_queue.peek() catch {
@@ -2624,27 +2628,30 @@ test "parse operator expression" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //var result = try parse_tokens(token_queue, test_allocator);
-    //defer result.deinit();
-    //try std.testing.expect(result.items.len == 1);
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //const a = result.pop();
-    //try std.testing.expect(a.*.ast_type == TeleAstType.op);
-    //try std.testing.expect(std.mem.eql(u8, a.*.body, "+"));
-    //try std.testing.expect(a.children.?.items.len == 2);
+    var result = try parser.parse();
+    defer result.deinit();
+    try std.testing.expect(result.items.len == 1);
 
-    //const c = a.children.?;
-    //try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
-    //try std.testing.expect(c.items[0].children == null);
+    const a = result.pop();
+    try std.testing.expect(a.*.ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, a.*.body, "+"));
+    try std.testing.expect(a.children.?.items.len == 2);
 
-    //try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[1].body, "2"));
-    //try std.testing.expect(c.items[1].children == null);
+    const c = a.children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
 
-    //test_allocator.free(a.*.body);
-    //tele_ast.free_tele_ast_list(a.children.?, test_allocator);
-    //test_allocator.destroy(a);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "2"));
+    try std.testing.expect(c.items[1].children == null);
+
+    test_allocator.free(a.*.body);
+    tele_ast.free_tele_ast_list(a.children.?, test_allocator);
+    test_allocator.destroy(a);
 }
 
 test "parse operator expression chained" {
@@ -2656,36 +2663,39 @@ test "parse operator expression chained" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //var result = try parse_tokens(token_queue, test_allocator);
-    //defer result.deinit();
-    //try std.testing.expect(result.items.len == 1);
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //const a = result.pop();
-    //try std.testing.expect(a.*.ast_type == TeleAstType.op);
-    //try std.testing.expect(std.mem.eql(u8, a.*.body, "="));
-    //try std.testing.expect(a.children.?.items.len == 2);
+    var result = try parser.parse();
 
-    //const c = a.children.?;
-    //try std.testing.expect(c.items[0].ast_type == TeleAstType.variable);
-    //try std.testing.expect(std.mem.eql(u8, c.items[0].body, "a"));
-    //try std.testing.expect(c.items[0].children == null);
+    try std.testing.expect(result.items.len == 1);
 
-    //try std.testing.expect(c.items[1].ast_type == TeleAstType.op);
-    //try std.testing.expect(std.mem.eql(u8, c.items[1].body, "+"));
-    //try std.testing.expect(c.items[1].children.?.items.len == 2);
+    const a = result.pop();
+    try std.testing.expect(a.*.ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, a.*.body, "="));
+    try std.testing.expect(a.children.?.items.len == 2);
 
-    //const c2 = c.items[1].children.?;
-    //try std.testing.expect(c2.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c2.items[0].body, "1"));
-    //try std.testing.expect(c2.items[0].children == null);
+    const c = a.children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "a"));
+    try std.testing.expect(c.items[0].children == null);
 
-    //try std.testing.expect(c2.items[1].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c2.items[1].body, "2"));
-    //try std.testing.expect(c2.items[1].children == null);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "+"));
+    try std.testing.expect(c.items[1].children.?.items.len == 2);
 
-    //test_allocator.free(a.*.body);
-    //tele_ast.free_tele_ast_list(a.children.?, test_allocator);
-    //test_allocator.destroy(a);
+    const c2 = c.items[1].children.?;
+    try std.testing.expect(c2.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c2.items[0].body, "1"));
+    try std.testing.expect(c2.items[0].children == null);
+
+    try std.testing.expect(c2.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c2.items[1].body, "2"));
+    try std.testing.expect(c2.items[1].children == null);
+
+    test_allocator.free(a.*.body);
+    tele_ast.free_tele_ast_list(a.children.?, test_allocator);
+    test_allocator.destroy(a);
 }
 
 fn check_paren_start_peek(token_queue: *TokenQueue) !bool {
@@ -2732,24 +2742,28 @@ test "parse tuple" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //const result = try parse_tuple(token_queue, test_allocator);
-    //try std.testing.expect(result.*.ast_type == TeleAstType.tuple);
-    //try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
-    //try std.testing.expect(result.*.children.?.items.len == 3);
+    var parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //const c = result.*.children.?;
-    //try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
-    //try std.testing.expect(c.items[0].children == null);
-    //try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[1].body, "2"));
-    //try std.testing.expect(c.items[1].children == null);
-    //try std.testing.expect(c.items[2].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[2].body, "3"));
-    //try std.testing.expect(c.items[2].children == null);
+    try parser.parse_tuple(token_queue, false);
+    const result = parser.pop();
+    try std.testing.expect(result.*.ast_type == TeleAstType.tuple);
+    try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
+    try std.testing.expect(result.*.children.?.items.len == 3);
 
-    //tele_ast.free_tele_ast_list(result.children.?, test_allocator);
-    //test_allocator.destroy(result);
+    const c = result.*.children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "2"));
+    try std.testing.expect(c.items[1].children == null);
+    try std.testing.expect(c.items[2].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[2].body, "3"));
+    try std.testing.expect(c.items[2].children == null);
+
+    tele_ast.free_tele_ast_list(result.children.?, test_allocator);
+    test_allocator.destroy(result);
 }
 
 test "parse list" {
@@ -2761,24 +2775,28 @@ test "parse list" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //const result = try parse_list(token_queue, test_allocator);
-    //try std.testing.expect(result.*.ast_type == TeleAstType.list);
-    //try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
-    //try std.testing.expect(result.*.children.?.items.len == 3);
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //const c = result.*.children.?;
-    //try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
-    //try std.testing.expect(c.items[0].children == null);
-    //try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[1].body, "2"));
-    //try std.testing.expect(c.items[1].children == null);
-    //try std.testing.expect(c.items[2].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[2].body, "3"));
-    //try std.testing.expect(c.items[2].children == null);
+    try parser.parse_list(token_queue, false);
+    const result = parser.pop();
+    try std.testing.expect(result.*.ast_type == TeleAstType.list);
+    try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
+    try std.testing.expect(result.*.children.?.items.len == 3);
 
-    //tele_ast.free_tele_ast_list(result.children.?, test_allocator);
-    //test_allocator.destroy(result);
+    const c = result.*.children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "2"));
+    try std.testing.expect(c.items[1].children == null);
+    try std.testing.expect(c.items[2].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[2].body, "3"));
+    try std.testing.expect(c.items[2].children == null);
+
+    tele_ast.free_tele_ast_list(result.children.?, test_allocator);
+    test_allocator.destroy(result);
 }
 
 test "parse map" {
@@ -2790,35 +2808,39 @@ test "parse map" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //const result = try parse_map(token_queue, test_allocator);
-    //try std.testing.expect(result.*.ast_type == TeleAstType.map);
-    //try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
-    //try std.testing.expect(result.*.children.?.items.len == 6);
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //const c = result.*.children.?;
-    //try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
-    //try std.testing.expect(c.items[0].children == null);
-    //try std.testing.expect(c.items[1].ast_type == TeleAstType.variable);
-    //try std.testing.expect(std.mem.eql(u8, c.items[1].body, "a"));
-    //try std.testing.expect(c.items[1].children == null);
+    try parser.parse_map(token_queue, false);
+    const result = parser.pop();
+    try std.testing.expect(result.*.ast_type == TeleAstType.map);
+    try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
+    try std.testing.expect(result.*.children.?.items.len == 6);
 
-    //try std.testing.expect(c.items[2].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[2].body, "2"));
-    //try std.testing.expect(c.items[2].children == null);
-    //try std.testing.expect(c.items[3].ast_type == TeleAstType.variable);
-    //try std.testing.expect(std.mem.eql(u8, c.items[3].body, "b"));
-    //try std.testing.expect(c.items[3].children == null);
+    const c = result.*.children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "a"));
+    try std.testing.expect(c.items[1].children == null);
 
-    //try std.testing.expect(c.items[4].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[4].body, "3"));
-    //try std.testing.expect(c.items[4].children == null);
-    //try std.testing.expect(c.items[5].ast_type == TeleAstType.variable);
-    //try std.testing.expect(std.mem.eql(u8, c.items[5].body, "c"));
-    //try std.testing.expect(c.items[5].children == null);
+    try std.testing.expect(c.items[2].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[2].body, "2"));
+    try std.testing.expect(c.items[2].children == null);
+    try std.testing.expect(c.items[3].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, c.items[3].body, "b"));
+    try std.testing.expect(c.items[3].children == null);
 
-    //tele_ast.free_tele_ast_list(result.children.?, test_allocator);
-    //test_allocator.destroy(result);
+    try std.testing.expect(c.items[4].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[4].body, "3"));
+    try std.testing.expect(c.items[4].children == null);
+    try std.testing.expect(c.items[5].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, c.items[5].body, "c"));
+    try std.testing.expect(c.items[5].children == null);
+
+    tele_ast.free_tele_ast_list(result.children.?, test_allocator);
+    test_allocator.destroy(result);
 }
 
 fn extract_record_name(name: []const u8, allocator: std.mem.Allocator) ![]const u8 {
@@ -2841,49 +2863,23 @@ test "parse body multi" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //const result = try parse_body(token_queue, test_allocator);
-    //try std.testing.expect(result.items.len == 2);
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //const ast1 = result.items[0];
-    //try std.testing.expect(ast1.*.ast_type == TeleAstType.op);
-    //try std.testing.expect(std.mem.eql(u8, ast1.*.body, "+"));
-    //try std.testing.expect(ast1.*.children.?.items.len == 2);
+    const result = try parser.parse_body(token_queue);
+    try std.testing.expect(result.items.len == 2);
 
-    //const ast2 = result.items[1];
-    //try std.testing.expect(ast2.*.ast_type == TeleAstType.op);
-    //try std.testing.expect(std.mem.eql(u8, ast2.*.body, "-"));
-    //try std.testing.expect(ast2.*.children.?.items.len == 2);
+    const ast1 = result.items[0];
+    try std.testing.expect(ast1.*.ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, ast1.*.body, "+"));
+    try std.testing.expect(ast1.*.children.?.items.len == 2);
 
-    //tele_ast.free_tele_ast_list(result, test_allocator);
-}
+    const ast2 = result.items[1];
+    try std.testing.expect(ast2.*.ast_type == TeleAstType.op);
+    try std.testing.expect(std.mem.eql(u8, ast2.*.body, "-"));
+    try std.testing.expect(ast2.*.children.?.items.len == 2);
 
-test "parse body line" {
-    const file = try std.fs.cwd().openFile(
-        "snippets/body_single.tl",
-        .{ .mode = .read_only },
-    );
-    defer file.close();
-    const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
-    defer token_queue.deinit();
-
-    //const result = try parse_body_line(token_queue, test_allocator, 0);
-    //try std.testing.expect(result.*.ast_type == TeleAstType.op);
-    //try std.testing.expect(std.mem.eql(u8, result.*.body, "+"));
-    //try std.testing.expect(result.*.children.?.items.len == 2);
-
-    //const ast1 = result.*.children.?.items[0];
-    //try std.testing.expect(ast1.*.ast_type == TeleAstType.variable);
-    //try std.testing.expect(std.mem.eql(u8, ast1.*.body, "a"));
-    //try std.testing.expect(ast1.*.children == null);
-
-    //const ast2 = result.*.children.?.items[1];
-    //try std.testing.expect(ast2.*.ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, ast2.*.body, "2"));
-    //try std.testing.expect(ast2.*.children == null);
-
-    //tele_ast.free_tele_ast_list(result.*.children.?, test_allocator);
-    //test_allocator.free(result.*.body);
-    //test_allocator.destroy(result);
+    tele_ast.free_tele_ast_list(result, test_allocator);
 }
 
 test "parse match expression" {
@@ -2895,42 +2891,46 @@ test "parse match expression" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //const result = try parse_match_expression(token_queue, test_allocator, 0);
-    //try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
-    //try std.testing.expect(result.*.ast_type == TeleAstType.case);
-    //try std.testing.expect(result.*.children.?.items.len == 3);
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //const mc = result.*.children.?;
-    //try std.testing.expect(mc.items[0].ast_type == TeleAstType.variable);
-    //try std.testing.expect(std.mem.eql(u8, mc.items[0].body, "x"));
-    //try std.testing.expect(mc.items[0].children == null);
+    try parser.parse_match_expression(token_queue);
+    const result = parser.pop();
+    try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
+    try std.testing.expect(result.*.ast_type == TeleAstType.case);
+    try std.testing.expect(result.*.children.?.items.len == 3);
 
-    //try std.testing.expect(mc.items[1].ast_type == TeleAstType.case_clause);
-    //try std.testing.expect(std.mem.eql(u8, mc.items[1].body, ""));
-    //try std.testing.expect(mc.items[1].children.?.items.len == 2);
+    const mc = result.*.children.?;
+    try std.testing.expect(mc.items[0].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, mc.items[0].body, "x"));
+    try std.testing.expect(mc.items[0].children == null);
 
-    //const c = mc.items[1].children.?;
-    //try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
-    //try std.testing.expect(c.items[0].children == null);
-    //try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[1].body, "42"));
-    //try std.testing.expect(c.items[1].children == null);
+    try std.testing.expect(mc.items[1].ast_type == TeleAstType.case_clause);
+    try std.testing.expect(std.mem.eql(u8, mc.items[1].body, ""));
+    try std.testing.expect(mc.items[1].children.?.items.len == 2);
 
-    //try std.testing.expect(mc.items[2].ast_type == TeleAstType.case_clause);
-    //try std.testing.expect(std.mem.eql(u8, mc.items[2].body, ""));
-    //try std.testing.expect(mc.items[2].children.?.items.len == 2);
+    const c = mc.items[1].children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "42"));
+    try std.testing.expect(c.items[1].children == null);
 
-    //const c2 = mc.items[2].children.?;
-    //try std.testing.expect(c2.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c2.items[0].body, "2"));
-    //try std.testing.expect(c2.items[0].children == null);
-    //try std.testing.expect(c2.items[1].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c2.items[1].body, "43"));
-    //try std.testing.expect(c2.items[1].children == null);
+    try std.testing.expect(mc.items[2].ast_type == TeleAstType.case_clause);
+    try std.testing.expect(std.mem.eql(u8, mc.items[2].body, ""));
+    try std.testing.expect(mc.items[2].children.?.items.len == 2);
 
-    //tele_ast.free_tele_ast_list(result.*.children.?, test_allocator);
-    //test_allocator.destroy(result);
+    const c2 = mc.items[2].children.?;
+    try std.testing.expect(c2.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c2.items[0].body, "2"));
+    try std.testing.expect(c2.items[0].children == null);
+    try std.testing.expect(c2.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c2.items[1].body, "43"));
+    try std.testing.expect(c2.items[1].children == null);
+
+    tele_ast.free_tele_ast_list(result.*.children.?, test_allocator);
+    test_allocator.destroy(result);
 }
 
 test "parse match body single clause" {
@@ -2942,20 +2942,23 @@ test "parse match body single clause" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //const result = try parse_match_body(token_queue, test_allocator);
-    //try std.testing.expect(result.items.len == 1);
-    //try std.testing.expect(result.items[0].ast_type == TeleAstType.case_clause);
-    //try std.testing.expect(std.mem.eql(u8, result.items[0].body, ""));
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //try std.testing.expect(result.items[0].children.?.items.len == 2);
-    //const c = result.items[0].children.?;
-    //try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
-    //try std.testing.expect(c.items[0].children == null);
-    //try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[1].body, "42"));
-    //try std.testing.expect(c.items[1].children == null);
-    //tele_ast.free_tele_ast_list(result, test_allocator);
+    const result = try parser.parse_match_body(token_queue);
+    try std.testing.expect(result.items.len == 1);
+    try std.testing.expect(result.items[0].ast_type == TeleAstType.case_clause);
+    try std.testing.expect(std.mem.eql(u8, result.items[0].body, ""));
+
+    try std.testing.expect(result.items[0].children.?.items.len == 2);
+    const c = result.items[0].children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "42"));
+    try std.testing.expect(c.items[1].children == null);
+    tele_ast.free_tele_ast_list(result, test_allocator);
 }
 
 test "parse match body multi clause" {
@@ -2967,33 +2970,36 @@ test "parse match body multi clause" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //const result = try parse_match_body(token_queue, test_allocator);
-    //try std.testing.expect(result.items.len == 2);
-    //try std.testing.expect(result.items[0].ast_type == TeleAstType.case_clause);
-    //try std.testing.expect(std.mem.eql(u8, result.items[0].body, ""));
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //try std.testing.expect(result.items[0].children.?.items.len == 2);
-    //const c = result.items[0].children.?;
-    //try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
-    //try std.testing.expect(c.items[0].children == null);
-    //try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c.items[1].body, "42"));
-    //try std.testing.expect(c.items[1].children == null);
+    const result = try parser.parse_match_body(token_queue);
+    try std.testing.expect(result.items.len == 2);
+    try std.testing.expect(result.items[0].ast_type == TeleAstType.case_clause);
+    try std.testing.expect(std.mem.eql(u8, result.items[0].body, ""));
 
-    //try std.testing.expect(result.items[1].ast_type == TeleAstType.case_clause);
-    //try std.testing.expect(std.mem.eql(u8, result.items[1].body, ""));
+    try std.testing.expect(result.items[0].children.?.items.len == 2);
+    const c = result.items[0].children.?;
+    try std.testing.expect(c.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[0].body, "1"));
+    try std.testing.expect(c.items[0].children == null);
+    try std.testing.expect(c.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c.items[1].body, "42"));
+    try std.testing.expect(c.items[1].children == null);
 
-    //try std.testing.expect(result.items[1].children.?.items.len == 2);
-    //const c2 = result.items[1].children.?;
-    //try std.testing.expect(c2.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c2.items[0].body, "2"));
-    //try std.testing.expect(c2.items[0].children == null);
-    //try std.testing.expect(c2.items[1].ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, c2.items[1].body, "43"));
-    //try std.testing.expect(c2.items[1].children == null);
+    try std.testing.expect(result.items[1].ast_type == TeleAstType.case_clause);
+    try std.testing.expect(std.mem.eql(u8, result.items[1].body, ""));
 
-    //tele_ast.free_tele_ast_list(result, test_allocator);
+    try std.testing.expect(result.items[1].children.?.items.len == 2);
+    const c2 = result.items[1].children.?;
+    try std.testing.expect(c2.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c2.items[0].body, "2"));
+    try std.testing.expect(c2.items[0].children == null);
+    try std.testing.expect(c2.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c2.items[1].body, "43"));
+    try std.testing.expect(c2.items[1].children == null);
+
+    tele_ast.free_tele_ast_list(result, test_allocator);
 }
 
 test "parse match signature" {
@@ -3005,13 +3011,17 @@ test "parse match signature" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //const result = try parse_match_signature(token_queue, test_allocator);
-    //try std.testing.expect(result.*.ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, result.*.body, "1"));
-    //try std.testing.expect(result.*.children == null);
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //test_allocator.free(result.*.body);
-    //test_allocator.destroy(result);
+    try parser.parse_match_signature(token_queue);
+    const result = parser.pop();
+    try std.testing.expect(result.*.ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, result.*.body, "1"));
+    try std.testing.expect(result.*.children == null);
+
+    test_allocator.free(result.*.body);
+    test_allocator.destroy(result);
 }
 
 test "parse case clause signature" {
@@ -3023,14 +3033,18 @@ test "parse case clause signature" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //var n: usize = 0;
-    //const result = try parse_case_clause_signature(token_queue, test_allocator, &n);
-    //try std.testing.expect(result.*.ast_type == TeleAstType.int);
-    //try std.testing.expect(std.mem.eql(u8, result.*.body, "1"));
-    //try std.testing.expect(result.*.children == null);
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //test_allocator.free(result.*.body);
-    //test_allocator.destroy(result);
+    var n: usize = 0;
+    try parser.parse_case_clause_signature(token_queue, &n);
+    const result = parser.pop();
+    try std.testing.expect(result.*.ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, result.*.body, "1"));
+    try std.testing.expect(result.*.children == null);
+
+    test_allocator.free(result.*.body);
+    test_allocator.destroy(result);
 }
 
 test "parse case clause body single line" {
@@ -3042,13 +3056,16 @@ test "parse case clause body single line" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //const result = try parse_case_clause_body(token_queue, 0, test_allocator);
-    //try std.testing.expect(result.items.len == 1);
-    //try std.testing.expect(std.mem.eql(u8, result.items[0].body, "42"));
-    //try std.testing.expect(result.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(result.items[0].children == null);
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //tele_ast.free_tele_ast_list(result, test_allocator);
+    const result = try parser.parse_case_clause_body(token_queue, 0);
+    try std.testing.expect(result.items.len == 1);
+    try std.testing.expect(std.mem.eql(u8, result.items[0].body, "42"));
+    try std.testing.expect(result.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(result.items[0].children == null);
+
+    tele_ast.free_tele_ast_list(result, test_allocator);
 }
 
 test "parse case clause body multi line" {
@@ -3060,19 +3077,22 @@ test "parse case clause body multi line" {
     const token_queue = try tokenizer.read_tokens(file.reader(), test_allocator);
     defer token_queue.deinit();
 
-    //const result = try parse_case_clause_body(token_queue, 0, test_allocator);
-    //try std.testing.expect(result.items.len == 3);
-    //try std.testing.expect(std.mem.eql(u8, result.items[0].body, "42"));
-    //try std.testing.expect(result.items[0].ast_type == TeleAstType.int);
-    //try std.testing.expect(result.items[0].children == null);
-    //try std.testing.expect(std.mem.eql(u8, result.items[1].body, "43"));
-    //try std.testing.expect(result.items[1].ast_type == TeleAstType.int);
-    //try std.testing.expect(result.items[1].children == null);
-    //try std.testing.expect(std.mem.eql(u8, result.items[2].body, "44"));
-    //try std.testing.expect(result.items[2].ast_type == TeleAstType.int);
-    //try std.testing.expect(result.items[2].children == null);
+    const parser = try Parser.init(token_queue, test_allocator);
+    defer test_allocator.destroy(parser);
 
-    //tele_ast.free_tele_ast_list(result, test_allocator);
+    const result = try parser.parse_case_clause_body(token_queue, 0);
+    try std.testing.expect(result.items.len == 3);
+    try std.testing.expect(std.mem.eql(u8, result.items[0].body, "42"));
+    try std.testing.expect(result.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(result.items[0].children == null);
+    try std.testing.expect(std.mem.eql(u8, result.items[1].body, "43"));
+    try std.testing.expect(result.items[1].ast_type == TeleAstType.int);
+    try std.testing.expect(result.items[1].children == null);
+    try std.testing.expect(std.mem.eql(u8, result.items[2].body, "44"));
+    try std.testing.expect(result.items[2].ast_type == TeleAstType.int);
+    try std.testing.expect(result.items[2].children == null);
+
+    tele_ast.free_tele_ast_list(result, test_allocator);
 }
 
 fn is_float(buf: []const u8) bool {

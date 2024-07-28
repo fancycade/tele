@@ -150,7 +150,7 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
 
                 if (b2 == '/') {
                     ctx.*.leftover = 0;
-                    // Parse comments
+                    // Parse comment
                     while (true) {
                         const b3 = r.readByte() catch |err| switch (err) {
                             error.EndOfStream => {
@@ -160,11 +160,38 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
                         };
 
                         if (b3 == '\n') {
-                            return false;
+                            if (l.items.len == 0) {
+                                break;
+                            } else {
+                                return false;
+                            }
                         }
 
                         ctx.*.next_line_number += 1;
                         ctx.*.next_col_number = 0;
+                    }
+                } else if (b2 == '*') {
+                    ctx.*.leftover = 0;
+                    ctx.*.next_col_number = 0;
+                    // Parse multiline comment
+                    const ready_to_end = false;
+                    while (true) {
+                        const b3 = r.readByte() catch |err| switch (err) {
+                            error.EndOfStream => {
+                                return true;
+                            },
+                            else => |e| return e,
+                        };
+
+                        if (ready_to_end and b3 == '/') {
+                            if (l.items.len == 0) {
+                                break;
+                            } else {
+                                return false;
+                            }
+                        } else if (b3 == '\n') {
+                            ctx.*.next_line_number += 1;
+                        }
                     }
                 } else {
                     try l.append(ctx.*.leftover);
@@ -226,6 +253,7 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
                         };
 
                         if (b2 == '/') {
+                            ctx.*.next_col_number = 0;
                             ctx.*.leftover = 0;
                             // Parse comments
                             while (true) {
@@ -237,11 +265,32 @@ fn read_token(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext) !bool {
                                 };
 
                                 if (b3 == '\n') {
-                                    return false;
+                                    ctx.*.next_line_number += 1;
+                                    if (l.items.len == 0) {
+                                        break;
+                                    } else {
+                                        return false;
+                                    }
                                 }
+                            }
+                        } else if (b2 == '*') {
+                            ctx.*.leftover = 0;
+                            ctx.*.next_col_number = 0;
+                            // Parse multiline comment
+                            const ready_to_end = false;
+                            while (true) {
+                                const b3 = r.readByte() catch |err| switch (err) {
+                                    error.EndOfStream => {
+                                        return true;
+                                    },
+                                    else => |e| return e,
+                                };
 
-                                ctx.*.next_line_number += 1;
-                                ctx.*.next_col_number = 0;
+                                if (ready_to_end and b3 == '/') {
+                                    return false;
+                                } else if (b3 == '\n') {
+                                    ctx.*.next_line_number += 1;
+                                }
                             }
                         } else {
                             ctx.*.leftover = b2;
@@ -391,6 +440,32 @@ fn op_char(c: u8) bool {
         else => {},
     }
     return false;
+}
+
+test "remove comments" {
+    const file = try std.fs.cwd().openFile(
+        "snippets/comments.tl",
+        .{ .mode = .read_only },
+    );
+    defer file.close();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var ctx = TokenContext{ .leftover = 0, .line_number = 0, .col_number = 0, .next_line_number = 0, .next_col_number = 0 };
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    std.debug.print("ITEMS: {s}\n", .{list.items});
+    try expect(eql(u8, list.items, "4"));
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, "+"));
+    list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx);
+    try expect(eql(u8, list.items, "2"));
+    list.clearAndFree();
 }
 
 test "read token" {

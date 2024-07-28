@@ -2480,167 +2480,6 @@ pub const Parser = struct {
     }
 };
 
-fn is_statement_keyword(buf: []const u8) bool {
-    if (buf[0] == 'a') {
-        return is_attr_keyword(buf);
-    }
-
-    if (buf[0] == 's') {
-        return is_spec_keyword(buf);
-    }
-
-    if (buf[0] == 'f') {
-        return is_fun_keyword(buf) or is_funp_keyword(buf);
-    }
-
-    if (buf[0] == 't') {
-        return is_type_keyword(buf);
-    }
-
-    if (buf[0] == 'r') {
-        return is_record_keyword(buf);
-    }
-
-    if (buf[0] == 'b') {
-        return is_behaviour_keyword(buf);
-    }
-
-    if (buf[0] == 'i') {
-        return is_include_keyword(buf) or is_include_lib_keyword(buf) or is_import_keyword(buf);
-    }
-
-    if (buf[0] == 'm') {
-        return is_moduledoc_keyword(buf);
-    }
-
-    if (buf[0] == 'o') {
-        return is_on_load_keyword(buf);
-    }
-
-    if (buf[0] == 'n') {
-        return is_nifs_keyword(buf);
-    }
-
-    if (buf[0] == 'd') {
-        return is_doc_keyword(buf) or is_define_keyword(buf);
-    }
-
-    if (buf[0] == 'c') {
-        return is_callback_keyword(buf);
-    }
-
-    return false;
-}
-
-test "is statement keyword" {
-    try std.testing.expect(is_statement_keyword("fun"));
-    try std.testing.expect(is_statement_keyword("funp"));
-    try std.testing.expect(is_statement_keyword("spec"));
-    try std.testing.expect(is_statement_keyword("type"));
-    try std.testing.expect(is_statement_keyword("record"));
-    try std.testing.expect(is_statement_keyword("behaviour"));
-    try std.testing.expect(is_statement_keyword("import"));
-    try std.testing.expect(is_statement_keyword("nifs"));
-    try std.testing.expect(is_statement_keyword("callback"));
-    try std.testing.expect(is_statement_keyword("include"));
-    try std.testing.expect(is_statement_keyword("include_lib"));
-    try std.testing.expect(is_statement_keyword("doc"));
-    try std.testing.expect(is_statement_keyword("moduledoc"));
-    try std.testing.expect(is_statement_keyword("define"));
-
-    try std.testing.expect(!is_statement_keyword("["));
-    try std.testing.expect(!is_statement_keyword("]"));
-    try std.testing.expect(!is_statement_keyword("try"));
-    try std.testing.expect(!is_statement_keyword("match"));
-    try std.testing.expect(!is_statement_keyword("catch"));
-    try std.testing.expect(!is_statement_keyword("("));
-    try std.testing.expect(!is_statement_keyword(")"));
-}
-
-fn is_type_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "type");
-}
-
-fn is_spec_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "spec");
-}
-
-fn is_fun_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "fun");
-}
-
-fn is_funp_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "funp");
-}
-
-fn is_record_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "record");
-}
-
-fn is_behaviour_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "behaviour");
-}
-
-fn is_feature_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "feature");
-}
-
-fn is_attr_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "attr");
-}
-
-fn is_compile_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "compile");
-}
-
-fn is_doc_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "doc");
-}
-
-fn is_moduledoc_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "moduledoc");
-}
-
-fn is_callback_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "callback");
-}
-
-fn is_vsn_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "vsn");
-}
-
-fn is_on_load_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "on_load");
-}
-
-fn is_nifs_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "nifs");
-}
-
-fn is_include_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "include");
-}
-
-fn is_include_lib_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "include_lib");
-}
-
-fn is_define_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "define");
-}
-
-fn is_import_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "import");
-}
-
-test "is keywords" {
-    try std.testing.expect(is_type_keyword("type"));
-    try std.testing.expect(is_spec_keyword("spec"));
-    try std.testing.expect(is_fun_keyword("fun"));
-    try std.testing.expect(is_funp_keyword("funp"));
-    try std.testing.expect(is_record_keyword("record"));
-}
-
 test "parse operator expression" {
     const parser = try fileToParser("snippets/op.tl", talloc);
     defer parser.deinit();
@@ -2679,41 +2518,6 @@ test "parse operator expression chained" {
 
     tele_ast.free_tele_ast(expected, talloc);
     tele_ast.free_tele_ast(result, talloc);
-}
-
-fn check_paren_start_peek(token_queue: *TokenQueue) !bool {
-    const peek_node = try token_queue.peek();
-    return is_paren_start(peek_node.*.body);
-}
-
-fn check_operator_peek(token_queue: *TokenQueue) !bool {
-    const peek_node = try token_queue.peek();
-    return is_operator(peek_node.*.body);
-}
-
-fn check_arrow_op_peek(token_queue: *TokenQueue) !bool {
-    const peek_node = try token_queue.peek();
-    return is_arrow_operator(peek_node.*.body);
-}
-
-fn paren_exp_to_function_signature(paren_exp: *TeleAst, allocator: std.mem.Allocator) !*TeleAst {
-    const t = try allocator.create(TeleAst);
-    t.*.body = "";
-    t.*.ast_type = TeleAstType.function_signature;
-    t.*.children = null;
-    t.*.col = paren_exp.*.col;
-    errdefer tele_ast.free_tele_ast(t, allocator);
-
-    if (paren_exp.*.children != null) {
-        var children = std.ArrayList(*TeleAst).init(allocator);
-        errdefer tele_ast.free_tele_ast_list(children, allocator);
-
-        for (paren_exp.*.children.?.items) |c| {
-            try children.append(c);
-        }
-        t.*.children = children;
-    }
-    return t;
 }
 
 test "parse tuple" {
@@ -2772,17 +2576,6 @@ test "parse map" {
 
     tele_ast.free_tele_ast(expected, talloc);
     tele_ast.free_tele_ast(result, talloc);
-}
-
-fn extract_record_name(name: []const u8, allocator: std.mem.Allocator) ![]const u8 {
-    const buf = try allocator.alloc(u8, name.len - 2);
-    var i: usize = 1;
-    while (i < name.len - 1) {
-        buf[i - 1] = name[i];
-        i += 1;
-    }
-
-    return buf;
 }
 
 test "parse body multi" {
@@ -2965,6 +2758,212 @@ test "parse case clause body multi line" {
     tele_ast.free_tele_ast_list(result, test_allocator);
 }
 
+fn extract_record_name(name: []const u8, allocator: std.mem.Allocator) ![]const u8 {
+    const buf = try allocator.alloc(u8, name.len - 2);
+    var i: usize = 1;
+    while (i < name.len - 1) {
+        buf[i - 1] = name[i];
+        i += 1;
+    }
+
+    return buf;
+}
+
+fn check_paren_start_peek(token_queue: *TokenQueue) !bool {
+    const peek_node = try token_queue.peek();
+    return is_paren_start(peek_node.*.body);
+}
+
+fn check_operator_peek(token_queue: *TokenQueue) !bool {
+    const peek_node = try token_queue.peek();
+    return is_operator(peek_node.*.body);
+}
+
+fn check_arrow_op_peek(token_queue: *TokenQueue) !bool {
+    const peek_node = try token_queue.peek();
+    return is_arrow_operator(peek_node.*.body);
+}
+
+fn paren_exp_to_function_signature(paren_exp: *TeleAst, allocator: std.mem.Allocator) !*TeleAst {
+    const t = try allocator.create(TeleAst);
+    t.*.body = "";
+    t.*.ast_type = TeleAstType.function_signature;
+    t.*.children = null;
+    t.*.col = paren_exp.*.col;
+    errdefer tele_ast.free_tele_ast(t, allocator);
+
+    if (paren_exp.*.children != null) {
+        var children = std.ArrayList(*TeleAst).init(allocator);
+        errdefer tele_ast.free_tele_ast_list(children, allocator);
+
+        for (paren_exp.*.children.?.items) |c| {
+            try children.append(c);
+        }
+        t.*.children = children;
+    }
+    return t;
+}
+
+fn is_statement_keyword(buf: []const u8) bool {
+    if (buf[0] == 'a') {
+        return is_attr_keyword(buf);
+    }
+
+    if (buf[0] == 's') {
+        return is_spec_keyword(buf);
+    }
+
+    if (buf[0] == 'f') {
+        return is_fun_keyword(buf) or is_funp_keyword(buf);
+    }
+
+    if (buf[0] == 't') {
+        return is_type_keyword(buf);
+    }
+
+    if (buf[0] == 'r') {
+        return is_record_keyword(buf);
+    }
+
+    if (buf[0] == 'b') {
+        return is_behaviour_keyword(buf);
+    }
+
+    if (buf[0] == 'i') {
+        return is_include_keyword(buf) or is_include_lib_keyword(buf) or is_import_keyword(buf);
+    }
+
+    if (buf[0] == 'm') {
+        return is_moduledoc_keyword(buf);
+    }
+
+    if (buf[0] == 'o') {
+        return is_on_load_keyword(buf);
+    }
+
+    if (buf[0] == 'n') {
+        return is_nifs_keyword(buf);
+    }
+
+    if (buf[0] == 'd') {
+        return is_doc_keyword(buf) or is_define_keyword(buf);
+    }
+
+    if (buf[0] == 'c') {
+        return is_callback_keyword(buf);
+    }
+
+    return false;
+}
+
+test "is statement keyword" {
+    try std.testing.expect(is_statement_keyword("fun"));
+    try std.testing.expect(is_statement_keyword("funp"));
+    try std.testing.expect(is_statement_keyword("spec"));
+    try std.testing.expect(is_statement_keyword("type"));
+    try std.testing.expect(is_statement_keyword("record"));
+    try std.testing.expect(is_statement_keyword("behaviour"));
+    try std.testing.expect(is_statement_keyword("import"));
+    try std.testing.expect(is_statement_keyword("nifs"));
+    try std.testing.expect(is_statement_keyword("callback"));
+    try std.testing.expect(is_statement_keyword("include"));
+    try std.testing.expect(is_statement_keyword("include_lib"));
+    try std.testing.expect(is_statement_keyword("doc"));
+    try std.testing.expect(is_statement_keyword("moduledoc"));
+    try std.testing.expect(is_statement_keyword("define"));
+
+    try std.testing.expect(!is_statement_keyword("["));
+    try std.testing.expect(!is_statement_keyword("]"));
+    try std.testing.expect(!is_statement_keyword("try"));
+    try std.testing.expect(!is_statement_keyword("match"));
+    try std.testing.expect(!is_statement_keyword("catch"));
+    try std.testing.expect(!is_statement_keyword("("));
+    try std.testing.expect(!is_statement_keyword(")"));
+}
+
+fn is_type_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "type");
+}
+
+fn is_spec_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "spec");
+}
+
+fn is_fun_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "fun");
+}
+
+fn is_funp_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "funp");
+}
+
+fn is_record_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "record");
+}
+
+fn is_behaviour_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "behaviour");
+}
+
+fn is_attr_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "attr");
+}
+
+fn is_doc_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "doc");
+}
+
+fn is_moduledoc_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "moduledoc");
+}
+
+fn is_callback_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "callback");
+}
+
+fn is_nifs_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "nifs");
+}
+
+fn is_include_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "include");
+}
+
+fn is_include_lib_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "include_lib");
+}
+
+fn is_define_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "define");
+}
+
+fn is_import_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "import");
+}
+
+fn is_on_load_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "on_load");
+}
+
+test "is keywords" {
+    try std.testing.expect(is_type_keyword("type"));
+    try std.testing.expect(is_spec_keyword("spec"));
+    try std.testing.expect(is_fun_keyword("fun"));
+    try std.testing.expect(is_funp_keyword("funp"));
+    try std.testing.expect(is_record_keyword("record"));
+    try std.testing.expect(is_behaviour_keyword("behaviour"));
+    try std.testing.expect(is_attr_keyword("attr"));
+    try std.testing.expect(is_doc_keyword("doc"));
+    try std.testing.expect(is_moduledoc_keyword("moduledoc"));
+    try std.testing.expect(is_callback_keyword("callback"));
+    try std.testing.expect(is_on_load_keyword("on_load"));
+    try std.testing.expect(is_nifs_keyword("nifs"));
+    try std.testing.expect(is_include_keyword("include"));
+    try std.testing.expect(is_include_lib_keyword("include_lib"));
+    try std.testing.expect(is_define_keyword("define"));
+    try std.testing.expect(is_import_keyword("import"));
+}
+
 fn is_float(buf: []const u8) bool {
     var contains_period = false;
     for (buf) |c| {
@@ -2980,12 +2979,32 @@ fn is_float(buf: []const u8) bool {
     return contains_period;
 }
 
+test "is float" {
+    try std.testing.expect(is_float("123.0"));
+    try std.testing.expect(!is_float("123"));
+    try std.testing.expect(!is_float("abc.def"));
+}
+
+// Make sure to check for float before because int check is not exhaustive
 fn is_int(buf: []const u8) bool {
     return std.ascii.isDigit(buf[0]);
 }
 
+test "is int" {
+    try std.testing.expect(is_int("123"));
+
+    // TODO
+    // try std.testing.expect(!is_int("123.0"));
+    // try std.testing.expect(is_int("$f"));
+}
+
 fn is_atom(buf: []const u8) bool {
     return buf[0] == '\'';
+}
+
+test "is atom" {
+    try std.testing.expect(is_atom("'foo"));
+    try std.testing.expect(!is_atom("foo"));
 }
 
 fn is_binary(buf: []const u8) bool {
@@ -3004,8 +3023,22 @@ fn is_binary(buf: []const u8) bool {
     return false;
 }
 
+test "is binary" {
+    try std.testing.expect(is_binary("\"foo\""));
+    try std.testing.expect(is_binary("<<\"foo\">>"));
+    try std.testing.expect(!is_binary("foo"));
+
+    // TODO: More test cases
+}
+
 fn is_tuple_start(buf: []const u8) bool {
     return std.mem.eql(u8, "#(", buf);
+}
+
+test "is tuple start" {
+    try std.testing.expect(is_tuple_start("#("));
+    try std.testing.expect(!is_tuple_start(")"));
+    try std.testing.expect(!is_tuple_start("{"));
 }
 
 fn is_fun_val(buf: []const u8) bool {
@@ -3030,28 +3063,67 @@ fn is_fun_val(buf: []const u8) bool {
     return false;
 }
 
+test "is fun val" {
+    try std.testing.expect(is_fun_val("#foo/2"));
+    try std.testing.expect(!is_fun_val("foo/2"));
+    try std.testing.expect(!is_fun_val("#foo2"));
+
+    // TODO
+    //try std.testing.expect(!is_fun_val("#foo/o2"));
+}
+
 fn is_list_start(buf: []const u8) bool {
     return buf[0] == '[';
+}
+
+test "is list start" {
+    try std.testing.expect(is_list_start("["));
+    try std.testing.expect(!is_list_start("]"));
 }
 
 fn is_list_end(buf: []const u8) bool {
     return buf[0] == ']';
 }
 
+test "is list end" {
+    try std.testing.expect(is_list_end("]"));
+    try std.testing.expect(!is_list_end("["));
+}
+
 fn is_map_start(buf: []const u8) bool {
     return buf[0] == '{';
+}
+
+test "is map start" {
+    try std.testing.expect(is_map_start("{"));
+    try std.testing.expect(!is_map_start("}"));
 }
 
 fn is_map_end(buf: []const u8) bool {
     return buf[0] == '}';
 }
 
+test "is map end" {
+    try std.testing.expect(is_map_end("}"));
+    try std.testing.expect(!is_map_end("{"));
+}
+
 fn is_paren_start(buf: []const u8) bool {
-    return buf[0] == '(';
+    return std.mem.eql(u8, "(", buf);
+}
+
+test "is paren start" {
+    try std.testing.expect(is_paren_start("("));
+    try std.testing.expect(!is_paren_start(")"));
 }
 
 fn is_paren_end(buf: []const u8) bool {
-    return buf[0] == ')';
+    return std.mem.eql(u8, ")", buf);
+}
+
+test "is paren end" {
+    try std.testing.expect(is_paren_end(")"));
+    try std.testing.expect(!is_paren_end("("));
 }
 
 fn is_record_start(buf: []const u8) bool {
@@ -3065,14 +3137,19 @@ fn is_record_start(buf: []const u8) bool {
 
 test "is record start" {
     try std.testing.expect(is_record_start("#foobar("));
+    try std.testing.expect(!is_record_start("foobar("));
 }
 
 fn is_arrow_operator(buf: []const u8) bool {
-    if (buf.len != 2) {
-        return false;
-    }
-
     return std.mem.eql(u8, buf, "=>");
+}
+
+test "is arrow operator" {
+    try std.testing.expect(is_arrow_operator("=>"));
+    try std.testing.expect(!is_arrow_operator("="));
+    try std.testing.expect(!is_arrow_operator(">="));
+    try std.testing.expect(!is_arrow_operator("->"));
+    try std.testing.expect(!is_arrow_operator("==>"));
 }
 
 fn is_operator(buf: []const u8) bool {
@@ -3081,7 +3158,16 @@ fn is_operator(buf: []const u8) bool {
     }
 
     switch (buf[0]) {
-        '+', '*', '/', '!', '-', '|' => {
+        '+' => {
+            if (buf.len == 1) {
+                return true;
+            } else if (buf.len == 2) {
+                return buf[1] == '+';
+            } else {
+                return false;
+            }
+        },
+        '*', '/', '!', '-', '|' => {
             return true;
         },
         '<', '>', '=' => {
@@ -3095,6 +3181,15 @@ fn is_operator(buf: []const u8) bool {
                 }
             }
         },
+        'a' => {
+            return std.mem.eql(u8, "and", buf) or std.mem.eql(u8, "andalso", buf);
+        },
+        'o' => {
+            return std.mem.eql(u8, "or", buf) or std.mem.eql(u8, "orelse", buf);
+        },
+        'n' => {
+            return std.mem.eql(u8, "not", buf);
+        },
         else => {
             return false;
         },
@@ -3103,91 +3198,141 @@ fn is_operator(buf: []const u8) bool {
     return false;
 }
 
+test "is operator" {
+    try std.testing.expect(is_operator("+"));
+    try std.testing.expect(is_operator("*"));
+    try std.testing.expect(is_operator("/"));
+    try std.testing.expect(is_operator("!"));
+    try std.testing.expect(is_operator("-"));
+    try std.testing.expect(is_operator("|"));
+    try std.testing.expect(is_operator(">"));
+    try std.testing.expect(is_operator("<"));
+    try std.testing.expect(is_operator("="));
+    try std.testing.expect(is_operator("=="));
+    try std.testing.expect(is_operator(">="));
+    try std.testing.expect(is_operator("<="));
+    try std.testing.expect(is_operator("++"));
+    try std.testing.expect(is_operator("and"));
+    try std.testing.expect(is_operator("or"));
+    try std.testing.expect(is_operator("andalso"));
+    try std.testing.expect(is_operator("orelse"));
+    try std.testing.expect(is_operator("not"));
+
+    try std.testing.expect(!is_operator("==="));
+    try std.testing.expect(!is_operator("+++"));
+    try std.testing.expect(!is_operator("+="));
+    try std.testing.expect(!is_operator("+-"));
+    try std.testing.expect(!is_operator("foobar"));
+}
+
 fn is_pipe_operator(buf: []const u8) bool {
-    if (buf.len == 0) {
-        return false;
-    }
+    return std.mem.eql(u8, "|", buf);
+}
 
-    if (buf[0] == '|') {
-        return true;
-    }
-
-    return false;
+test "is pipe operator" {
+    try std.testing.expect(is_pipe_operator("|"));
+    try std.testing.expect(!is_pipe_operator("foobar"));
 }
 
 fn is_match_keyword(buf: []const u8) bool {
-    if (buf.len == 0) {
-        return false;
-    }
+    return std.mem.eql(u8, "match", buf);
+}
 
-    if (buf[0] == 'm') {
-        if (std.mem.eql(u8, "match", buf)) {
-            return true;
-        }
-    }
-    return false;
+test "is match keyword" {
+    try std.testing.expect(is_match_keyword("match"));
+    try std.testing.expect(!is_match_keyword("foobar"));
 }
 
 fn is_try_keyword(buf: []const u8) bool {
-    if (buf.len != 3) {
-        return false;
-    }
+    return std.mem.eql(u8, "try", buf);
+}
 
-    if (buf[0] == 't') {
-        if (std.mem.eql(u8, "try", buf)) {
-            return true;
-        }
-    }
-    return false;
+test "is try keyword" {
+    try std.testing.expect(is_try_keyword("try"));
+    try std.testing.expect(!is_try_keyword("foobar"));
 }
 
 fn is_catch_keyword(buf: []const u8) bool {
-    if (buf.len != 5) {
-        return false;
-    }
+    return std.mem.eql(u8, "catch", buf);
+}
 
-    if (buf[0] == 'c') {
-        if (std.mem.eql(u8, "catch", buf)) {
-            return true;
-        }
-    }
-    return false;
+test "is catch keyword" {
+    try std.testing.expect(is_catch_keyword("catch"));
+    try std.testing.expect(!is_catch_keyword("foobar"));
 }
 
 fn is_function_definition(buf: []const u8) bool {
     return std.mem.eql(u8, "fun", buf);
 }
 
+test "is function definition" {
+    try std.testing.expect(is_function_definition("fun"));
+    try std.testing.expect(!is_function_definition("funp"));
+    try std.testing.expect(!is_function_definition("def"));
+}
+
 fn is_priv_function_definition(buf: []const u8) bool {
     return std.mem.eql(u8, "funp", buf);
+}
+
+test "is priv function definition" {
+    try std.testing.expect(is_priv_function_definition("funp"));
+    try std.testing.expect(!is_priv_function_definition("fun"));
+    try std.testing.expect(!is_priv_function_definition("defp"));
 }
 
 fn is_type_def(buf: []const u8) bool {
     return std.mem.eql(u8, "type", buf);
 }
 
+test "is type def" {
+    try std.testing.expect(is_type_def("type"));
+    try std.testing.expect(!is_type_def("foobar"));
+}
+
 fn is_record_def(buf: []const u8) bool {
     return std.mem.eql(u8, "record", buf);
+}
+
+test "is record def" {
+    try std.testing.expect(is_record_def("record"));
+    try std.testing.expect(!is_record_def("foobar"));
 }
 
 fn is_spec_def(buf: []const u8) bool {
     return std.mem.eql(u8, "spec", buf);
 }
 
+test "is spec def" {
+    try std.testing.expect(is_spec_def("spec"));
+    try std.testing.expect(!is_spec_def("foobar"));
+}
+
 fn is_colon(buf: []const u8) bool {
     return buf[0] == ':';
+}
+
+test "is colon" {
+    try std.testing.expect(is_colon(":"));
+    try std.testing.expect(!is_colon("!"));
 }
 
 fn is_comma(buf: []const u8) bool {
     return buf[0] == ',';
 }
 
-fn is_space(buf: []const u8) bool {
-    return buf[0] == ' ';
+test "is comma" {
+    try std.testing.expect(is_comma(","));
+    try std.testing.expect(!is_comma("!"));
 }
 
 fn is_equal(buf: []const u8) bool {
     return buf[0] == '=';
+}
+
+test "is equal" {
+    try std.testing.expect(is_equal("="));
+    try std.testing.expect(!is_equal("-"));
 }
 
 fn contains_hash(buf: []const u8) bool {
@@ -3197,4 +3342,9 @@ fn contains_hash(buf: []const u8) bool {
         }
     }
     return false;
+}
+
+test "contains hash" {
+    try std.testing.expect(contains_hash("foo#bar.a"));
+    try std.testing.expect(!contains_hash("foobar"));
 }

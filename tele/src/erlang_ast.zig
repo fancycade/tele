@@ -58,3 +58,25 @@ pub fn free_erlang_ast_list(e: std.ArrayList(*const Ast), allocator: std.mem.All
     }
     e.deinit();
 }
+
+pub fn makeValue(value: []const u8, ast_type: AstType, allocator: std.mem.Allocator) !*Ast {
+    const t = try allocator.create(Ast);
+    t.*.body = value;
+    t.*.ast_type = ast_type;
+    t.*.children = null;
+    return t;
+}
+
+pub fn makeCollection(children: ?std.ArrayList(*const Ast), ast_type: AstType, allocator: std.mem.Allocator) !*Ast {
+    const t = try allocator.create(Ast);
+    t.*.body = "";
+    t.*.ast_type = ast_type;
+    t.*.children = children;
+    return t;
+}
+
+pub fn makeNamedCollection(body: []const u8, children: ?std.ArrayList(*const Ast), ast_type: AstType, allocator: std.mem.Allocator) !*Ast {
+    const t = try makeCollection(children, ast_type, allocator);
+    t.*.body = body;
+    return t;
+}

@@ -32,31 +32,89 @@ pub fn main() !void {
         }
     }
 
+    try handleArgs(allocator);
+}
+
+fn handleArgs(allocator: std.mem.Allocator) !void {
     const process = std.process;
     var arg_it = process.args();
 
-    _ = arg_it.skip();
-    const code_path = arg_it.next() orelse {
+    _ = arg_it.skip(); // Skip tele
+
+    const command = arg_it.next() orelse {
         return error.InvalidArgs;
     };
 
-    var output_path: ?[]const u8 = null;
-    output_path = arg_it.next();
+    if (std.mem.eql(u8, "compile", command)) {
+        const code_path = arg_it.next() orelse {
+            return error.InvalidArgs;
+        };
 
-    const erlang_path = try erlang_name(code_path, output_path, allocator);
-    errdefer allocator.free(erlang_path);
+        const output_path = arg_it.next() orelse {
+            return error.InvalidArgs;
+        };
 
+        try compileFile(code_path, output_path, allocator);
+    } else if (std.mem.eql(u8, "format", command)) {
+        const code_path = arg_it.next() orelse {
+            return error.InvalidArgs;
+        };
+
+        try formatFile(code_path, allocator);
+    } else if (std.mem.eql(u8, "build", command)) {
+        try build(allocator);
+    } else {
+        // TODO: Better error message
+        return error.InvalidArgs;
+    }
+}
+
+fn build(allocator: std.mem.Allocator) !void {
+    _ = allocator;
+}
+
+fn parseTeleFile(code_path: []const u8, allocator: std.mem.Allocator) !std.ArrayList(*TeleAst) {
     var input_file = try std.fs.cwd().openFile(code_path, .{ .mode = .read_only });
     defer input_file.close();
 
     var ta = try parser.parse_reader(input_file.reader(), allocator);
+    defer ta.deinit();
     errdefer tast.free_tele_ast_list(ta, allocator);
 
     if (ta.items.len == 0) {
         return ExecutionError.Empty;
     }
 
-    const ta2 = try compiler.preprocess(&ta, allocator);
+    return try compiler.preprocess(&ta, allocator);
+}
+
+fn formatFile(code_path: []const u8, allocator: std.mem.Allocator) !void {
+    const ta2 = try parseTeleFile(code_path, allocator);
+    errdefer tast.free_tele_ast_list(ta2, allocator);
+
+    if (ta2.items.len == 0) {
+        return ExecutionError.Empty;
+    }
+
+    var tfile = try std.fs.cwd().openFile(code_path, .{ .mode = .write_only });
+    defer tfile.close();
+
+    var tcontext = TeleContext.init(allocator);
+    defer tcontext.deinit();
+
+    const tw = tfile.writer();
+    for (ta2.items) |c| {
+        try tcontext.write_ast(tw, c);
+    }
+
+    tast.free_tele_ast_list(ta2, allocator);
+}
+
+fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.mem.Allocator) !void {
+    const erlang_path = try erlang_name(code_path, output_path, allocator);
+    errdefer allocator.free(erlang_path);
+
+    const ta2 = try parseTeleFile(code_path, allocator);
     errdefer tast.free_tele_ast_list(ta2, allocator);
 
     if (ta2.items.len == 0) {
@@ -69,16 +127,6 @@ pub fn main() !void {
     for (ta2.items) |c| {
         try east_list.append(try compiler.tele_to_erlang(c, allocator));
     }
-
-    // Generate formatted tele file
-    // var tfile = try std.fs.cwd().createFile("other.tl", .{});
-    // defer tfile.close();
-    // var tcontext = TeleContext.init(allocator);
-    // defer tcontext.deinit();
-    // const tw = tfile.writer();
-    // for (ta2.items) |c| {
-    //    try tcontext.write_ast(tw, c);
-    // }
 
     // Use code path to make output file name
     var file = try std.fs.cwd().createFile(erlang_path, .{});
@@ -113,7 +161,6 @@ pub fn main() !void {
 
     context.deinit();
     allocator.free(erlang_path);
-    ta.deinit();
     tast.free_tele_ast_list(ta2, allocator);
     free_erlang_ast_list(east_list, allocator);
     free_function_metadata(metadata, allocator);

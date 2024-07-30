@@ -70,7 +70,49 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
 }
 
 fn build(allocator: std.mem.Allocator) !void {
-    _ = allocator;
+    // Make _build/_tele if not exists
+    try std.fs.cwd().makePath("_build/_tele");
+
+    // Compile all tele files in src directory to _build/_tele
+    var src = try std.fs.cwd().openDir("src", .{ .iterate = true });
+    var walker = try src.walk(allocator);
+    defer walker.deinit();
+
+    while (try walker.next()) |entry| {
+        if (entry.kind == std.fs.File.Kind.file and isTeleFile(entry.basename)) {
+            const input_path = try std.fs.path.join(allocator, &[_][]const u8{ "src", entry.path });
+            defer allocator.free(input_path);
+
+            try compileFile(input_path, "_build/_tele/", allocator);
+        }
+    }
+
+    // Copy rebar.config to _build/_tele/
+    const build_tele_dir = try std.fs.cwd().openDir("_build/_tele", .{});
+    try std.fs.cwd().copyFile("rebar.config", build_tele_dir, "rebar.config", .{});
+
+    // Append src dirs option to _build/_tele/rebar.config
+    const file = try std.fs.cwd().openFile("_build/_tele/rebar.config", .{ .mode = .read_write });
+    const stat = try file.stat();
+    try file.seekTo(stat.size);
+
+    var w = file.writer();
+    _ = try w.write("{src_dirs, [\"src\", \"_build/_tele\"]}.\n");
+
+    // Run rebar3 compile with modified rebar.config
+    const argv = [_][]const u8{ "rebar3", "compile" };
+    var em = try std.process.getEnvMap(allocator);
+    defer em.deinit();
+    try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
+    const result = try std.ChildProcess.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    std.debug.print("{s}", .{result.stdout});
+}
+
+fn isTeleFile(path: []const u8) bool {
+    const ext = std.fs.path.extension(path);
+    return std.mem.eql(u8, ".tl", ext);
 }
 
 fn parseTeleFile(code_path: []const u8, allocator: std.mem.Allocator) !std.ArrayList(*TeleAst) {

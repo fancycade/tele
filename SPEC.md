@@ -338,7 +338,7 @@ Inside attributes, besides `define`, any fun vals are converted to `name/arity` 
 
 For example:
 
-    nifs [#hello/2]
+    nifs(#hello/2)
 
 Becomes:
 
@@ -354,61 +354,55 @@ Tele equivalent of this Erlang code:
 
 Would be:
 
-    import foo_mod: [#do_thing/1, #do_thing2/3]
+    import foo_mod(#do_thing/1, #do_thing2/3)
 
 ## on_load
 
-    on_load #init_info/2
+    on_load(#init_info/2)
 
 ## nifs
 
-    nifs [#native_call/2, #native_other_call/3]
+    nifs(#native_call/2, #native_other_call/3)
 
 ## behaviour
 
+    behaviour(gen_server)
 
-    behaviour gen_server
+## include
 
-OR
+    include("include/some/header.hrl")
 
-    behaviour 'gen_server
+## include_lib
 
-Technically, the atom version is correct, but for convenience it can be an atom or a variable.
+    include_lib("kernel/include/file.htl")
+
+## doc
+
+    doc("this is a documentation")
+
+    doc("""
+    This is a multiline
+    comment that goes on and on...
+    """)
+
+## moduledoc
+
+    moduledoc("this is module doc")
+    
+    moduledoc("""
+    this is a multiline module doc
+    """)
+
 
 ## callback
 
     callback do_thing(integer): integer
-
-## include
-
-    include "include/some/header.hrl"
-
-## include_lib
-
-    include_lib "kernel/include/file.htl"
 
 ## define
 
     define NUMBER: 42
     define MACRO1(x, y):
       #('a, x, 'b, y)
-
-## doc
-
-    doc "this is a documentation"
-
-    doc """
-    This is a multiline
-    comment that goes on and on...
-    """
-
-## moduledoc
-
-    moduledoc "this is module doc"
-    
-    moduledoc """
-    this is a multiline module doc
-    """
 
 ## Not Supported
 

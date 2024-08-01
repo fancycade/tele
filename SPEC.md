@@ -578,3 +578,19 @@ Erlang can handle exceptions with try/catch statements. The syntax for this in t
     catch:
        _.exception:
          'oops
+
+### Tests
+
+EXPERIMENTAL:
+
+Defining eunit tests in Erlang looks like this:
+
+    foobar_test() ->
+        ?assertEqual(2, foobar(1, 1)).
+
+In tele we can use block syntax:
+
+    test foobar:
+      ?assertEqual(2, foobar(1, 1))
+
+It would be nice if we can place unit tests throughout our source code like Zig. tele can organize all test cases into a section of the generated Erlang module. Another automatic option is to import the eunit library.

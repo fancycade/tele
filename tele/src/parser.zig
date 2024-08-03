@@ -2230,6 +2230,7 @@ pub const Parser = struct {
             tele_ast.free_tele_ast(ast, self.allocator);
             return ParserError.ParsingFailure;
         }
+        buffer_token_queue.deinit();
         return ast;
     }
 

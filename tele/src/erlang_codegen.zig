@@ -164,14 +164,25 @@ pub const Context = struct {
         try self.push_padding(0);
         // TODO: Throw error if children is not length 2
 
-        self.push_match();
-        try self.write_ast(w, a.children.?.items[0]);
-        self.pop_match();
+        if (a.children.?.items.len == 2) {
+            self.push_match();
+            try self.write_ast(w, a.children.?.items[0]);
+            self.pop_match();
 
-        _ = try w.write(" ");
-        _ = try w.write(a.body);
-        _ = try w.write(" ");
-        try self.write_ast(w, a.children.?.items[1]);
+            _ = try w.write(" ");
+            _ = try w.write(a.body);
+            _ = try w.write(" ");
+            try self.write_ast(w, a.children.?.items[1]);
+        } else if (a.children.?.items.len == 1) {
+            _ = try w.write(a.body);
+            if (std.mem.eql(u8, "not", a.body)) {
+                _ = try w.write(" ");
+            }
+            try self.write_ast(w, a.children.?.items[0]);
+        } else {
+            return CodegenError.WritingFailure;
+        }
+
         try self.pop_padding();
     }
 

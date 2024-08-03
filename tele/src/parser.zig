@@ -2405,9 +2405,7 @@ test "parse operator expression" {
     defer parser.deinit();
 
     const init = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
-    try parser.push(init);
-    try parser.parse_operator(parser.*.token_queue, false);
-    const result = parser.pop();
+    const result = try parser.parse_operator(parser.*.token_queue, false, init);
 
     const arg1 = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
     const arg2 = try tele_ast.makeInt(try util.copyString("2", talloc), talloc);
@@ -2423,9 +2421,7 @@ test "parse operator expression chained" {
     defer parser.deinit();
 
     const init = try tele_ast.makeVariable(try util.copyString("a", talloc), talloc);
-    try parser.push(init);
-    try parser.parse_operator(parser.*.token_queue, false);
-    const result = parser.pop();
+    const result = try parser.parse_operator(parser.*.token_queue, false, init);
 
     const arg1 = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
     const arg2 = try tele_ast.makeInt(try util.copyString("2", talloc), talloc);
@@ -2444,8 +2440,7 @@ test "parse tuple" {
     const parser = try fileToParser("snippets/tuple.tl", talloc);
     defer parser.deinit();
 
-    try parser.parse_tuple(parser.*.token_queue, false);
-    const result = parser.pop();
+    const result = try parser.parse_tuple(parser.*.token_queue, false);
 
     const e1 = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
     const e2 = try tele_ast.makeInt(try util.copyString("2", talloc), talloc);
@@ -2463,8 +2458,7 @@ test "parse list" {
     const parser = try fileToParser("snippets/list.tl", talloc);
     defer parser.deinit();
 
-    try parser.parse_list(parser.*.token_queue, false);
-    const result = parser.pop();
+    const result = try parser.parse_list(parser.*.token_queue, false);
 
     const e1 = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
     const e2 = try tele_ast.makeInt(try util.copyString("2", talloc), talloc);
@@ -2482,8 +2476,7 @@ test "parse map" {
     const parser = try fileToParser("snippets/map.tl", talloc);
     defer parser.deinit();
 
-    try parser.parse_map(parser.*.token_queue, false);
-    const result = parser.pop();
+    const result = try parser.parse_map(parser.*.token_queue, false);
 
     const e1 = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
     const e2 = try tele_ast.makeVariable(try util.copyString("a", talloc), talloc);
@@ -2522,8 +2515,7 @@ test "parse match expression" {
     const parser = try fileToParser("snippets/match.tl", talloc);
     defer parser.deinit();
 
-    try parser.parse_match_expression(parser.*.token_queue);
-    const result = parser.pop();
+    const result = try parser.parse_match_expression(parser.*.token_queue);
     try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
     try std.testing.expect(result.*.ast_type == TeleAstType.case);
     try std.testing.expect(result.*.children.?.items.len == 3);
@@ -2620,8 +2612,7 @@ test "parse match signature" {
     const parser = try fileToParser("snippets/match_signature.tl", talloc);
     defer parser.deinit();
 
-    try parser.parse_match_signature(parser.*.token_queue);
-    const result = parser.pop();
+    const result = try parser.parse_match_signature(parser.*.token_queue);
 
     const expected = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
     try std.testing.expect(tele_ast.equal(result, expected));
@@ -2635,14 +2626,13 @@ test "parse case clause signature" {
     defer parser.deinit();
 
     var n: usize = 0;
-    try parser.parse_case_clause_signature(parser.*.token_queue, &n);
-    const result = parser.pop();
+    const result = try parser.parse_case_clause_signature(parser.*.token_queue, &n);
 
     const expected = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
-    try std.testing.expect(tele_ast.equal(result, expected));
+    try std.testing.expect(tele_ast.equal(result.items[0], expected));
 
     tele_ast.free_tele_ast(expected, talloc);
-    tele_ast.free_tele_ast(result, talloc);
+    tele_ast.free_tele_ast_list(result, talloc);
 }
 
 test "parse case clause body single line" {

@@ -119,11 +119,13 @@ const Tokenizer = struct {
     buffer: [256]u8,
     buffer_index: usize,
     eof: bool,
+    dirty: bool,
 
     pub fn init(allocator: std.mem.Allocator) !*Self {
         const t = try allocator.create(Self);
         t.*.allocator = allocator;
         t.*.buffer_index = 256;
+        t.*.dirty = true;
         t.resetBuffer();
         return t;
     }
@@ -164,8 +166,9 @@ const Tokenizer = struct {
             self.resetBuffer();
         }
 
-        if (self.*.buffer_index == 0) {
+        if (self.*.buffer_index == 0 and !self.*.dirty) {
             _ = try r.read(&self.*.buffer);
+            self.*.dirty = true;
         }
     }
 
@@ -176,6 +179,7 @@ const Tokenizer = struct {
             i += 1;
         }
         self.*.buffer_index = 0;
+        self.*.dirty = false;
     }
 };
 

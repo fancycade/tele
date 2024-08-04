@@ -1,3 +1,4 @@
+/*
 //fun foobar(): // hello there
   // oof
 //  42 // foo
@@ -5,6 +6,7 @@
 
 //fun foobar2():
 //  43
+*/
 
 fun fooboo():
   a = #point(x=0, y=0)

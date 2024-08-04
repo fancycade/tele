@@ -1,4 +1,3 @@
-/*
 //fun foobar(): // hello there
   // oof
 //  42 // foo
@@ -6,21 +5,27 @@
 
 //fun foobar2():
 //  43
+/*
+This is a multiline comment that demonstrates
+
+how one does
+a
+multiline comment
 */
+
+record point: #(x, y)
+
+type stuff: integer | float
 
 fun fooboo():
   a = #point(x=0, y=0)
-  a = a#point(x=42)
-  a#point.x
-
-record point: #(a, b)
-
-type stuff: int() | float()
+  a2 = a#point(x=42)
+  a2#point.x
 
 fun fooboo2():
   maps.put('a, 2)
 
-spec stuff(int()): int()
+spec stuff(integer()): integer()
 fun stuff(x): x + 2
 
 fun wowzer():
@@ -33,16 +38,22 @@ fun woop():
   (1, 2) => 2 + 2
 
 fun oopsie():
-  try stuff():
+  try oopsie_helper():
     _: 'ok
   catch:
     error.e:
       #('error, error, e)
 
+fun oopsie_helper():
+  'ok
+
 fun foo():
   match bar():
     _result:
       'ok
+
+fun bar():
+  'hello_there
 
 fun basic_bin():
   "hello world"

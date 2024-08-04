@@ -349,7 +349,7 @@ pub const Context = struct {
     pub fn write_record_def(self: *Self, w: anytype, a: *const Ast) !void {
         _ = try w.write("-record(");
         _ = try w.write(a.*.body);
-        _ = try w.write(", #{");
+        _ = try w.write(", {");
 
         try self.push_padding(0);
         var i: usize = 0;

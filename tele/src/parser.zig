@@ -1264,18 +1264,26 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         }
 
-        const ast = self.parse_exp(token_queue) catch {
-            self.allocator.free(node.*.body);
-            return ParserError.ParsingFailure;
-        };
-        errdefer tele_ast.free_tele_ast(ast, self.allocator);
+        var ast: ?*TeleAst = null;
+        if (type_exp) {
+            ast = self.parse_type_exp(token_queue) catch {
+                self.allocator.free(node.*.body);
+                return ParserError.ParsingFailure;
+            };
+        } else {
+            ast = self.parse_exp(token_queue) catch {
+                self.allocator.free(node.*.body);
+                return ParserError.ParsingFailure;
+            };
+        }
+        errdefer tele_ast.free_tele_ast(ast.?, self.allocator);
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.free_tele_ast_list(children, self.allocator);
         if (arg != null) {
             try children.append(arg.?);
         }
-        try children.append(ast);
+        try children.append(ast.?);
 
         const t = try self.allocator.create(TeleAst);
         t.*.body = node.*.body;

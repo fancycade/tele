@@ -338,11 +338,11 @@ Inside attributes, besides `define`, any fun vals are converted to `name/arity` 
 
 For example:
 
-    nifs(#hello/2)
+    nifs([#hello/2])
 
 Becomes:
 
-    -nifs(hello/2).
+    -nifs([hello/2]).
 
 The reason for this is to unify the syntaxes for function values instead of having a special syntax for attributes but not expressions.
 
@@ -362,7 +362,7 @@ Would be:
 
 ## nifs
 
-    nifs(#native_call/2, #native_other_call/3)
+    nifs([#native_call/2, #native_other_call/3])
 
 ## behaviour
 

@@ -29,12 +29,16 @@ pub const Context = struct {
     pub fn write_binary(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
 
-        if (a.body[0] == '<') {
+        if (self.*.attribute_mode) {
             _ = try w.write(a.body);
         } else {
-            _ = try w.write("<<");
-            _ = try w.write(a.body);
-            _ = try w.write("/utf8>>");
+            if (a.body[0] == '<') {
+                _ = try w.write(a.body);
+            } else {
+                _ = try w.write("<<");
+                _ = try w.write(a.body);
+                _ = try w.write("/utf8>>");
+            }
         }
     }
 
@@ -216,6 +220,27 @@ pub const Context = struct {
         }
 
         _ = try w.write(")");
+    }
+
+    pub fn write_import_def(self: *Self, w: anytype, a: *const Ast) !void {
+        try self.write_padding(w);
+        self.attribute_mode = true;
+        _ = try w.write("-import(");
+        _ = try w.write(a.body);
+        _ = try w.write(", [");
+
+        var i: usize = 0;
+        for (a.children.?.items) |c| {
+            try self.write_ast(w, c);
+
+            if (i + 1 != a.children.?.items.len) {
+                _ = try w.write(", ");
+            }
+            i = i + 1;
+        }
+
+        _ = try w.write("]).\n");
+        self.attribute_mode = false;
     }
 
     pub fn write_attribute(self: *Self, w: anytype, a: *const Ast) !void {
@@ -794,6 +819,11 @@ pub const Context = struct {
             },
             .callback_def => {
                 self.write_callback_def(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .import_def => {
+                self.write_import_def(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

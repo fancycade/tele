@@ -200,22 +200,15 @@ pub const Context = struct {
         _ = try w.write(")");
     }
 
+    pub fn write_import_def(self: *Self, w: anytype, a: *const Ast) !void {
+        try self.write_padding(w);
+        _ = try w.write("import ");
+        try self.write_function_call(w, a);
+    }
+
     pub fn write_attribute(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
-
-        if (a.children.?.items.len == 1) {
-            _ = try w.write(a.body);
-            _ = try w.write(": ");
-
-            try self.write_ast(w, a.children.?.items[0]);
-        } else if (a.children.?.items.len == 2) {
-            _ = try w.write(a.body);
-            try self.write_ast(w, a.children.?.items[0]);
-            _ = try w.write(": ");
-            try self.write_ast(w, a.children.?.items[1]);
-        } else {
-            return CodegenError.WritingFailure;
-        }
+        try self.write_function_call(w, a);
     }
 
     pub fn write_custom_attribute(self: *Self, w: anytype, a: *const Ast) !void {
@@ -754,6 +747,11 @@ pub const Context = struct {
                     return CodegenError.WritingFailure;
                 };
             },
+            .import_def => {
+                self.write_import_def(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
             .case_clause => {
                 self.write_case_clause(w, a) catch {
                     return CodegenError.WritingFailure;
@@ -968,12 +966,14 @@ test "write attribute" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var a = Ast{ .body = "int", .ast_type = AstType.atom, .children = null, .col = 0 };
-    try children.append(&a);
+    var c = Ast{ .body = "\"hello world\"", .ast_type = AstType.binary, .children = null, .col = 0 };
+    try children.append(&c);
 
-    try context.write_attribute(list.writer(), &Ast{ .body = "type foobar", .ast_type = AstType.attribute, .children = children, .col = 0 });
+    var a = Ast{ .body = "doc", .ast_type = AstType.attribute, .children = children, .col = 0 };
 
-    try std.testing.expect(std.mem.eql(u8, list.items, "type foobar: int"));
+    try context.write_attribute(list.writer(), &a);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "doc(\"hello world\")"));
 }
 
 test "write guard clause" {

@@ -206,6 +206,11 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
                 return CompilerError.CompilingFailure;
             };
         },
+        .import_def => {
+            return tele_to_erlang_import_def(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         .case_clause => {
             return tele_to_erlang_case_clause(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -784,6 +789,11 @@ fn tele_to_erlang_catch_exp(t: *const TeleAst, allocator: std.mem.Allocator) !*E
 }
 
 test "tele to erlang catch exp" {}
+
+fn tele_to_erlang_import_def(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeNamedCollection(try util.copyString(t.*.body, allocator), children, ErlangAstType.import_def, allocator);
+}
 
 fn tele_to_erlang_attribute(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const children = try compileChildren(t.*.children, allocator);

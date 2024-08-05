@@ -698,15 +698,19 @@ pub const Parser = struct {
         const buf = node3.*.body;
         self.allocator.destroy(node3);
 
+        const tfcall = self.parse_function_call(token_queue, buf, true) catch {
+            return ParserError.ParsingFailure;
+        };
+        var children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        try children.append(tfcall);
+
         // Skip colon
         const cn = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
         self.allocator.free(cn.*.body);
         self.allocator.destroy(cn);
-
-        var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
 
         // type Definition Body
         var token_queue3 = try TokenQueue.init(self.allocator);
@@ -741,7 +745,7 @@ pub const Parser = struct {
 
         // Assemble Type Definition Ast
         const t = try self.allocator.create(TeleAst);
-        t.*.body = buf;
+        t.*.body = "";
         t.*.ast_type = TeleAstType.type_def;
         t.*.children = children;
         t.*.col = 0;
@@ -1049,12 +1053,12 @@ pub const Parser = struct {
                         };
                     }
                 } else {
-                    ast = self.parse_variable(n.*.body, false) catch {
+                    ast = self.parse_variable(n.*.body) catch {
                         return ParserError.ParsingFailure;
                     };
                 }
             } else {
-                ast = self.parse_variable(n.*.body, false) catch {
+                ast = self.parse_variable(n.*.body) catch {
                     return ParserError.ParsingFailure;
                 };
             }
@@ -1166,12 +1170,12 @@ pub const Parser = struct {
                         };
                     }
                 } else {
-                    ast = self.parse_variable(n.*.body, true) catch {
+                    ast = self.parse_variable(n.*.body) catch {
                         return ParserError.ParsingFailure;
                     };
                 }
             } else {
-                ast = self.parse_variable(n.*.body, true) catch {
+                ast = self.parse_variable(n.*.body) catch {
                     return ParserError.ParsingFailure;
                 };
             }
@@ -1207,14 +1211,10 @@ pub const Parser = struct {
         return try self.parse_value(token_queue, TeleAstType.binary);
     }
 
-    fn parse_variable(self: *Self, buf: []const u8, type_exp: bool) !*TeleAst {
+    fn parse_variable(self: *Self, buf: []const u8) !*TeleAst {
         const t = try self.allocator.create(TeleAst);
         t.*.body = buf;
-        if (type_exp) {
-            t.*.ast_type = TeleAstType.function_call;
-        } else {
-            t.*.ast_type = TeleAstType.variable;
-        }
+        t.*.ast_type = TeleAstType.variable;
         t.*.children = null;
         t.*.col = 0;
         return t;

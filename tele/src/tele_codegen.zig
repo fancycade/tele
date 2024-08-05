@@ -495,11 +495,11 @@ pub const Context = struct {
 
     pub fn write_type_def(self: *Self, w: anytype, a: *const Ast) !void {
         _ = try w.write("type ");
-        _ = try w.write(a.*.body);
+        try self.write_ast(w, a.children.?.items[0]);
         _ = try w.write(":\n");
 
         try self.push_padding(self.current_padding() + 2);
-        try self.write_ast(w, a.children.?.items[0]);
+        try self.write_ast(w, a.children.?.items[1]);
 
         _ = try w.write("\n\n");
     }

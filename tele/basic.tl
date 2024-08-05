@@ -15,7 +15,7 @@ multiline comment
 
 record point: #(x, y)
 
-type stuff: integer | float
+type stuff(): integer() | float()
 
 fun fooboo():
   a = #point(x=0, y=0)

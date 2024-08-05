@@ -360,6 +360,10 @@ Would be:
 
     nifs([#native_call/2, #native_other_call/3])
 
+## export_type
+
+    export_type([#some_type/0])
+
 ## behaviour
 
     behaviour(gen_server)
@@ -483,6 +487,10 @@ Make a new type with a type alias
     type foo(): integer()
     type id(): integer()
     type options(): 'foo | 'bar | 'baz
+
+Opaque type aliases are:
+
+    opaque foo(): integer()
 
 ### Behaviours
 

@@ -79,7 +79,10 @@ pub const Parser = struct {
 
             if (is_statement_keyword(pn.*.body)) {
                 if (is_type_keyword(pn.*.body)) {
-                    const ast = try self.parse_type_definition(self.token_queue);
+                    const ast = try self.parse_type_definition(self.token_queue, false);
+                    try statements.append(ast);
+                } else if (is_opaque_keyword(pn.*.body)) {
+                    const ast = try self.parse_type_definition(self.token_queue, true);
                     try statements.append(ast);
                 } else if (is_spec_keyword(pn.*.body)) {
                     const ast = try self.parse_spec_definition(self.token_queue);
@@ -103,6 +106,9 @@ pub const Parser = struct {
                     const ast = try self.parse_attribute(self.token_queue);
                     try statements.append(ast);
                 } else if (is_nifs_keyword(pn.*.body)) {
+                    const ast = try self.parse_attribute(self.token_queue);
+                    try statements.append(ast);
+                } else if (is_export_type_keyword(pn.*.body)) {
                     const ast = try self.parse_attribute(self.token_queue);
                     try statements.append(ast);
                 } else if (is_doc_keyword(pn.*.body)) {
@@ -682,7 +688,7 @@ pub const Parser = struct {
         return t;
     }
 
-    fn parse_type_definition(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+    fn parse_type_definition(self: *Self, token_queue: *TokenQueue, opaque_type: bool) !*TeleAst {
         // Free type keyword
         const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
@@ -746,7 +752,11 @@ pub const Parser = struct {
         // Assemble Type Definition Ast
         const t = try self.allocator.create(TeleAst);
         t.*.body = "";
-        t.*.ast_type = TeleAstType.type_def;
+        if (opaque_type) {
+            t.*.ast_type = TeleAstType.opaque_type_def;
+        } else {
+            t.*.ast_type = TeleAstType.type_def;
+        }
         t.*.children = children;
         t.*.col = 0;
 
@@ -2619,6 +2629,10 @@ fn is_statement_keyword(buf: []const u8) bool {
         return is_attr_keyword(buf);
     }
 
+    if (buf[0] == 'e') {
+        return is_export_type_keyword(buf);
+    }
+
     if (buf[0] == 's') {
         return is_spec_keyword(buf);
     }
@@ -2648,7 +2662,7 @@ fn is_statement_keyword(buf: []const u8) bool {
     }
 
     if (buf[0] == 'o') {
-        return is_on_load_keyword(buf);
+        return is_on_load_keyword(buf) or is_opaque_keyword(buf);
     }
 
     if (buf[0] == 'n') {
@@ -2681,6 +2695,8 @@ test "is statement keyword" {
     try std.testing.expect(is_statement_keyword("doc"));
     try std.testing.expect(is_statement_keyword("moduledoc"));
     try std.testing.expect(is_statement_keyword("define"));
+    try std.testing.expect(is_statement_keyword("opaque"));
+    try std.testing.expect(is_statement_keyword("export_type"));
 
     try std.testing.expect(!is_statement_keyword("["));
     try std.testing.expect(!is_statement_keyword("]"));
@@ -2693,6 +2709,14 @@ test "is statement keyword" {
 
 fn is_type_keyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "type");
+}
+
+fn is_opaque_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "opaque");
+}
+
+fn is_export_type_keyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "export_type");
 }
 
 fn is_spec_keyword(buf: []const u8) bool {
@@ -2772,6 +2796,8 @@ test "is keywords" {
     try std.testing.expect(is_include_lib_keyword("include_lib"));
     try std.testing.expect(is_define_keyword("define"));
     try std.testing.expect(is_import_keyword("import"));
+    try std.testing.expect(is_opaque_keyword("opaque"));
+    try std.testing.expect(is_export_type_keyword("export_type"));
 }
 
 fn is_float(buf: []const u8) bool {

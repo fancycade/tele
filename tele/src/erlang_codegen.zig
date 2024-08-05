@@ -362,6 +362,14 @@ pub const Context = struct {
         _ = try w.write(".\n");
     }
 
+    pub fn write_opaque_type_def(self: *Self, w: anytype, a: *const Ast) !void {
+        _ = try w.write("-opaque ");
+        try self.write_ast(w, a.*.children.?.items[0]);
+        _ = try w.write(" :: ");
+        try self.write_ast(w, a.*.children.?.items[1]);
+        _ = try w.write(".\n\n");
+    }
+
     pub fn write_type_def(self: *Self, w: anytype, a: *const Ast) !void {
         _ = try w.write("-type ");
         try self.write_ast(w, a.*.children.?.items[0]);
@@ -788,6 +796,11 @@ pub const Context = struct {
             },
             .type_def => {
                 self.write_type_def(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .opaque_type_def => {
+                self.write_opaque_type_def(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

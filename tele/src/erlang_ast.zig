@@ -1,7 +1,7 @@
 const std = @import("std");
 const test_allocator = std.testing.allocator;
 
-pub const AstType = enum { int, float, binary, atom, tuple, list, map, record, record_field, record_field_value, record_field_type, attribute, custom_attribute, function_def, function_signature, anonymous_function, function_call, case, case_clause, guard_clause, op, variable, type_def, record_def, spec_def, callback_def, paren_exp, fun_val, try_catch, try_exp, catch_exp, macro_def, import_def };
+pub const AstType = enum { int, float, binary, atom, tuple, list, map, record, record_field, record_field_value, record_field_type, attribute, custom_attribute, function_def, function_signature, anonymous_function, function_call, case, case_clause, guard_clause, op, variable, type_def, opaque_type_def, record_def, spec_def, callback_def, paren_exp, fun_val, try_catch, try_exp, catch_exp, macro_def, import_def };
 
 pub const Ast = struct {
     children: ?std.ArrayList(*const Ast),

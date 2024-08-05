@@ -171,6 +171,11 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
                 return CompilerError.CompilingFailure;
             };
         },
+        .opaque_type_def => {
+            return tele_to_erlang_opaque_type_def(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         .type_def => {
             return tele_to_erlang_type_def(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -719,6 +724,11 @@ fn tele_to_erlang_macro_def(t: *const TeleAst, allocator: std.mem.Allocator) !*E
 }
 
 test "tele to macro def" {}
+
+fn tele_to_erlang_opaque_type_def(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeNamedCollection(try util.copyString(t.*.body, allocator), children, ErlangAstType.type_def, allocator);
+}
 
 fn tele_to_erlang_type_def(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const children = try compileChildren(t.*.children, allocator);

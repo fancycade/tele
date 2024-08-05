@@ -204,7 +204,7 @@ To specify optional values for the keys:
 To specify the types of the keys:
 
    record thing:
-     #(a = 42: integer, b: integer)
+     #(a = 42: integer(), b: integer())
 
 Instantiating a record.
 
@@ -219,10 +219,6 @@ Accessing a field from a record:
 The record type is required.
 
 EXPERIMENTAL:
-
-Define records with type syntax. They are distinguished from tuples by having named fields.
-
-    type thing: #(a=int, b=int)
 
 See if this type of syntax is possible.
 
@@ -430,52 +426,33 @@ These are equivalent to Erlang function specs.
 
 Type specifications can to apply defined functions function.
 
-    spec add(int, int): int
+    spec add(integer(), integer()): integer()
     fun add(x, y):
       x + y
 
-    spec add2(int): int
+    spec add2(integer()): integer()
     fun add2(x):
       x + 2
-
-Matching parenthesis on a type specification are completely optional.
-
-    spec add(int(), int()): int()
-
-OR
-
-    spec add(int, int): int
-
-The tele compiler will be able to do this automatically.
-
-The tradeoff with lowercase variables and optional parens for types is that Erlang's when syntax in types
-is not possible. The reason is that it cannot be determined what a variable is.
-
-    spec add(n, integer) when n :: integer(): integer
-
-The above is not allowed. Meaning spec constraints are not possible in tele. Considering this is minor niche
-feature it is not a huge loss. Whereas making parens optional helps reduce the number of syntax errors when
-writing tele programs.
 
 Here is a full module with type signatures and sum types
 
-    spec add(int, int): int 
+    spec add(integer(), integer()): integer()
     fun add(x, y):
       x + y
 
-    spec add2(int): int
+    spec add2(integer()): integer()
     fun add2(x):
       x + 2
 
-    spec div(int, int):
-      #('ok, int) | #('error, binary)
+    spec div(integer(), integer()):
+      #('ok, integer()) | #('error, binary())
     fun div:
       (_, 0): #('error, 'div_by_zero)
       (a, b): #('ok, a / b)
 
 Type Annotations of anonymous functions look like this:
 
-    (int) => int
+    (integer()) => integer()
 
 NOT
 
@@ -483,13 +460,13 @@ NOT
 
 Despite the second looking like a function definition, this is because it makes the type annotation clearer.
 
-    fun foo((int): int): (int): int
+    fun foo((integer()): integer()): (integer()): integer()
 
 The above example is difficult to mentally parse.
 
 Defining a function that accepts a function as argument and returns one looks like this:
 
-    spec foo((int) => int): (int) => int
+    spec foo((integer()) => integer()): (integer()) => integer()
     fun foo(f):
       (n) => f(n)
 
@@ -497,15 +474,15 @@ EXPERIMENTAL:
 
 Records with type annotations look like this:
 
-    type foo: #(a: integer b: integer)
+    type foo(): #(a: integer(), b: integer())
 
 ### Type Aliases
 
 Make a new type with a type alias
 
-    type foo: integer
-    type id: integer
-    type options: 'foo | 'bar | 'baz
+    type foo(): integer()
+    type id(): integer()
+    type options(): 'foo | 'bar | 'baz
 
 ### Behaviours
 
@@ -513,28 +490,28 @@ Erlang has the concept of behaviours which are like module interfaces.
 
 defining a behaviour is as simple as defining a module with callbacks.
 
-    callback up(#(integer, integer)): #(integer, integer)
-    callback down(#(integer, integer)): #(integer, integer)
-    callback left(#(integer, integer)): #(integer, integer)
-    callback right(#(integer, integer)): #(integer, integer)
+    callback up(#(integer(), integer())): #(integer(), integer())
+    callback down(#(integer(), integer())): #(integer(), integer())
+    callback left(#(integer(), integer())): #(integer(), integer())
+    callback right(#(integer(), integer())): #(integer(), integer())
 
 To make a module adhere to a behaviour:
 
     behaviour cursor
      
-    spec up(#(int, int)): #(int, int)
+    spec up(#(integer(), integer())): #(integer(), integer())
     fun up(#(x, y)): 
       #(x, y - 1)
     
-    spec down(#(int, int)): #(int, int)
+    spec down(#(integer(), integer())): #(integer(), integer())
     fun down(#(x, y)):
       #(x, y + 1)
     
-    spec left(#(int, int)): #(int, int)
+    spec left(#(integer(), integer())): #(integer(), integer())
     fun left(#(x, y)):
       #(x - 1, y)
     
-    spec right(#(int, int)): #(int, int)
+    spec right(#(integer(), integer())): #(integer(), integer())
     fun right(#(x, y)):
       #(x + 1, y)
 

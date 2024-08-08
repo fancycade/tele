@@ -184,6 +184,42 @@ Passing functions as values requires similar syntax as Erlang and Elixir:
 
 This is to tell which function is being used by function arity.
 
+Defining a function that accepts a function with any arity looks like this:
+
+    spec foo((...) => integer()): (...) => integer()
+
+Erlang Any Function:
+
+    fun()
+
+Tele Any Function:
+    
+    (...) => any()
+
+Erlang function that takes no arguments and returns an integer:
+
+    fun(() -> integer())
+
+Tele function that takes no arguments and returns an integer:
+
+    () => integer()
+
+Erlang function that takes any number of arguments and returns an integer:
+
+    fun((...) -> integer())
+
+Tele equivalent:
+
+    (...) => integer()
+
+Erlang function that takes two arguments and returns an integer:
+
+    fun((integer(), integer()) -> integer())
+
+Tele equivalent:
+
+   (integer(), integer()) => integer()
+
 ### Variables
 
 Variables are lower case words with underscores also being allowed.
@@ -291,7 +327,46 @@ Type annotation syntax in pattern matching that can be translated to guards. Ins
       (x :: int): x
       (y :: float): y
 
-### Modules
+Pattern matching with functions could be done like this:
+
+    fun foo:
+      (x, [1, 2]): x
+      (_x, b): b
+
+There are two benefits to this over having fun for each pattern match like Elixir. The first reason is that we don't have
+the possibility of mixing fun and funp. The first fun defines if it is public or private. The second reason is that it mirrors match syntax as well as spec overloading.
+
+    doc """
+    Handle code in ways you would never understand
+    """
+    spec foo:
+      (any(), 'thing): any()
+      ('stuff, any()): any()
+    fun foo:
+      (x, 'thing): x
+      ('stuff, x): x
+
+    spec factorial(integer()): integer()
+    fun factorial(x): factorial(x, 1)
+
+    spec factorial:
+      (0, integer()): integer()
+      (integer(), integer()): integer()
+    fun factorial:
+      (0, acc): acc
+      (n, acc): factorial(n - 1, acc * n)
+
+We can see that this is similar to the match syntax:
+
+    spec foobar:
+      (any(), 'thing): any()
+      ('stuff, any()): any()
+    fun foobar(y, z):
+      match #(y, z):
+        #(x, 'thing): x
+        #('stuff, x): x
+
+### Modules`
 
 Functions of modules are called with the . syntax
 
@@ -424,11 +499,11 @@ Compiles into:
 
     -compile(inline).
 
-### Type Specifications 
+### Function Specifications 
 
 These are equivalent to Erlang function specs.
 
-Type specifications can to apply defined functions function.
+Type specifications can apply to function definitions.
 
     spec add(integer(), integer()): integer()
     fun add(x, y):
@@ -437,6 +512,16 @@ Type specifications can to apply defined functions function.
     spec add2(integer()): integer()
     fun add2(x):
       x + 2
+
+The syntax for overloading a function specification is similar to match syntax:
+
+    spec add:
+      (integer(), integer()): integer()
+      (list(), list()): list()
+    fun add(a, b) when is_list(a) andalso is_list(b):
+      a ++ b
+    fun add(a, b) when is_integer(a) andalso v is_integer(b):
+      a + b
 
 Here is a full module with type signatures and sum types
 

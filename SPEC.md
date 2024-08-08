@@ -220,6 +220,46 @@ Tele equivalent:
 
    (integer(), integer()) => integer()
 
+EXPERIMENTAL:
+
+Make anonymous functions like this:
+
+    fun (): x
+    fun (x): x + 2
+
+With an example of a pattern matching anonymous function:
+
+    f =
+    fun (0): 1
+        (x): x + 2
+
+This unifies the syntax for function definition with pattern matching like this:
+
+    fun f(0): 1
+         (x): x + 2
+
+Type aliases for anonymous functions would look like this:
+
+    fun (integer()): integer()
+    fun ()
+    fun (...): integer()
+    fun (integer(), integer()): integer()
+
+Pattern matching in the function type requires semantic whitespace. Meaning we require a newline in the type alias.
+
+    fun (integer(), integer(): integer()
+        (float(), float()): float()
+    
+Here is an example function specification that takes a function that matches on two types as the first argument,
+taking the integer as the second argument, and retun
+
+    spec do_thing(fun (integer(), integer()): integer()
+                      (float(), float()): float(),
+                  integer()
+                 ): fun (): integer()
+    fun do_thing(f, num):
+      fun (): f(42, num)
+
 ### Variables
 
 Variables are lower case words with underscores also being allowed.

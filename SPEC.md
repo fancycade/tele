@@ -231,11 +231,13 @@ With an example of a pattern matching anonymous function:
 
     f =
     fun (0): 1
+        (1): 2
         (x): x + 2
 
 This unifies the syntax for function definition with pattern matching like this:
 
     fun f(0): 1
+         (1): 2
          (x): x + 2
 
 Type aliases for anonymous functions would look like this:
@@ -369,9 +371,8 @@ Type annotation syntax in pattern matching that can be translated to guards. Ins
 
 Pattern matching with functions could be done like this:
 
-    fun foo:
-      (x, [1, 2]): x
-      (_x, b): b
+    fun foo (x, [1, 2]): x
+            (_x, b): b
 
 There are two benefits to this over having fun for each pattern match like Elixir. The first reason is that we don't have
 the possibility of mixing fun and funp. The first fun defines if it is public or private. The second reason is that it mirrors match syntax as well as spec overloading.
@@ -379,28 +380,23 @@ the possibility of mixing fun and funp. The first fun defines if it is public or
     doc """
     Handle code in ways you would never understand
     """
-    spec foo:
-      (any(), 'thing): any()
-      ('stuff, any()): any()
-    fun foo:
-      (x, 'thing): x
-      ('stuff, x): x
+    spec foo (any(), 'thing): any()
+             ('stuff, any()): any()
+    fun foo (x, 'thing): x
+            ('stuff, x): x
 
     spec factorial(integer()): integer()
     fun factorial(x): factorial(x, 1)
 
-    spec factorial:
-      (0, integer()): integer()
-      (integer(), integer()): integer()
-    fun factorial:
-      (0, acc): acc
-      (n, acc): factorial(n - 1, acc * n)
+    spec factorial (0, integer()): integer()
+                   (integer(), integer()): integer()
+    fun factorial (0, acc): acc
+                  (n, acc): factorial(n - 1, acc * n)
 
 We can see that this is similar to the match syntax:
 
-    spec foobar:
-      (any(), 'thing): any()
-      ('stuff, any()): any()
+    spec foobar (any(), 'thing): any()
+                ('stuff, any()): any()
     fun foobar(y, z):
       match #(y, z):
         #(x, 'thing): x
@@ -555,9 +551,8 @@ Type specifications can apply to function definitions.
 
 The syntax for overloading a function specification is similar to match syntax:
 
-    spec add:
-      (integer(), integer()): integer()
-      (list(), list()): list()
+    spec add (integer(), integer()): integer()
+             (list(), list()): list()
     fun add(a, b) when is_list(a) andalso is_list(b):
       a ++ b
     fun add(a, b) when is_integer(a) andalso v is_integer(b):

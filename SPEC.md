@@ -262,6 +262,47 @@ taking the integer as the second argument, and retun
     fun do_thing(f, num):
       fun (): f(42, num)
 
+Calling anonymous functions is done like this:
+
+    f = fun (x): x + 2
+    #.f(42)
+
+The reason we use the extra #. is to denote that this variable is doing a function call. Otherwise it would be ambiguos with a normal function call. Erlang doesn't have this problem because it uses capitalization in variable names.
+
+Let's see how it plays with other things.
+
+Calling functions:
+
+    fun call_f(f):
+       #.f()
+
+    fun map(f, l):
+       map(f, l, [])
+
+    fun map(f, [], acc):
+             acc
+           (f, [h | t], acc):
+             map(f, t, [#.f(h) | acc])
+
+    map(fun (x): x + 2, [1, 2, 3])
+
+    fun call_mod_fun(m, f):
+      #.m.#.f()
+
+    fun call_mod(m):
+      #.m.call_me()
+
+    fun call_fun(f):
+      stuff2.#.f()
+
+    fun f1(x): x + 2
+
+    fun f2(l):
+      lists.map(#f1/1, l)
+
+    f = #point(42, 2)
+    f#point.x
+
 ### Variables
 
 Variables are lower case words with underscores also being allowed.

@@ -1033,8 +1033,8 @@ pub const Parser = struct {
             ast = self.parse_map(token_queue, false) catch {
                 return ParserError.ParsingFailure;
             };
-        } else if (is_match_keyword(pn.*.body)) {
-            ast = self.parse_match_expression(token_queue) catch {
+        } else if (isCaseKeyword(pn.*.body)) {
+            ast = self.parseCaseExpression(token_queue) catch {
                 return ParserError.ParsingFailure;
             };
         } else if (is_try_keyword(pn.*.body)) {
@@ -1155,7 +1155,7 @@ pub const Parser = struct {
             ast = self.parse_map(token_queue, true) catch {
                 return ParserError.ParsingFailure;
             };
-        } else if (is_match_keyword(pn.*.body)) {
+        } else if (isCaseKeyword(pn.*.body)) {
             return ParserError.ParsingFailure;
         } else if (is_try_keyword(pn.*.body)) {
             return ParserError.ParsingFailure;
@@ -1833,7 +1833,7 @@ pub const Parser = struct {
         return t;
     }
 
-    fn parse_match_expression(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+    fn parseCaseExpression(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         // Pop off match keyword
         const n = try token_queue.pop();
         const current_col = n.*.col;
@@ -1863,13 +1863,13 @@ pub const Parser = struct {
             }
         }
 
-        const signature_ast = try self.parse_match_signature(buffer_token_queue);
+        const signature_ast = try self.parseCaseSignature(buffer_token_queue);
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.free_tele_ast_list(children, self.allocator);
         try children.append(signature_ast);
 
-        var body = try self.parse_match_body(buffer_token_queue);
+        var body = try self.parseCaseBody(buffer_token_queue);
         errdefer tele_ast.free_tele_ast_list(body, self.allocator);
         if (!buffer_token_queue.empty()) {
             return ParserError.ParsingFailure;
@@ -1890,7 +1890,7 @@ pub const Parser = struct {
         return final_ast;
     }
 
-    fn parse_match_signature(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+    fn parseCaseSignature(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         var buffer_token_queue = try TokenQueue.init(self.allocator);
         errdefer buffer_token_queue.deinit();
         // Parse Match Signature
@@ -1921,12 +1921,12 @@ pub const Parser = struct {
         return ast;
     }
 
-    fn parse_match_body(self: *Self, token_queue: *TokenQueue) !std.ArrayList(*TeleAst) {
+    fn parseCaseBody(self: *Self, token_queue: *TokenQueue) !std.ArrayList(*TeleAst) {
         var clause_col: usize = 0;
         var alist = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
 
-        // Parse Match Clauses
+        // Parse Case Clauses
         while (!token_queue.empty()) {
             var children = std.ArrayList(*TeleAst).init(self.allocator);
             errdefer tele_ast.free_tele_ast_list(children, self.allocator);
@@ -1999,14 +1999,14 @@ pub const Parser = struct {
             }
         }
 
-        const signature_ast = try self.parse_match_signature(buffer_token_queue);
+        const signature_ast = try self.parseCaseSignature(buffer_token_queue);
         errdefer tele_ast.free_tele_ast(signature_ast, self.allocator);
 
         var try_children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.free_tele_ast_list(try_children, self.allocator);
         try try_children.append(signature_ast);
 
-        var body = try self.parse_match_body(buffer_token_queue);
+        var body = try self.parseCaseBody(buffer_token_queue);
         errdefer tele_ast.free_tele_ast_list(body, self.allocator);
         if (!buffer_token_queue.empty()) {
             return ParserError.ParsingFailure;
@@ -2067,7 +2067,7 @@ pub const Parser = struct {
         errdefer tele_ast.free_tele_ast_list(catch_children, self.allocator);
         try try_children.append(signature_ast);
 
-        var body2 = try self.parse_match_body(buffer_token_queue);
+        var body2 = try self.parseCaseBody(buffer_token_queue);
         errdefer tele_ast.free_tele_ast_list(body2, self.allocator);
         if (!buffer_token_queue.empty()) {
             return ParserError.ParsingFailure;
@@ -3070,13 +3070,13 @@ test "is pipe operator" {
     try std.testing.expect(!is_pipe_operator("foobar"));
 }
 
-fn is_match_keyword(buf: []const u8) bool {
-    return std.mem.eql(u8, "match", buf);
+fn isCaseKeyword(buf: []const u8) bool {
+    return std.mem.eql(u8, "case", buf);
 }
 
-test "is match keyword" {
-    try std.testing.expect(is_match_keyword("match"));
-    try std.testing.expect(!is_match_keyword("foobar"));
+test "is case keyword" {
+    try std.testing.expect(isCaseKeyword("case"));
+    try std.testing.expect(!isCaseKeyword("foobar"));
 }
 
 fn is_try_keyword(buf: []const u8) bool {

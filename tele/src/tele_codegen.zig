@@ -332,11 +332,11 @@ pub const Context = struct {
         try self.pop_padding();
     }
 
-    pub fn write_case(self: *Self, w: anytype, a: *const Ast) !void {
+    pub fn writeCase(self: *Self, w: anytype, a: *const Ast) !void {
         // TODO: Check for children with minimum children length of 2
 
         try self.write_padding(w);
-        _ = try w.write("match ");
+        _ = try w.write("case ");
         try self.push_padding(0);
         try self.write_ast(w, a.children.?.items[0]);
         _ = try w.write(":\n");
@@ -774,7 +774,7 @@ pub const Context = struct {
                 };
             },
             .case => {
-                self.write_case(w, a) catch {
+                self.writeCase(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

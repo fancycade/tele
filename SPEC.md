@@ -128,8 +128,6 @@ Tele can destructure maps like this:
     {"foo": b} = m
     ?assertEqual(b, "bar")
 
-EXPERIMENTAL:
-
 Erlang has map update syntax like this:
 
     M = #{},
@@ -140,12 +138,7 @@ Tele could do map update syntax like this:
     m = {}
     {m | "foo": "bar"}
 
-This is similar to Elm. However, Erlang already has the cons operator, would make sense to make it similar:
-
-    {"foo": "bar" | m}
-
-The downside of this is that it can't be pattern matched like the list cons operator can. Which makes it not like
-the list cons operator and misleading.
+This was inspired by Elm's record update syntax.
 
 Keeping the value at the front of the expression makes it clearer that there is a map update happening. This map
 update syntax is not too far from the Erlang syntax.
@@ -154,154 +147,73 @@ update syntax is not too far from the Erlang syntax.
 
 ### Anonymous Functions
 
-Anonymous functions or "arrow" functions like they are called in JS.
+Anonymous functions look like function definitions with no names. Hence anonymous.
 
-Anonymous functions can be defined on a single line.
+    fun (x, y):
+      x + y
 
-    (x, y) => x + y
+Anonymous function can be defined on a single line.
 
-    map((x) => x + 2, [1, 2, 3])
+    fun (x, y): x + y
 
-Anonymous functions can be multiple lines. Anonymous function bodies follow the same syntax rules as blocks.
-Function bodies starting on same line have to be one line. Multiline bodies must be after the beginning of the block.
+More examples:
 
-    map(
-      (x) =>
+    lists.map(
+      fun (x):
         x2 = x + 2
-        x2 + 2, 
+        x2 + 2,
       [1, 2, 3]
     )
 
-    f = (x, y) =>
+    f = fun (x, y):
           z = x + y
           z + 42
 
-    f2 = (x, y) => f(x, y)
+    f2 = (x, y): f(x, y)
 
-Passing functions as values requires similar syntax as Erlang and Elixir:
+Passing functions as values requires similar syntax as Erlang:
 
-    #foo/2
+    fun foo/2
 
-This is to tell which function is being used by function arity.
+This is to tell which function is being used by signature.
 
-Defining a function that accepts a function with any arity looks like this:
+#### Pattern matching with anonymous functions
 
-    spec foo((...) => integer()): (...) => integer()
-
-Erlang Any Function:
-
-    fun()
-
-Tele Any Function:
-    
-    (...) => any()
-
-Erlang function that takes no arguments and returns an integer:
-
-    fun(() -> integer())
-
-Tele function that takes no arguments and returns an integer:
-
-    () => integer()
-
-Erlang function that takes any number of arguments and returns an integer:
-
-    fun((...) -> integer())
-
-Tele equivalent:
-
-    (...) => integer()
-
-Erlang function that takes two arguments and returns an integer:
-
-    fun((integer(), integer()) -> integer())
-
-Tele equivalent:
-
-   (integer(), integer()) => integer()
-
-EXPERIMENTAL:
-
-Make anonymous functions like this:
-
-    fun (): x
-    fun (x): x + 2
-
-With an example of a pattern matching anonymous function:
-
-    f =
     fun (0): 1
-        (1): 2
-        (x): x + 2
+        (n): n + 2
 
-This unifies the syntax for function definition with pattern matching like this:
+Or start the signature on the newline after fun:
 
-    fun f(0): 1
-         (1): 2
-         (x): x + 2
+    fun
+      (0): 1
+      (n): n + 2
 
-Type aliases for anonymous functions would look like this:
+### Function Types
 
-    fun (integer()): integer()
+Defining a function that accepts any arity:
+
+    fun (...): any()
+
+Any function:
+
     fun ()
+
+Function that takes no arguments and returns an integer:
+
+    fun (): integer()
+
+Function that takes any number of arguments and returns an integer:
+
     fun (...): integer()
+
+Function that takes two integers and returns an integer:
+
     fun (integer(), integer()): integer()
 
-Pattern matching in the function type requires semantic whitespace. Meaning we require a newline in the type alias.
+Overloaded function signatures:
 
-    fun (integer(), integer(): integer()
-        (float(), float()): float()
-    
-Here is an example function specification that takes a function that matches on two types as the first argument,
-taking the integer as the second argument, and retun
-
-    spec do_thing(fun (integer(), integer()): integer()
-                      (float(), float()): float(),
-                  integer()
-                 ): fun (): integer()
-    fun do_thing(f, num):
-      fun (): f(42, num)
-
-Calling anonymous functions is done like this:
-
-    f = fun (x): x + 2
-    #.f(42)
-
-The reason we use the extra #. is to denote that this variable is doing a function call. Otherwise it would be ambiguos with a normal function call. Erlang doesn't have this problem because it uses capitalization in variable names.
-
-Let's see how it plays with other things.
-
-Calling functions:
-
-    fun call_f(f):
-       #.f()
-
-    fun map(f, l):
-       map(f, l, [])
-
-    fun map(f, [], acc):
-             acc
-           (f, [h | t], acc):
-             map(f, t, [#.f(h) | acc])
-
-    map(fun (x): x + 2, [1, 2, 3])
-
-    fun call_mod_fun(m, f):
-      #.m.#.f()
-
-    fun call_mod(m):
-      #.m.call_me()
-
-    fun call_fun(f):
-      stuff2.#.f()
-
-    fun f1(x): x + 2
-
-    fun f2(l):
-      lists.map(#f1/1, l)
-
-    f = #point(42, 2)
-    f#point.x
+    fun (integer(), integer()): integer()
+        (binary(), binary()): binary()
 
 ### Variables
 
@@ -309,6 +221,19 @@ Variables are lower case words with underscores also being allowed.
 
     a_var = "foobar"
     b_var = 12
+
+#### Calling Variables
+
+Since the syntax for a variable and a function call can be ambiguous. There is a special operator
+to tell the tele compiler that this module or function name should be an Erlang variable.
+
+    fun apply(m, f):
+      @m.@f()
+
+Results in the equivalent Erlang code:
+
+    apply(M, F) ->
+      M:F().
 
 ### Records
 
@@ -360,34 +285,22 @@ Zig parses C header files.
 
 ### Pattern Matching
 
-    match v:
+Case expressions are very similar to Erlang:
+
+    case v:
       [1, 2, x]: x
       [1, 2, x, y]: {x, y}
 
-    match v:
+    case v:
       {'foo: "bar"}: #('ok, "result")
       {'bar: bar}: bar
 
-    match v:
+    case v:
       2:
         #('ok, 'done)
       3:
         ok = 'ok
         #(ok, 'failure)
-
-EXPERIMENTAL:
-
-Type annotation syntax in pattern matching that can be translated to guards. Inspired by Rhombus.
-
-    match v:
-      x :: int: x + 2
-      x :: float: x + 2.0
-
-The double semicolon is like an inline type annotation.
-
-    match v:
-      {_, x} :: {any, int}: x + 2
-      _: {'error, 'oops}
 
 ### Function Definitions
 
@@ -396,24 +309,16 @@ The double semicolon is like an inline type annotation.
     fun add(x, y):
       x + y
 
+Functions are by default exported by the module. To turn this implicit behaviour off, use `funp`.
+
+    funp add2(x): x + 2
+
+This function will only be accessible in the module it is declared in.
+
 Pattern matching with a function definition.
 
     fun foo(x, [1, 2]): x
-    fun foo(_x, b): b
-
-
-EXPERIMENTAL:
-
-Type annotation syntax in pattern matching that can be translated to guards. Inspired by Rhombus.
-
-    fun foo:
-      (x :: int): x
-      (y :: float): y
-
-Pattern matching with functions could be done like this:
-
-    fun foo (x, [1, 2]): x
-            (_x, b): b
+           (_x, b): b
 
 There are two benefits to this over having fun for each pattern match like Elixir. The first reason is that we don't have
 the possibility of mixing fun and funp. The first fun defines if it is public or private. The second reason is that it mirrors match syntax as well as spec overloading.
@@ -459,27 +364,6 @@ A file, `basic.tl`, would be the `basic` module.
     fun foobar(x, y):
       2 + 2
 
-Functions by default are exported. To prevent this make a private function
-
-    funp foobar(): 2 + 2
-
-The module might look like this
-
-    fun add4(x):
-      add2(add2(x))
-
-    funp add2(x):
-      x + 2
-
-EXPERIMENTAL:
-
-Make multiple modules inside of a file.
-
-    module foobar:
-
-      fun foo(a, b):
-        a + b
-
 ### Module Attributes
 
 Inside attributes, besides `define`, any fun vals are converted to `name/arity` syntax instead of prefixed with fun.
@@ -502,19 +386,19 @@ Tele equivalent of this Erlang code:
 
 Would be:
 
-    import foo_mod(#do_thing/1, #do_thing2/3)
+    import foo_mod(do_thing/1, do_thing2/3)
 
 ## on_load
 
-    on_load(#init_info/2)
+    on_load(init_info/2)
 
 ## nifs
 
-    nifs([#native_call/2, #native_other_call/3])
+    nifs([native_call/2, native_other_call/3])
 
 ## export_type
 
-    export_type([#some_type/0])
+    export_type([some_type/0])
 
 ## behaviour
 
@@ -611,35 +495,9 @@ Here is a full module with type signatures and sum types
 
     spec div(integer(), integer()):
       #('ok, integer()) | #('error, binary())
-    fun div:
+    fun div
       (_, 0): #('error, 'div_by_zero)
       (a, b): #('ok, a / b)
-
-Type Annotations of anonymous functions look like this:
-
-    (integer()) => integer()
-
-NOT
-
-    (int): int
-
-Despite the second looking like a function definition, this is because it makes the type annotation clearer.
-
-    fun foo((integer()): integer()): (integer()): integer()
-
-The above example is difficult to mentally parse.
-
-Defining a function that accepts a function as argument and returns one looks like this:
-
-    spec foo((integer()) => integer()): (integer()) => integer()
-    fun foo(f):
-      (n) => f(n)
-
-EXPERIMENTAL:
-
-Records with type annotations look like this:
-
-    type foo(): #(a: integer(), b: integer())
 
 ### Type Aliases
 
@@ -667,53 +525,24 @@ defining a behaviour is as simple as defining a module with callbacks.
 To make a module adhere to a behaviour:
 
     behaviour cursor
+
+    type point: #(integer(), integer())
      
-    spec up(#(integer(), integer())): #(integer(), integer())
+    spec up(point()): point()
     fun up(#(x, y)): 
       #(x, y - 1)
     
-    spec down(#(integer(), integer())): #(integer(), integer())
+    spec down(point()): point()
     fun down(#(x, y)):
       #(x, y + 1)
     
-    spec left(#(integer(), integer())): #(integer(), integer())
+    spec left(point()): point()
     fun left(#(x, y)):
       #(x - 1, y)
     
-    spec right(#(integer(), integer())): #(integer(), integer())
+    spec right(point()): point()
     fun right(#(x, y)):
       #(x + 1, y)
-
-### Module Aliases
-
-EXPERIMENTAL:
-
-alias attribute to make it easier working with long module names.
-
-    alias lm: long_module_name
-
-This could be used for other things as well. Simple string substitution like erlang macros.
-
-This doesn't have a direct correlation with erlang and so it would be handled at compile time.
-
-### Module Constants
-
-EXPERIMENTAL:
-
-Elixir has constants like:
-
-    @pi 3.14
-
-Erlang version would be:
-
-    -compile({inline, [pi/0]}).
-    pi() -> 3.14.
-
-Tele might look like:
-
-    fun pi: 3.14
-
-Notice no function signature.
 
 ### Try Catch Statements
 
@@ -722,8 +551,8 @@ Erlang can handle exceptions with try/catch statements. The syntax for this in t
     try 42 / 0:
        result: result
     catch:
-       _.exception:
-         'oops
+       e.exception:
+         #('error, #(e, exception))
 
 ### Tests
 

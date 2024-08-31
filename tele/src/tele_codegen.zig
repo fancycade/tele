@@ -137,7 +137,7 @@ pub const Context = struct {
 
     pub fn write_fun_val(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
-        _ = try w.write("#");
+        _ = try w.write("fun ");
         _ = try w.write(a.body);
     }
 
@@ -272,8 +272,9 @@ pub const Context = struct {
     pub fn write_anonymous_function(self: *Self, w: anytype, a: *const Ast) !void {
         try self.write_padding(w);
         try self.push_padding(0);
+        _ try w.write("fun ");
         try self.write_function_signature(w, a.children.?.items[0]);
-        _ = try w.write(" =>\n");
+        _ = try w.write(":\n");
         try self.pop_padding();
 
         var i: usize = 1;

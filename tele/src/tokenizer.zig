@@ -438,7 +438,7 @@ fn special_char(c: u8) bool {
 
 fn op_char(c: u8) bool {
     switch (c) {
-        '-', '+', '/', '*', '<', '>', '=', '|' => {
+        '-', '+', '/', '*', '<', '>', '=', '|', ':' => {
             return true;
         },
         else => {},
@@ -952,6 +952,13 @@ test "read token" {
     try expect(ctx.next_line_number == 30);
     try expect(ctx.next_col_number == 7);
     list.clearAndFree();
+
+    _ = try read_token(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, "::"));
+    try expect(ctx.line_number == 31);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 31);
+    try expect(ctx.next_col_number == 2);
 
     const eof = try read_token(file.reader(), &list, &ctx, tokenizer);
     try expect(eof);

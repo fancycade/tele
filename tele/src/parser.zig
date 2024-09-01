@@ -3055,6 +3055,9 @@ fn is_operator(buf: []const u8) bool {
         'n' => {
             return std.mem.eql(u8, "not", buf);
         },
+        ':' => {
+            return std.mem.eql(u8, "::", buf);
+        },
         else => {
             return false;
         },
@@ -3082,6 +3085,7 @@ test "is operator" {
     try std.testing.expect(is_operator("andalso"));
     try std.testing.expect(is_operator("orelse"));
     try std.testing.expect(is_operator("not"));
+    try std.testing.expect(is_operator("::"));
 
     try std.testing.expect(!is_operator("==="));
     try std.testing.expect(!is_operator("+++"));

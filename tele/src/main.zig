@@ -127,7 +127,7 @@ fn parseTeleFile(code_path: []const u8, allocator: std.mem.Allocator) !std.Array
         return ExecutionError.Empty;
     }
 
-    return try compiler.preprocess(&ta, allocator);
+    return ta;
 }
 
 fn formatFile(code_path: []const u8, allocator: std.mem.Allocator) !void {

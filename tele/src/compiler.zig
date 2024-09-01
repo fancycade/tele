@@ -12,68 +12,6 @@ const util = @import("util.zig");
 
 const CompilerError = error{CompilingFailure};
 
-pub fn preprocess(ta: *std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !std.ArrayList(*TeleAst) {
-    var ta2 = std.ArrayList(*TeleAst).init(allocator);
-
-    // Aggregate function definitions
-
-    for (ta.items) |c| {
-        if (c.ast_type == TeleAstType.function_def) {
-            const t2 = find_function_definition(c, ta2);
-            if (t2 != null) {
-                for (c.children.?.items) |c2| {
-                    try t2.?.children.?.append(c2);
-                }
-                c.children.?.deinit();
-                allocator.free(c.body);
-                allocator.destroy(c);
-            } else {
-                try ta2.append(c);
-            }
-        } else {
-            try ta2.append(c);
-        }
-    }
-
-    return ta2;
-}
-
-pub fn find_function_definition(fdef: *TeleAst, ta: std.ArrayList(*TeleAst)) ?*TeleAst {
-    const name = fdef.*.body;
-    const sig1 = fdef.*.children.?.items[0];
-
-    var arg_count: usize = 0;
-    if (sig1.*.children != null) {
-        arg_count = sig1.*.children.?.items.len;
-    }
-
-    var i: usize = 0;
-    while (true) {
-        if (i >= ta.items.len) {
-            break;
-        }
-
-        const t = ta.items[i];
-
-        if (t.*.ast_type == TeleAstType.function_def or t.*.ast_type == TeleAstType.function_defp) {
-            if (std.mem.eql(u8, name, t.*.body)) {
-                const sig2 = t.*.children.?.items[0];
-                var arg_count2: usize = 0;
-                if (sig2.*.children != null) {
-                    arg_count2 = sig2.*.children.?.items.len;
-                }
-
-                if (arg_count2 == arg_count) {
-                    return t;
-                }
-            }
-        }
-
-        i = i + 1;
-    }
-    return null;
-}
-
 pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{CompilingFailure}!*ErlangAst {
     switch (t.ast_type) {
         .int => {

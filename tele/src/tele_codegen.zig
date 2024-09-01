@@ -404,16 +404,17 @@ pub const Context = struct {
     }
 
     pub fn write_function_def(self: *Self, w: anytype, a: *const Ast, private: bool) !void {
+        try self.write_padding(w);
+        if (private) {
+            _ = try w.write("funp ");
+        } else {
+            _ = try w.write("fun ");
+        }
+
         var i: usize = 0;
         while (true) {
             if (i >= a.children.?.items.len) {
                 break;
-            }
-            try self.write_padding(w);
-            if (private) {
-                _ = try w.write("funp ");
-            } else {
-                _ = try w.write("fun ");
             }
 
             _ = try w.write(a.body);

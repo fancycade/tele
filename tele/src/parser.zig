@@ -704,12 +704,29 @@ pub const Parser = struct {
         const buf = node3.*.body;
         self.allocator.destroy(node3);
 
-        const tfcall = self.parse_function_call(token_queue, buf, true) catch {
+        const pn = token_queue.peek() catch {
             return ParserError.ParsingFailure;
         };
+
         var children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.free_tele_ast_list(children, self.allocator);
-        try children.append(tfcall);
+
+        if (is_colon(pn.*.body)) {
+            const t = try self.allocator.create(TeleAst);
+            t.*.body = buf;
+            t.*.ast_type = TeleAstType.function_call;
+            t.*.children = null;
+            t.*.col = 0;
+            try children.append(t);
+        } else {
+
+            // TODO: Change to parse function signature
+            const tfcall = self.parse_function_call(token_queue, buf, true) catch {
+                return ParserError.ParsingFailure;
+            };
+
+            try children.append(tfcall);
+        }
 
         // Skip colon
         const cn = token_queue.pop() catch {
@@ -1046,12 +1063,12 @@ pub const Parser = struct {
                         };
                     }
                 } else {
-                    ast = self.parse_variable(n.*.body) catch {
+                    ast = self.parse_variable(n.*.body, false) catch {
                         return ParserError.ParsingFailure;
                     };
                 }
             } else {
-                ast = self.parse_variable(n.*.body) catch {
+                ast = self.parse_variable(n.*.body, false) catch {
                     return ParserError.ParsingFailure;
                 };
             }
@@ -1147,12 +1164,12 @@ pub const Parser = struct {
                         };
                     }
                 } else {
-                    ast = self.parse_variable(n.*.body) catch {
+                    ast = self.parse_variable(n.*.body, true) catch {
                         return ParserError.ParsingFailure;
                     };
                 }
             } else {
-                ast = self.parse_variable(n.*.body) catch {
+                ast = self.parse_variable(n.*.body, true) catch {
                     return ParserError.ParsingFailure;
                 };
             }
@@ -1188,13 +1205,22 @@ pub const Parser = struct {
         return try self.parse_value(token_queue, TeleAstType.binary);
     }
 
-    fn parse_variable(self: *Self, buf: []const u8) !*TeleAst {
-        const t = try self.allocator.create(TeleAst);
-        t.*.body = buf;
-        t.*.ast_type = TeleAstType.variable;
-        t.*.children = null;
-        t.*.col = 0;
-        return t;
+    fn parse_variable(self: *Self, buf: []const u8, type_exp: bool) !*TeleAst {
+        if (type_exp and buf[0] != '@') {
+            const t = try self.allocator.create(TeleAst);
+            t.*.body = buf;
+            t.*.ast_type = TeleAstType.function_call;
+            t.*.children = std.ArrayList(*TeleAst).init(self.allocator);
+            t.*.col = 0;
+            return t;
+        } else {
+            const t = try self.allocator.create(TeleAst);
+            t.*.body = buf;
+            t.*.ast_type = TeleAstType.variable;
+            t.*.children = null;
+            t.*.col = 0;
+            return t;
+        }
     }
 
     fn parse_value(self: *Self, token_queue: *TokenQueue, ast_type: TeleAstType) !*TeleAst {

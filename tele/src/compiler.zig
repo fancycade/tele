@@ -97,7 +97,7 @@ pub fn tele_to_erlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Com
             };
         },
         .variable => {
-            return tele_to_erlang_variable(t, allocator, true) catch {
+            return tele_to_erlang_variable(t, allocator) catch {
                 return CompilerError.CompilingFailure;
             };
         },
@@ -326,36 +326,47 @@ test "tele to erlang binary" {
     test_allocator.destroy(e);
 }
 
-fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator, capitalize: bool) !*ErlangAst {
-    const buf = try allocator.alloc(u8, t.*.body.len);
-    std.mem.copyForwards(u8, buf, t.*.body);
+fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const idx = findDot(t.*.body);
 
-    // TODO: Check if first character is ascii or not
-    // If not add V prefix to var (does Erlang even support UTF-8 variables ?)
+    if (idx > 0) {
+        const module_buf = try copyFunctionCallSection(t.*.body[0..idx], allocator);
+        const function_buf = try copyFunctionCallSection(t.*.body[idx + 1 ..], allocator);
+        var buf = try allocator.alloc(u8, module_buf.len + function_buf.len + 1);
+        std.mem.copyForwards(u8, buf, module_buf);
+        buf[module_buf.len] = ':';
+        std.mem.copyForwards(u8, buf[module_buf.len + 1 ..], function_buf);
+        allocator.free(module_buf);
+        allocator.free(function_buf);
 
-    if (capitalize) {
-        if (buf[0] == '_' and buf.len > 1) {
-            if (std.ascii.isLower(buf[1])) {
-                buf[1] = std.ascii.toUpper(buf[1]);
+        return try erlang_ast.makeValue(buf, ErlangAstType.variable, allocator);
+    } else {
+        if (t.*.body[0] == '@') {
+            const buf = try allocator.alloc(u8, t.*.body.len - 1);
+            std.mem.copyForwards(u8, buf, t.*.body[1..]);
+            if (std.ascii.isLower(buf[0])) {
+                buf[0] = std.ascii.toUpper(buf[0]);
             }
-        } else if (std.ascii.isLower(buf[0])) {
-            buf[0] = std.ascii.toUpper(buf[0]);
-        }
 
-        if (contains_dot(buf) and !contains_hash(buf)) {
-            var i: usize = 0;
-            while (i < buf.len) {
-                if (buf[i] == '.') {
-                    buf[i] = ':';
-                    buf[i + 1] = std.ascii.toUpper(buf[i + 1]);
-                    break;
+            return try erlang_ast.makeValue(buf, ErlangAstType.variable, allocator);
+        } else {
+            const buf = try allocator.alloc(u8, t.*.body.len);
+            std.mem.copyForwards(u8, buf, t.*.body);
+
+            // TODO: Check if first character is ascii or not
+            // If not add V prefix to var (does Erlang even support UTF-8 variables ?)
+
+            if (buf[0] == '_' and buf.len > 1) {
+                if (std.ascii.isLower(buf[1])) {
+                    buf[1] = std.ascii.toUpper(buf[1]);
                 }
-                i = i + 1;
+            } else if (std.ascii.isLower(buf[0])) {
+                buf[0] = std.ascii.toUpper(buf[0]);
             }
+
+            return try erlang_ast.makeValue(buf, ErlangAstType.variable, allocator);
         }
     }
-
-    return try erlang_ast.makeValue(buf, ErlangAstType.variable, allocator);
 }
 
 fn contains_dot(buf: []const u8) bool {
@@ -370,14 +381,14 @@ fn contains_dot(buf: []const u8) bool {
 }
 
 test "tele to erlang variable" {
-    const e = try tele_to_erlang_variable(&TeleAst{ .body = "foo", .ast_type = TeleAstType.variable, .children = null, .col = 0 }, test_allocator, true);
+    const e = try tele_to_erlang_variable(&TeleAst{ .body = "foo", .ast_type = TeleAstType.variable, .children = null, .col = 0 }, test_allocator);
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "Foo", .ast_type = ErlangAstType.variable, .children = null }));
 
     test_allocator.free(e.*.body);
     test_allocator.destroy(e);
 
-    const e2 = try tele_to_erlang_variable(&TeleAst{ .body = "Foo", .ast_type = TeleAstType.variable, .children = null, .col = 0 }, test_allocator, true);
+    const e2 = try tele_to_erlang_variable(&TeleAst{ .body = "Foo", .ast_type = TeleAstType.variable, .children = null, .col = 0 }, test_allocator);
 
     try std.testing.expect(erlang_ast.equal(e2, &ErlangAst{ .body = "Foo", .ast_type = ErlangAstType.variable, .children = null }));
 
@@ -572,21 +583,54 @@ fn tele_to_erlang_function_call(t: *const TeleAst, allocator: std.mem.Allocator)
     const e = try allocator.create(ErlangAst);
     e.*.ast_type = ErlangAstType.function_call;
 
-    var buf = try allocator.alloc(u8, t.*.body.len);
-    std.mem.copyForwards(u8, buf, t.*.body);
+    const idx = findDot(t.*.body);
+    if (idx > 0) {
+        const module_buf = try copyFunctionCallSection(t.*.body[0..idx], allocator);
+        const function_buf = try copyFunctionCallSection(t.*.body[idx + 1 ..], allocator);
+        var buf = try allocator.alloc(u8, module_buf.len + function_buf.len + 1);
+        std.mem.copyForwards(u8, buf, module_buf);
+        buf[module_buf.len] = ':';
+        std.mem.copyForwards(u8, buf[module_buf.len + 1 ..], function_buf);
+        allocator.free(module_buf);
+        allocator.free(function_buf);
 
-    var i: usize = 0;
-    while (i < buf.len) {
-        if (buf[i] == '.') {
-            buf[i] = ':';
-        }
-        i += 1;
+        e.*.body = buf;
+    } else {
+        const buf = try allocator.alloc(u8, t.*.body.len);
+        std.mem.copyForwards(u8, buf, t.*.body);
+
+        e.*.body = buf;
     }
 
-    e.*.body = buf;
     e.*.children = try compileChildren(t.*.children, allocator);
 
     return e;
+}
+
+fn findDot(buf: []const u8) usize {
+    var i: usize = 0;
+    while (i < buf.len) {
+        if (buf[i] == '.') {
+            return i;
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+fn copyFunctionCallSection(buf: []const u8, allocator: std.mem.Allocator) ![]const u8 {
+    if (buf[0] == '@') {
+        var buf2 = try allocator.alloc(u8, buf.len - 1);
+        std.mem.copyForwards(u8, buf2, buf[1..]);
+        if (std.ascii.isLower(buf2[0])) {
+            buf2[0] = std.ascii.toUpper(buf2[0]);
+        }
+        return buf2;
+    } else {
+        const buf2 = try allocator.alloc(u8, buf.len);
+        std.mem.copyForwards(u8, buf2, buf);
+        return buf2;
+    }
 }
 
 test "tele to erlang function call" {

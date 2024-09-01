@@ -32,10 +32,19 @@ fun wowzer():
  ((1 + 1) + (1 + 2))
 
 fun wowzer_fun():
-  #wowzer/0
+  fun wowzer/0
 
 fun woop():
-  (1, 2) => 2 + 2
+  fun (1, 2): 2 + 2
+
+fun map_over_data():
+  lists.map(
+    fun (x): x + 2,
+    [1, 2, 3]
+  )
+
+fun map_over_data2():
+  lists.map(fun add2/1, [1, 2, 3])
 
 fun oopsie():
   try oopsie_helper():
@@ -48,7 +57,7 @@ fun oopsie_helper():
   'ok
 
 fun foo():
-  match bar():
+  case bar():
     _result:
       'ok
 
@@ -68,7 +77,7 @@ fun hello_there2():
   )
 
 fun multi_line_arrow():
-  () =>
+  fun ():
     a = 2
     b = 3
     a + b
@@ -79,13 +88,30 @@ fun multi_line_paren_op():
 
 fun multi_line_match_equal():
   a =
-  match 42:
+  case 42:
     _x: 'ok
   a
 
 fun multi_line_arrow_equal():
   a =
-  () =>
+  fun ():
     x = 2
     x + 4
   a
+
+fun apply(m, f):
+  @m.@f()
+
+fun apply_mod(m):
+  @m.run()
+
+fun apply_f(f):
+  m.@f()
+
+fun routes():
+  {"pre": [#('mid, 'log_mid)],
+   "handle": [
+      {"path": "/",
+       "handle": #('handler, 'handle_index)}
+   ],
+   "post": [#('mid, 'log_mid)]}

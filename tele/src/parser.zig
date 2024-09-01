@@ -200,7 +200,7 @@ pub const Parser = struct {
         }
 
         const ast = try self.parse_function_signature(token_queue2, false);
-        errdefer tele_ast.free_tele_ast(ast, self.allocator);
+        //errdefer tele_ast.free_tele_ast(ast, self.allocator);
         var children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.free_tele_ast_list(children, self.allocator);
         //TODO: Check if ast stack has at least one item
@@ -1410,9 +1410,9 @@ pub const Parser = struct {
                 const node2 = try token_queue.pop();
                 errdefer self.allocator.destroy(node2);
 
-                if (is_tuple_start(node2.*.body) or is_paren_start(node2.*.body) or is_record_start(node2.*.body)) {
+                if (is_list_start(node2.*.body) or is_tuple_start(node2.*.body) or is_map_start(node2.*.body) or is_record_start(node2.*.body) or is_paren_start(node2.*.body)) {
                     count += 1;
-                } else if (is_paren_end(node2.*.body)) {
+                } else if (is_paren_end(node2.*.body) or is_list_end(node2.*.body) or is_map_end(node2.*.body)) {
                     count -= 1;
                     if (count == 0) {
                         // Free paren end body
@@ -1487,9 +1487,9 @@ pub const Parser = struct {
                     const node2 = try token_queue.pop();
                     errdefer self.allocator.destroy(node2);
 
-                    if (is_list_start(node2.*.body)) {
+                    if (is_list_start(node2.*.body) or is_tuple_start(node2.*.body) or is_map_start(node2.*.body) or is_record_start(node2.*.body) or is_paren_start(node2.*.body)) {
                         count += 1;
-                    } else if (is_list_end(node2.*.body)) {
+                    } else if (is_list_end(node2.*.body) or is_paren_end(node2.*.body) or is_map_end(node2.*.body)) {
                         count -= 1;
                         if (count == 0) {
                             self.allocator.free(node2.*.body);
@@ -1574,9 +1574,9 @@ pub const Parser = struct {
                     errdefer self.allocator.free(node2.*.body);
                     errdefer self.allocator.destroy(node2);
 
-                    if (is_map_start(node2.*.body)) {
+                    if (is_map_start(node2.*.body) or is_list_start(node2.*.body) or is_tuple_start(node2.*.body) or is_record_start(node2.*.body) or is_paren_start(node2.*.body)) {
                         count += 1;
-                    } else if (is_map_end(node2.*.body)) {
+                    } else if (is_map_end(node2.*.body) or is_paren_end(node2.*.body) or is_list_end(node2.*.body)) {
                         count -= 1;
                         if (count == 0) {
                             self.allocator.free(node2.*.body);

@@ -9,10 +9,10 @@ Inspired by [Mochi](https://github.com/i2y/mochi), [Rhombus](https://docs.racket
 Some basic design principles that tele follows are:
 
 1. Tele is Erlang
-2. Readability at the expense of writability
-3. Use widely familiar concepts or syntax when possible
-4. Minimal syntax with little amibiguity
-5. No anglocentric syntax requirements (i.e. capital letters)
+2. Use widely familiar concepts or syntax when possible
+3. Minimal syntax with nonambiguous consistent use
+4. No anglocentric syntax requirements (i.e. capital letters)
+5. Syntax similarity corresponds to semantic similarity
 
 ## Language
 
@@ -188,32 +188,7 @@ Or start the signature on the newline after fun:
       (0): 1
       (n): n + 2
 
-### Function Types
 
-Defining a function that accepts any arity:
-
-    fun (...): any()
-
-Any function:
-
-    fun ()
-
-Function that takes no arguments and returns an integer:
-
-    fun (): integer()
-
-Function that takes any number of arguments and returns an integer:
-
-    fun (...): integer()
-
-Function that takes two integers and returns an integer:
-
-    fun (integer(), integer()): integer()
-
-Overloaded function signatures:
-
-    fun (integer(), integer()): integer()
-        (binary(), binary()): binary()
 
 ### Variables
 
@@ -262,27 +237,6 @@ Accessing a field from a record:
 
 The record type is required.
 
-EXPERIMENTAL:
-
-See if this type of syntax is possible.
-
-    a.a
-    a.b
-
-Would run into issues where record type is not known.
-
-This could be solved with structural typing. The record type can be inferred by what field's are used.
-Or if it is ambiguous it doesn't matter because the correct field is used semantically anyways.
-The problem with structural typing with records is that in Erlang the record includes the first element
-atom as the record type name. Structural typing would have to ignore that. This might be okay since records
-are actually tuples anyways.
-
-Type annotations can be used to determine what type is actually used.
-
-This feature would need to know the current record types in scope for that module. When including
-erlang header files these would need to be parsed by the tele compiler. This could be similar to how
-Zig parses C header files.
-
 ### Pattern Matching
 
 Case expressions are very similar to Erlang:
@@ -301,6 +255,16 @@ Case expressions are very similar to Erlang:
       3:
         ok = 'ok
         #(ok, 'failure)
+
+### Try Catch Statements
+
+Erlang can handle exceptions with try/catch statements. The syntax for this in tele is similar to match statements.
+
+    try 42 / 0:
+       result: result
+    catch:
+       e.exception:
+         #('error, #(e, exception))
 
 ### Function Definitions
 
@@ -460,46 +424,9 @@ Compiles into:
 
     -compile(inline).
 
-### Function Specifications 
+### Types
 
-These are equivalent to Erlang function specs.
-
-Type specifications can apply to function definitions.
-
-    spec add(integer(), integer()): integer()
-    fun add(x, y):
-      x + y
-
-    spec add2(integer()): integer()
-    fun add2(x):
-      x + 2
-
-The syntax for overloading a function specification is similar to match syntax:
-
-    spec add (integer(), integer()): integer()
-             (list(), list()): list()
-    fun add(a, b) when is_list(a) andalso is_list(b):
-      a ++ b
-    fun add(a, b) when is_integer(a) andalso v is_integer(b):
-      a + b
-
-Here is a full module with type signatures and sum types
-
-    spec add(integer(), integer()): integer()
-    fun add(x, y):
-      x + y
-
-    spec add2(integer()): integer()
-    fun add2(x):
-      x + 2
-
-    spec div(integer(), integer()):
-      #('ok, integer()) | #('error, binary())
-    fun div
-      (_, 0): #('error, 'div_by_zero)
-      (a, b): #('ok, a / b)
-
-### Type Aliases
+#### Type Aliases
 
 Make a new type with a type alias
 
@@ -511,48 +438,150 @@ Opaque type aliases are:
 
     opaque foo(): integer()
 
+Unlike Erlang, parentheses for types optional.
+
+Both of the syntaxes below are valid.
+
+    type id: integer()
+    type id: integer
+
+#### Type Variables
+
+To disambiguate type variables use the @ prefix.
+
+    type orddict(@k, @v): [#(@k, @v)]
+
+#### Function Types
+
+Defining a function that accepts any arity:
+
+    fun (...): any()
+
+Any function:
+
+    fun ()
+
+Function that takes no arguments and returns an integer:
+
+    fun (): integer()
+
+Function that takes any number of arguments and returns an integer:
+
+    fun (...): integer()
+
+Function that takes two integers and returns an integer:
+
+    fun (integer(), integer()): integer()
+
+Overloaded function signatures:
+
+    fun (integer(), integer()): integer()
+        (binary(), binary()): binary()
+
+#### Function Specifications 
+
+These are equivalent to Erlang function specs.
+
+Type specifications can apply to function definitions.
+
+    spec add(integer, integer): integer
+    fun add(x, y):
+      x + y
+
+    spec add2(integer): integer
+    fun add2(x):
+      x + 2
+
+The syntax for overloading a function specification is similar to match syntax:
+
+    spec add (integer, integer): integer
+             (list, list): list
+    fun add(a, b) when is_list(a) andalso is_list(b):
+      a ++ b
+    fun add(a, b) when is_integer(a) andalso v is_integer(b):
+      a + b
+
+Here is a full module with type signatures and sum types
+
+    spec add(integer, integer): integer
+    fun add(x, y):
+      x + y
+
+    spec add2(integer): integer
+    fun add2(x):
+      x + 2
+
+    spec div(integer, integer):
+      #('ok, integer) | #('error, binary)
+    fun div
+      (_, 0): #('error, 'div_by_zero)
+      (a, b): #('ok, a / b)
+
+#### Overloading Function Specifications
+
+    spec foo(pos_integer): pos_integer
+            (integer): integer
+
+#### Function Specification Type Variables
+
+Type variables can be used to specify the relationship between input and output.
+
+    spec id(@x): @x
+
+These types can be constrained by guard like subtype constraints:
+
+    spec id(@x): @x when @x :: tuple
+
+The @ prefix is used to disambiguate the type variable from a normal type.
+
+Using a type variable in a function specification is done like this:
+
+    spec foobar(@req, @env): #('ok, @req, @env) | #('error, any) 
+      when @req :: cowboy_req.req,
+           @env :: cowboy_middleware.env
+    fun foobar(req, env):
+      #(ok, req, env)
+
+    spec foobar(x :: integer, y :: integer)
+
+An anonymous type variable can be specified with `_`:
+
+    spec foobar(string, _): string
+
 ### Behaviours
 
 Erlang has the concept of behaviours which are like module interfaces.
 
 defining a behaviour is as simple as defining a module with callbacks.
 
-    callback up(#(integer(), integer())): #(integer(), integer())
-    callback down(#(integer(), integer())): #(integer(), integer())
-    callback left(#(integer(), integer())): #(integer(), integer())
-    callback right(#(integer(), integer())): #(integer(), integer())
+    type point: #(integer, integer)
+
+    callback up(point): point 
+    callback down(point): point
+    callback left(point): point
+    callback right(point): point 
 
 To make a module adhere to a behaviour:
 
     behaviour cursor
 
-    type point: #(integer(), integer())
+    type point: #(integer, integer)
      
-    spec up(point()): point()
+    spec up(point): point
     fun up(#(x, y)): 
       #(x, y - 1)
     
-    spec down(point()): point()
+    spec down(point): point
     fun down(#(x, y)):
       #(x, y + 1)
     
-    spec left(point()): point()
+    spec left(point): point
     fun left(#(x, y)):
       #(x - 1, y)
     
-    spec right(point()): point()
+    spec right(point): point
     fun right(#(x, y)):
       #(x + 1, y)
-
-### Try Catch Statements
-
-Erlang can handle exceptions with try/catch statements. The syntax for this in tele is similar to match statements.
-
-    try 42 / 0:
-       result: result
-    catch:
-       e.exception:
-         #('error, #(e, exception))
 
 ### Tests
 

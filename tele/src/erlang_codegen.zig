@@ -346,11 +346,55 @@ pub const Context = struct {
 
     pub fn write_spec_def(self: *Self, w: anytype, a: *const Ast) !void {
         _ = try w.write("-spec ");
-        _ = try w.write(a.body);
-        try self.write_function_signature(w, a.children.?.items[0], true);
-        _ = try w.write(" -> ");
-        try self.write_ast(w, a.children.?.items[1], true);
-        _ = try w.write(".\n");
+
+        var i: usize = 0;
+
+        while (true) {
+            if (i >= a.children.?.items.len) {
+                break;
+            }
+
+            try self.write_padding(w);
+            _ = try w.write(a.body);
+            self.push_match();
+            try self.write_function_signature(w, a.children.?.items[i], false);
+            self.pop_match();
+            _ = try w.write(" ->");
+
+            i = i + 1;
+
+            try self.push_padding(self.current_padding() + 4);
+            while (true) {
+                if (i >= a.children.?.items.len or a.children.?.items[i].ast_type == AstType.function_signature) {
+                    break;
+                }
+
+                _ = try w.write("\n");
+                try self.write_ast(w, a.children.?.items[i], false);
+
+                if (i + 1 < a.children.?.items.len and a.children.?.items[i + 1].ast_type != AstType.function_signature) {
+                    _ = try w.write(",");
+                }
+
+                i = i + 1;
+            }
+
+            var can_break = false;
+            if (i >= a.children.?.items.len) {
+                _ = try w.write(".\n\n");
+                can_break = true;
+            } else if (a.children.?.items[i].ast_type == AstType.function_signature) {
+                _ = try w.write(";\n");
+            } else {
+                return CodegenError.WritingFailure;
+            }
+
+            try self.pop_padding();
+
+            if (can_break) {
+                break;
+            }
+        }
     }
 
     pub fn write_callback_def(self: *Self, w: anytype, a: *const Ast) !void {

@@ -1754,7 +1754,7 @@ pub const Parser = struct {
         errdefer tele_ast.free_tele_ast_list(children, self.allocator);
         try children.append(ast);
 
-        if (!type_exp and !token_queue.empty()) {
+        if (!token_queue.empty()) {
 
             // Function Definition Body
 

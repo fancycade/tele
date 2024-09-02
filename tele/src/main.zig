@@ -197,7 +197,7 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
 
     var context = Context.init(allocator);
     for (east_list.items) |c| {
-        try context.write_ast(w, c);
+        try context.write_ast(w, c, false);
     }
 
     context.deinit();

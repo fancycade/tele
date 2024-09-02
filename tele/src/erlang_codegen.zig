@@ -355,7 +355,9 @@ pub const Context = struct {
             }
 
             try self.write_padding(w);
-            _ = try w.write(a.body);
+            if (i == 0) {
+                _ = try w.write(a.body);
+            }
             self.push_match();
             try self.write_function_signature(w, a.children.?.items[i], false);
             self.pop_match();

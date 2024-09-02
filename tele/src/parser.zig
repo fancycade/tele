@@ -168,80 +168,8 @@ pub const Parser = struct {
         self.allocator.destroy(node3);
         errdefer self.allocator.free(buf);
 
-        // Function Definition Signature
-        var token_queue2 = TokenQueue.init(self.allocator) catch {
-            return ParserError.ParsingFailure;
-        };
-        errdefer token_queue2.deinit();
+        const children = try self.parseFunctionSigAndBody(token_queue, false, current_col);
 
-        // Gather tokens for function signature
-
-        var map_count: usize = 0;
-        while (!token_queue.empty()) {
-            const node2 = try token_queue.pop();
-            errdefer self.allocator.free(node2.*.body);
-            errdefer self.allocator.destroy(node2);
-
-            if (is_map_start(node2.*.body)) {
-                map_count += 1;
-            } else if (is_map_end(node2.*.body)) {
-                map_count -= 1;
-            }
-
-            if (map_count == 0 and is_colon(node2.*.body)) {
-                self.allocator.free(node2.*.body);
-                self.allocator.destroy(node2);
-                break;
-            } else {
-                try token_queue2.push(node2.*.body, node2.*.line, node2.col);
-            }
-
-            self.allocator.destroy(node2);
-        }
-
-        const ast = try self.parse_function_signature(token_queue2, false);
-        //errdefer tele_ast.free_tele_ast(ast, self.allocator);
-        var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
-        //TODO: Check if ast stack has at least one item
-        try children.append(ast);
-
-        // Function Definition Body
-
-        var token_queue3 = try TokenQueue.init(self.allocator);
-        errdefer token_queue3.deinit();
-        if (token_queue.empty()) {
-            return ParserError.ParsingFailure;
-        }
-
-        // Gather tokens for function body
-        while (!token_queue.empty()) {
-            const peek_node2 = try token_queue.peek();
-            if (peek_node2.*.col <= current_col) {
-                break;
-            }
-
-            const node2 = try token_queue.pop();
-            errdefer self.allocator.free(node2.*.body);
-            errdefer self.allocator.destroy(node2);
-
-            try token_queue3.push(node2.*.body, node2.*.line, node2.*.col);
-            self.allocator.destroy(node2);
-        }
-
-        if (token_queue3.empty()) {
-            return ParserError.ParsingFailure;
-        }
-
-        var alist = self.parse_body(token_queue3) catch {
-            return ParserError.ParsingFailure;
-        };
-        errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
-
-        for (alist.items) |a| {
-            try children.append(a);
-        }
-        alist.deinit();
         // Assemble Function Definition Ast
         const t = try self.allocator.create(TeleAst);
         t.*.body = buf;
@@ -252,9 +180,6 @@ pub const Parser = struct {
         }
         t.*.children = children;
         t.*.col = 0;
-
-        token_queue3.deinit();
-        token_queue2.deinit();
 
         return t;
     }
@@ -1775,89 +1700,7 @@ pub const Parser = struct {
             const t = try self.parseFunVal(token_queue);
             return t;
         } else {
-            // Function Signature
-            var token_queue2 = TokenQueue.init(self.allocator) catch {
-                return ParserError.ParsingFailure;
-            };
-            errdefer token_queue2.deinit();
-
-            // Gather tokens for function signature
-
-            var map_count: usize = 0;
-            while (!token_queue.empty()) {
-                const node2 = try token_queue.pop();
-                errdefer self.allocator.free(node2.*.body);
-                errdefer self.allocator.destroy(node2);
-
-                if (is_map_start(node2.*.body)) {
-                    map_count += 1;
-                } else if (is_map_end(node2.*.body)) {
-                    map_count -= 1;
-                }
-
-                if (map_count == 0 and is_colon(node2.*.body)) {
-                    self.allocator.free(node2.*.body);
-                    self.allocator.destroy(node2);
-                    break;
-                } else {
-                    try token_queue2.push(node2.*.body, node2.*.line, node2.col);
-                }
-
-                self.allocator.destroy(node2);
-            }
-
-            const ast = try self.parse_function_signature(token_queue2, type_exp);
-            errdefer tele_ast.free_tele_ast(ast, self.allocator);
-            token_queue2.deinit();
-
-            var children = std.ArrayList(*TeleAst).init(self.allocator);
-            errdefer tele_ast.free_tele_ast_list(children, self.allocator);
-            try children.append(ast);
-
-            // Function Definition Body
-
-            var token_queue3 = try TokenQueue.init(self.allocator);
-            errdefer token_queue3.deinit();
-            if (token_queue.empty()) {
-                return ParserError.ParsingFailure;
-            }
-
-            // Gather tokens for function body
-            while (!token_queue.empty()) {
-                const peek_node2 = try token_queue.peek();
-                if (peek_node2.*.col <= current_col) {
-                    break;
-                }
-
-                const node2 = try token_queue.pop();
-                errdefer self.allocator.free(node2.*.body);
-                errdefer self.allocator.destroy(node2);
-
-                try token_queue3.push(node2.*.body, node2.*.line, node2.*.col);
-                self.allocator.destroy(node2);
-            }
-
-            if (token_queue3.empty()) {
-                return ParserError.ParsingFailure;
-            }
-
-            if (type_exp) {
-                const a = self.parse_type_exp(token_queue3) catch {
-                    return ParserError.ParsingFailure;
-                };
-                try children.append(a);
-            } else {
-                var alist = self.parse_body(token_queue3) catch {
-                    return ParserError.ParsingFailure;
-                };
-                errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
-
-                for (alist.items) |a| {
-                    try children.append(a);
-                }
-                alist.deinit();
-            }
-            token_queue3.deinit();
+            const children = try self.parseFunctionSigAndBody(token_queue, type_exp, current_col);
 
             // Assemble Anonymous Function Ast
             const t = try self.allocator.create(TeleAst);
@@ -1868,6 +1711,95 @@ pub const Parser = struct {
 
             return t;
         }
+    }
+
+    fn parseFunctionSigAndBody(self: *Self, token_queue: *TokenQueue, type_exp: bool, current_col: usize) !std.ArrayList(*TeleAst) {
+
+        // Function Signature
+        var token_queue2 = TokenQueue.init(self.allocator) catch {
+            return ParserError.ParsingFailure;
+        };
+        errdefer token_queue2.deinit();
+
+        // Gather tokens for function signature
+
+        var map_count: usize = 0;
+        while (!token_queue.empty()) {
+            const node2 = try token_queue.pop();
+            errdefer self.allocator.free(node2.*.body);
+            errdefer self.allocator.destroy(node2);
+
+            if (is_map_start(node2.*.body)) {
+                map_count += 1;
+            } else if (is_map_end(node2.*.body)) {
+                map_count -= 1;
+            }
+
+            if (map_count == 0 and is_colon(node2.*.body)) {
+                self.allocator.free(node2.*.body);
+                self.allocator.destroy(node2);
+                break;
+            } else {
+                try token_queue2.push(node2.*.body, node2.*.line, node2.col);
+            }
+
+            self.allocator.destroy(node2);
+        }
+
+        const ast = try self.parse_function_signature(token_queue2, type_exp);
+        errdefer tele_ast.free_tele_ast(ast, self.allocator);
+        token_queue2.deinit();
+
+        var children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        try children.append(ast);
+
+        // Function Definition Body
+
+        var token_queue3 = try TokenQueue.init(self.allocator);
+        errdefer token_queue3.deinit();
+        if (token_queue.empty()) {
+            return ParserError.ParsingFailure;
+        }
+
+        // Gather tokens for function body
+        while (!token_queue.empty()) {
+            const peek_node2 = try token_queue.peek();
+            if (peek_node2.*.col <= current_col) {
+                break;
+            }
+
+            const node2 = try token_queue.pop();
+            errdefer self.allocator.free(node2.*.body);
+            errdefer self.allocator.destroy(node2);
+
+            try token_queue3.push(node2.*.body, node2.*.line, node2.*.col);
+            self.allocator.destroy(node2);
+        }
+
+        if (token_queue3.empty()) {
+            return ParserError.ParsingFailure;
+        }
+
+        if (type_exp) {
+            const a = self.parse_type_exp(token_queue3) catch {
+                return ParserError.ParsingFailure;
+            };
+            try children.append(a);
+        } else {
+            var alist = self.parse_body(token_queue3) catch {
+                return ParserError.ParsingFailure;
+            };
+            errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
+
+            for (alist.items) |a| {
+                try children.append(a);
+            }
+            alist.deinit();
+        }
+        token_queue3.deinit();
+
+        return children;
     }
 
     fn parseCaseExpression(self: *Self, token_queue: *TokenQueue) !*TeleAst {

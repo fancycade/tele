@@ -277,20 +277,22 @@ pub const Context = struct {
         _ = try w.write(":\n");
         try self.pop_padding();
 
-        var i: usize = 1;
+        if (a.children.?.items.len > 1) {
+            var i: usize = 1;
 
-        try self.push_padding(self.current_padding() + 2);
-        while (true) {
-            if (i >= a.children.?.items.len) {
-                break;
+            try self.push_padding(self.current_padding() + 2);
+            while (true) {
+                if (i >= a.children.?.items.len) {
+                    break;
+                }
+
+                try self.write_ast(w, a.children.?.items[i]);
+                _ = try w.write("\n");
+
+                i = i + 1;
             }
-
-            try self.write_ast(w, a.children.?.items[i]);
-            _ = try w.write("\n");
-
-            i = i + 1;
+            try self.pop_padding();
         }
-        try self.pop_padding();
     }
 
     pub fn write_case_clause(self: *Self, w: anytype, a: *const Ast) !void {

@@ -1754,50 +1754,50 @@ pub const Parser = struct {
         errdefer tele_ast.free_tele_ast_list(children, self.allocator);
         try children.append(ast);
 
-        // Function Definition Body
+        if (!type_exp and !token_queue.empty()) {
 
-        var token_queue3 = try TokenQueue.init(self.allocator);
-        errdefer token_queue3.deinit();
-        if (token_queue.empty()) {
-            return ParserError.ParsingFailure;
-        }
+            // Function Definition Body
 
-        // Gather tokens for function body
-        while (!token_queue.empty()) {
-            const peek_node2 = try token_queue.peek();
-            if (peek_node2.*.col <= current_col) {
-                break;
+            var token_queue3 = try TokenQueue.init(self.allocator);
+            errdefer token_queue3.deinit();
+
+            // Gather tokens for function body
+            while (!token_queue.empty()) {
+                const peek_node2 = try token_queue.peek();
+                if (peek_node2.*.col <= current_col) {
+                    break;
+                }
+
+                const node2 = try token_queue.pop();
+                errdefer self.allocator.free(node2.*.body);
+                errdefer self.allocator.destroy(node2);
+
+                try token_queue3.push(node2.*.body, node2.*.line, node2.*.col);
+                self.allocator.destroy(node2);
             }
 
-            const node2 = try token_queue.pop();
-            errdefer self.allocator.free(node2.*.body);
-            errdefer self.allocator.destroy(node2);
-
-            try token_queue3.push(node2.*.body, node2.*.line, node2.*.col);
-            self.allocator.destroy(node2);
-        }
-
-        if (token_queue3.empty()) {
-            return ParserError.ParsingFailure;
-        }
-
-        if (type_exp) {
-            const a = self.parse_type_exp(token_queue3) catch {
+            if (token_queue3.empty()) {
                 return ParserError.ParsingFailure;
-            };
-            try children.append(a);
-        } else {
-            var alist = self.parse_body(token_queue3) catch {
-                return ParserError.ParsingFailure;
-            };
-            errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
+            }
 
-            for (alist.items) |a| {
+            if (type_exp) {
+                const a = self.parse_type_exp(token_queue3) catch {
+                    return ParserError.ParsingFailure;
+                };
                 try children.append(a);
+            } else {
+                var alist = self.parse_body(token_queue3) catch {
+                    return ParserError.ParsingFailure;
+                };
+                errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
+
+                for (alist.items) |a| {
+                    try children.append(a);
+                }
+                alist.deinit();
             }
-            alist.deinit();
+            token_queue3.deinit();
         }
-        token_queue3.deinit();
 
         return children;
     }

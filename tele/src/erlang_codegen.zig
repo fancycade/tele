@@ -455,33 +455,36 @@ pub const Context = struct {
         try self.write_function_signature(w, a.children.?.items[0]);
         self.pop_match();
         try self.pop_padding();
-        _ = try w.write(" ->");
 
-        var i: usize = 1;
+        if (a.children.?.items.len > 1) {
+            _ = try w.write(" ->");
 
-        while (true) {
-            if (i >= a.children.?.items.len) {
-                break;
+            var i: usize = 1;
+
+            while (true) {
+                if (i >= a.children.?.items.len) {
+                    break;
+                }
+
+                _ = try w.write("\n");
+
+                try self.push_padding(self.current_padding() + 4);
+
+                try self.write_ast(w, a.children.?.items[i]);
+
+                if (i + 1 < a.children.?.items.len) {
+                    _ = try w.write(",");
+                }
+
+                try self.pop_padding();
+
+                i = i + 1;
             }
 
             _ = try w.write("\n");
-
-            try self.push_padding(self.current_padding() + 4);
-
-            try self.write_ast(w, a.children.?.items[i]);
-
-            if (i + 1 < a.children.?.items.len) {
-                _ = try w.write(",");
-            }
-
-            try self.pop_padding();
-
-            i = i + 1;
+            try self.write_padding(w);
+            _ = try w.write("end");
         }
-
-        _ = try w.write("\n");
-        try self.write_padding(w);
-        _ = try w.write("end");
     }
 
     pub fn write_function_signature(self: *Self, w: anytype, a: *const Ast) !void {

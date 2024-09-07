@@ -5,7 +5,7 @@ const expect = std.testing.expect;
 
 const TokenQueueError = error{MissingHead};
 
-const TokenQueueNode = struct { next: ?*TokenQueueNode, body: []const u8, line: usize, col: usize };
+pub const TokenQueueNode = struct { next: ?*TokenQueueNode, body: []const u8, line: usize, col: usize };
 
 // FIFO Queue
 pub const TokenQueue = struct {
@@ -51,6 +51,24 @@ pub const TokenQueue = struct {
         } else {
             self.tail.?.next = node;
             self.tail = self.tail.?.next;
+        }
+        self.len += 1;
+    }
+
+    pub fn pushHead(self: *Self, token_body: []const u8, line_number: usize, col_number: usize) !void {
+        const node = try self.allocator.create(TokenQueueNode);
+        node.*.next = null;
+        node.*.body = token_body;
+        node.*.line = line_number;
+        node.*.col = col_number;
+
+        if (self.head == null) {
+            self.head = node;
+            self.tail = node;
+        } else {
+            const tmp_node = self.head;
+            node.*.next = tmp_node;
+            self.head = node;
         }
         self.len += 1;
     }

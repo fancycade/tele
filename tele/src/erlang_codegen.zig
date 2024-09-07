@@ -496,51 +496,66 @@ pub const Context = struct {
     pub fn write_anonymous_function(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
         try self.write_padding(w);
         _ = try w.write("fun");
-        if (type_exp and a.children.?.items.len > 1) {
-            _ = try w.write("(");
-        }
-        try self.push_padding(0);
-        self.push_match();
-        try self.write_function_signature(w, a.children.?.items[0], type_exp);
-        self.pop_match();
-        try self.pop_padding();
 
-        if (a.children.?.items.len > 1) {
-            _ = try w.write(" ->");
+        if (type_exp and a.children.?.items.len == 0) {
+            _ = try w.write("()");
+        } else {
+            if (type_exp) {
+                _ = try w.write("(");
+            }
 
-            var i: usize = 1;
+            var i: usize = 0;
 
             while (true) {
                 if (i >= a.children.?.items.len) {
                     break;
                 }
 
-                if (!type_exp) {
-                    _ = try w.write("\n");
+                try self.push_padding(0);
+                self.push_match();
+                try self.write_function_signature(w, a.children.?.items[i], type_exp);
+                self.pop_match();
+                try self.pop_padding();
 
-                    try self.push_padding(self.current_padding() + 4);
-                } else {
-                    _ = try w.write(" ");
-                }
-
-                try self.write_ast(w, a.children.?.items[i], type_exp);
-
-                if (!type_exp) {
-                    if (i + 1 < a.children.?.items.len) {
-                        _ = try w.write(",");
-                    }
-
-                    try self.pop_padding();
-                }
+                _ = try w.write(" ->");
 
                 i = i + 1;
+
+                while (true) {
+                    if (i >= a.children.?.items.len or a.children.?.items[i].ast_type == AstType.function_signature) {
+                        if (i < a.children.?.items.len and a.children.?.items[i].ast_type == AstType.function_signature) {
+                            _ = try w.write(";\n");
+                        }
+                        break;
+                    }
+
+                    if (!type_exp) {
+                        _ = try w.write("\n");
+
+                        try self.push_padding(self.current_padding() + 4);
+                    } else {
+                        _ = try w.write(" ");
+                    }
+
+                    try self.write_ast(w, a.children.?.items[i], type_exp);
+
+                    if (!type_exp) {
+                        if (i + 1 < a.children.?.items.len and a.children.?.items[i + 1].ast_type != AstType.function_signature) {
+                            _ = try w.write(",");
+                        }
+
+                        try self.pop_padding();
+                    }
+
+                    i = i + 1;
+                }
             }
 
             if (!type_exp) {
                 _ = try w.write("\n");
                 try self.write_padding(w);
                 _ = try w.write("end");
-            } else if (a.children.?.items.len > 0) {
+            } else {
                 _ = try w.write(")");
             }
         }
@@ -577,7 +592,7 @@ pub const Context = struct {
             try self.write_ast(w, a.children.?.items[i], type_exp);
 
             if (i + 1 < len) {
-                _ = try w.write(", ");
+                //_ = try w.write(", ");
             }
 
             i += 1;

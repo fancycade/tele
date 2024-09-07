@@ -1760,6 +1760,8 @@ pub const Parser = struct {
         var body: bool = false;
         var paren_count: usize = 0;
         var signature_ready: bool = false;
+        var nested_body: bool = false;
+        var nested_body_col: usize = 0;
 
         while (!token_queue.empty()) {
             const peek_node = try token_queue.peek();
@@ -1790,35 +1792,48 @@ pub const Parser = struct {
                 try token_queue2.push(node.*.body, node.*.line, node.*.col);
                 self.allocator.destroy(node);
             } else {
-                if (is_paren_start(peek_node.*.body)) {
-                    paren_count += 1;
-                } else if (is_paren_end(peek_node.*.body)) {
-                    paren_count -= 1;
-                    if (paren_count == 0) {
-                        signature_ready = true;
-                    }
-                } else if (signature_ready and is_colon(peek_node.*.body)) {
-                    // TODO: Memory management for buffer list
-                    var buffer_list = std.ArrayList(*TokenQueueNode).init(self.allocator);
+                if (!nested_body) {
+                    if (is_paren_start(peek_node.*.body)) {
+                        paren_count += 1;
+                    } else if (is_paren_end(peek_node.*.body)) {
+                        paren_count -= 1;
+                        if (paren_count == 0) {
+                            signature_ready = true;
+                        }
+                    } else if (signature_ready and is_colon(peek_node.*.body)) {
+                        // TODO: Memory management for buffer list
+                        var buffer_list = std.ArrayList(*TokenQueueNode).init(self.allocator);
 
-                    while (!buffer_token_queue.empty()) {
-                        const n = try buffer_token_queue.pop();
-                        try buffer_list.append(n);
-                    }
+                        while (!buffer_token_queue.empty()) {
+                            const n = try buffer_token_queue.pop();
+                            try buffer_list.append(n);
+                        }
 
-                    while (buffer_list.items.len > 0) {
-                        const n = buffer_list.pop();
-                        try token_queue.pushHead(n.*.body, n.*.line, n.*.col);
-                        self.allocator.destroy(n);
+                        while (buffer_list.items.len > 0) {
+                            const n = buffer_list.pop();
+                            try token_queue.pushHead(n.*.body, n.*.line, n.*.col);
+                            self.allocator.destroy(n);
+                        }
+                        buffer_list.deinit();
+                        break;
+                    } else if (signature_ready) {
+                        signature_ready = false;
+                        while (!buffer_token_queue.empty()) {
+                            const n = try buffer_token_queue.pop();
+                            try token_queue2.push(n.*.body, n.*.line, n.*.col);
+                            self.allocator.destroy(n);
+                        }
+                    } else if (isFun(peek_node.*.body) and paren_count == 0) {
+                        nested_body = true;
+                        nested_body_col = peek_node.*.col;
+                    } else if (isCaseKeyword(peek_node.*.body)) {
+                        nested_body = true;
+                        nested_body_col = peek_node.*.col;
                     }
-                    buffer_list.deinit();
-                    break;
-                } else if (signature_ready) {
-                    signature_ready = false;
-                    while (!buffer_token_queue.empty()) {
-                        const n = try buffer_token_queue.pop();
-                        try token_queue2.push(n.*.body, n.*.line, n.*.col);
-                        self.allocator.destroy(n);
+                } else {
+                    if (peek_node.*.col <= nested_body_col) {
+                        nested_body = false;
+                        nested_body_col = 0;
                     }
                 }
 

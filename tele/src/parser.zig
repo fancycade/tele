@@ -340,8 +340,11 @@ pub const Parser = struct {
             }
             const pn = try token_queue.peek();
             if (std.mem.eql(u8, "when", pn.*.body)) {
-                const ast = try self.parse_guard_clause(token_queue);
-                try children.?.append(ast);
+                const al = try self.parseGuardClauses(token_queue);
+                for (al.items) |a| {
+                    try children.?.append(a);
+                }
+                al.deinit();
             } else {
                 return ParserError.ParsingFailure;
             }
@@ -373,7 +376,7 @@ pub const Parser = struct {
             errdefer self.allocator.free(n2.*.body);
             errdefer self.allocator.destroy(n2);
 
-            if (n_count == 1 and (is_comma(n2.*.body) or is_paren_end(n2.*.body))) {
+            if (n_count == 1 and (isComma(n2.*.body) or is_paren_end(n2.*.body))) {
                 if (is_paren_end(n2.*.body)) {
                     found_end.* = true;
                 }
@@ -399,12 +402,37 @@ pub const Parser = struct {
         }
     }
 
-    fn parse_guard_clause(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+    fn parseGuardClauses(self: *Self, token_queue: *TokenQueue) !std.ArrayList(*TeleAst) {
+        var clauses = std.ArrayList(*TeleAst).init(self.allocator);
+
         // Pop off when keyword
         const n = try token_queue.pop();
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        defer buffer_token_queue.deinit();
+
+        while (!token_queue.empty()) {
+            while (!token_queue.empty()) {
+                const n2 = try token_queue.pop();
+                if (isComma(n2.*.body)) {
+                    self.allocator.free(n2.*.body);
+                    self.allocator.destroy(n2);
+                    break;
+                }
+                try buffer_token_queue.push(n2.*.body, n2.*.line, n2.*.col);
+                self.allocator.destroy(n2);
+            }
+
+            const ast = try self.parseGuardClause(buffer_token_queue);
+            try clauses.append(ast);
+        }
+
+        return clauses;
+    }
+
+    fn parseGuardClause(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         const alist = try self.parse_body(token_queue);
 
         const t = try self.allocator.create(TeleAst);
@@ -741,7 +769,7 @@ pub const Parser = struct {
                 self.allocator.destroy(n);
                 found_end.* = true;
                 break;
-            } else if (n_count == 0 and is_comma(n.*.body)) {
+            } else if (n_count == 0 and isComma(n.*.body)) {
                 self.allocator.free(n.*.body);
                 self.allocator.destroy(n);
                 break;
@@ -1246,7 +1274,7 @@ pub const Parser = struct {
             errdefer self.allocator.destroy(n2);
 
             if (n_count == 0) {
-                if (is_comma(n2.*.body) or is_paren_end(n2.*.body)) {
+                if (isComma(n2.*.body) or is_paren_end(n2.*.body)) {
                     self.allocator.free(n2.*.body);
                     self.allocator.destroy(n2);
                     break;
@@ -1304,7 +1332,7 @@ pub const Parser = struct {
                     }
                 }
 
-                if (count == 1 and is_comma(node2.*.body)) {
+                if (count == 1 and isComma(node2.*.body)) {
                     self.allocator.free(node2.*.body);
                     self.allocator.destroy(node2);
                     break;
@@ -1380,7 +1408,7 @@ pub const Parser = struct {
                         }
                     }
 
-                    if (count == 1 and is_comma(node2.*.body)) {
+                    if (count == 1 and isComma(node2.*.body)) {
                         self.allocator.free(node2.*.body);
                         self.allocator.destroy(node2);
                         break;
@@ -1467,7 +1495,7 @@ pub const Parser = struct {
                         }
                     }
 
-                    if (count == 1 and (is_comma(node2.*.body) or is_colon(node2.*.body))) {
+                    if (count == 1 and (isComma(node2.*.body) or is_colon(node2.*.body))) {
                         self.allocator.free(node2.*.body);
                         self.allocator.destroy(node2);
                         break;
@@ -1771,7 +1799,7 @@ pub const Parser = struct {
             }
 
             if (!body) {
-                if (is_paren_start(peek_node.*.body)) {
+                if (is_paren_start(peek_node.*.body) or is_tuple_start(peek_node.*.body) or is_record_start(peek_node.*.body)) {
                     paren_count += 1;
                 } else if (is_paren_end(peek_node.*.body)) {
                     paren_count -= 1;
@@ -2172,8 +2200,11 @@ pub const Parser = struct {
         if (!buffer_token_queue.empty()) {
             const pn = try buffer_token_queue.peek();
             if (std.mem.eql(u8, "when", pn.*.body)) {
-                const gc_ast = try self.parse_guard_clause(buffer_token_queue);
-                try alist.append(gc_ast);
+                const gc_ast_list = try self.parseGuardClauses(buffer_token_queue);
+                for (gc_ast_list.items) |a| {
+                    try alist.append(a);
+                }
+                gc_ast_list.deinit();
             } else {
                 return ParserError.ParsingFailure;
             }
@@ -2262,7 +2293,7 @@ pub const Parser = struct {
             errdefer self.allocator.destroy(n2);
 
             if (n_count == 0) {
-                if (is_comma(n2.*.body) or is_paren_end(n2.*.body)) {
+                if (isComma(n2.*.body) or is_paren_end(n2.*.body)) {
                     if (is_paren_end(n2.*.body)) {
                         found_end.* = true;
                     }
@@ -3187,13 +3218,13 @@ test "is colon" {
     try std.testing.expect(!is_colon("!"));
 }
 
-fn is_comma(buf: []const u8) bool {
+fn isComma(buf: []const u8) bool {
     return buf[0] == ',';
 }
 
 test "is comma" {
-    try std.testing.expect(is_comma(","));
-    try std.testing.expect(!is_comma("!"));
+    try std.testing.expect(isComma(","));
+    try std.testing.expect(!isComma("!"));
 }
 
 fn is_equal(buf: []const u8) bool {

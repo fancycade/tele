@@ -571,16 +571,15 @@ pub const Context = struct {
         _ = try w.write("(");
 
         // Look for guard clause at end of children
-        var guard: bool = false;
-        if (a.children.?.items[a.children.?.items.len - 1].ast_type == AstType.guard_clause) {
-            guard = true;
+        var guard_count: usize = 0;
+        for (a.children.?.items) |ac| {
+            if (ac.ast_type == AstType.guard_clause) {
+                guard_count = guard_count + 1;
+            }
         }
 
         var len = a.children.?.items.len;
-
-        if (guard) {
-            len = len - 1;
-        }
+        len = len - guard_count;
 
         var i: usize = 0;
 
@@ -592,7 +591,7 @@ pub const Context = struct {
             try self.write_ast(w, a.children.?.items[i], type_exp);
 
             if (i + 1 < len) {
-                //_ = try w.write(", ");
+                _ = try w.write(", ");
             }
 
             i += 1;
@@ -600,26 +599,23 @@ pub const Context = struct {
 
         _ = try w.write(")");
 
-        if (guard) {
+        if (guard_count > 0) {
             _ = try w.write(" ");
+            try self.write_padding(w);
+            _ = try w.write("when ");
 
-            try self.write_guard_clause(w, a.children.?.items[len], type_exp);
+            while (i < a.children.?.items.len) {
+                try self.write_guard_clause(w, a.children.?.items[i], type_exp);
+                if (i + 1 < a.children.?.items.len) {
+                    _ = try w.write(", ");
+                }
+                i = i + 1;
+            }
         }
     }
 
     pub fn write_guard_clause(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
-        try self.write_padding(w);
-        _ = try w.write("when ");
-        var i: usize = 0;
-        for (a.children.?.items) |c| {
-            try self.write_ast(w, c, type_exp);
-
-            if (i + 1 != a.children.?.items.len) {
-                _ = try w.write(", ");
-            }
-
-            i = i + 1;
-        }
+        try self.write_ast(w, a.children.?.items[0], type_exp);
     }
 
     pub fn write_case_clause(self: *Self, w: anytype, a: *const Ast) !void {
@@ -631,13 +627,30 @@ pub const Context = struct {
 
         var i: usize = 1;
 
-        if (a.children.?.items[1].ast_type == AstType.guard_clause) {
+        var guard_count: usize = 0;
+        for (a.children.?.items) |c| {
+            if (c.ast_type == AstType.guard_clause) {
+                guard_count += 1;
+            }
+        }
+
+        if (guard_count > 0) {
             _ = try w.write(" ");
             try self.push_padding(0);
-            try self.write_guard_clause(w, a.children.?.items[1], false);
-            try self.pop_padding();
+            try self.write_padding(w);
+            _ = try w.write("when ");
 
-            i = i + 1;
+            var guard_count2: usize = 0;
+
+            while (i < a.children.?.items.len and a.children.?.items[i].ast_type == AstType.guard_clause) {
+                try self.write_guard_clause(w, a.children.?.items[i], false);
+                if (guard_count2 + 1 < guard_count) {
+                    _ = try w.write(", ");
+                }
+                i = i + 1;
+                guard_count2 += 1;
+            }
+            try self.pop_padding();
         }
         _ = try w.write(" ->");
 

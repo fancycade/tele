@@ -15,7 +15,8 @@ multiline comment
 
 record point: #(x, y)
 
-type stuff(): integer() | float()
+type stuff: integer | float
+
 
 fun fooboo():
   a = #point(x=0, y=0)
@@ -50,8 +51,8 @@ fun oopsie():
   try oopsie_helper():
     _: 'ok
   catch:
-    error.e:
-      #('error, error, e)
+    @error.@e:
+      #('error, @error, @e)
 
 fun oopsie_helper():
   'ok
@@ -115,3 +116,4 @@ fun routes():
        "handle": #('handler, 'handle_index)}
    ],
    "post": [#('mid, 'log_mid)]}
+

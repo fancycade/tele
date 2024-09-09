@@ -267,7 +267,15 @@ test "tele to erlang binary" {
 fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const idx = findDot(t.*.body);
 
-    if (idx > 0) {
+    if (idx > 0 and contains_hash(t.*.body)) {
+        const buf = try allocator.alloc(u8, t.*.body.len);
+        std.mem.copyForwards(u8, buf, t.*.body);
+        if (std.ascii.isLower(buf[0])) {
+            buf[0] = std.ascii.toUpper(buf[0]);
+        }
+
+        return try erlang_ast.makeValue(buf, ErlangAstType.variable, allocator);
+    } else if (idx > 0) {
         const module_buf = try copyFunctionCallSection(t.*.body[0..idx], allocator);
         const function_buf = try copyFunctionCallSection(t.*.body[idx + 1 ..], allocator);
         var buf = try allocator.alloc(u8, module_buf.len + function_buf.len + 1);
@@ -290,7 +298,6 @@ fn tele_to_erlang_variable(t: *const TeleAst, allocator: std.mem.Allocator) !*Er
         } else {
             const buf = try allocator.alloc(u8, t.*.body.len);
             std.mem.copyForwards(u8, buf, t.*.body);
-
             // TODO: Check if first character is ascii or not
             // If not add V prefix to var (does Erlang even support UTF-8 variables ?)
 

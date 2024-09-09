@@ -920,7 +920,7 @@ pub const Parser = struct {
             ast = self.parseCaseExpression(token_queue) catch {
                 return ParserError.ParsingFailure;
             };
-        } else if (is_try_keyword(pn.*.body)) {
+        } else if (isTryKeyword(pn.*.body)) {
             ast = self.parse_try_catch(token_queue) catch {
                 return ParserError.ParsingFailure;
             };
@@ -1024,7 +1024,7 @@ pub const Parser = struct {
             };
         } else if (isCaseKeyword(pn.*.body)) {
             return ParserError.ParsingFailure;
-        } else if (is_try_keyword(pn.*.body)) {
+        } else if (isTryKeyword(pn.*.body)) {
             return ParserError.ParsingFailure;
         } else {
             const n = token_queue.pop() catch {
@@ -1799,7 +1799,7 @@ pub const Parser = struct {
             }
 
             if (!body) {
-                if (is_paren_start(peek_node.*.body) or is_tuple_start(peek_node.*.body) or is_record_start(peek_node.*.body)) {
+                if (is_paren_start(peek_node.*.body) or is_tuple_start(peek_node.*.body) or is_record_start(peek_node.*.body) or containsParenStart(peek_node.*.body)) {
                     paren_count += 1;
                 } else if (is_paren_end(peek_node.*.body)) {
                     paren_count -= 1;
@@ -1821,7 +1821,7 @@ pub const Parser = struct {
                 self.allocator.destroy(node);
             } else {
                 if (!nested_body) {
-                    if (is_paren_start(peek_node.*.body)) {
+                    if (is_paren_start(peek_node.*.body) or is_tuple_start(peek_node.*.body) or is_record_start(peek_node.*.body) or containsParenStart(peek_node.*.body)) {
                         paren_count += 1;
                     } else if (is_paren_end(peek_node.*.body)) {
                         paren_count -= 1;
@@ -1855,6 +1855,12 @@ pub const Parser = struct {
                         nested_body = true;
                         nested_body_col = peek_node.*.col;
                     } else if (isCaseKeyword(peek_node.*.body)) {
+                        nested_body = true;
+                        nested_body_col = peek_node.*.col;
+                    } else if (isTryKeyword(peek_node.*.body)) {
+                        nested_body = true;
+                        nested_body_col = peek_node.*.col;
+                    } else if (isCatchKeyword(peek_node.*.body)) {
                         nested_body = true;
                         nested_body_col = peek_node.*.col;
                     }
@@ -2093,7 +2099,7 @@ pub const Parser = struct {
         const n_catch = try token_queue.pop();
         errdefer self.allocator.free(n_catch.*.body);
         errdefer self.allocator.destroy(n_catch);
-        if (!is_catch_keyword(n_catch.*.body)) {
+        if (!isCatchKeyword(n_catch.*.body)) {
             return ParserError.ParsingFailure;
         }
         self.allocator.free(n_catch.*.body);
@@ -3144,22 +3150,22 @@ test "is case keyword" {
     try std.testing.expect(!isCaseKeyword("foobar"));
 }
 
-fn is_try_keyword(buf: []const u8) bool {
+fn isTryKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, "try", buf);
 }
 
 test "is try keyword" {
-    try std.testing.expect(is_try_keyword("try"));
-    try std.testing.expect(!is_try_keyword("foobar"));
+    try std.testing.expect(isTryKeyword("try"));
+    try std.testing.expect(!isTryKeyword("foobar"));
 }
 
-fn is_catch_keyword(buf: []const u8) bool {
+fn isCatchKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, "catch", buf);
 }
 
 test "is catch keyword" {
-    try std.testing.expect(is_catch_keyword("catch"));
-    try std.testing.expect(!is_catch_keyword("foobar"));
+    try std.testing.expect(isCatchKeyword("catch"));
+    try std.testing.expect(!isCatchKeyword("foobar"));
 }
 
 fn is_function_definition(buf: []const u8) bool {
@@ -3239,6 +3245,15 @@ test "is equal" {
 fn contains_hash(buf: []const u8) bool {
     for (buf) |c| {
         if (c == '#') {
+            return true;
+        }
+    }
+    return false;
+}
+
+fn containsParenStart(buf: []const u8) bool {
+    for (buf) |c| {
+        if (c == '(') {
             return true;
         }
     }

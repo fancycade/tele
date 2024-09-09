@@ -2490,11 +2490,11 @@ test "parse body multi" {
     tele_ast.free_tele_ast_list(result, test_allocator);
 }
 
-test "parse match expression" {
+test "parse case expression" {
     const parser = try fileToParser("snippets/match.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parse_match_expression(parser.*.token_queue);
+    const result = try parser.parseCaseExpression(parser.*.token_queue);
     try std.testing.expect(std.mem.eql(u8, result.*.body, ""));
     try std.testing.expect(result.*.ast_type == TeleAstType.case);
     try std.testing.expect(result.*.children.?.items.len == 3);
@@ -2532,11 +2532,11 @@ test "parse match expression" {
     test_allocator.destroy(result);
 }
 
-test "parse match body single clause" {
+test "parse case body single clause" {
     const parser = try fileToParser("snippets/match_body.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parse_match_body(parser.*.token_queue);
+    const result = try parser.parseCaseBody(parser.*.token_queue);
     try std.testing.expect(result.items.len == 1);
     try std.testing.expect(result.items[0].ast_type == TeleAstType.case_clause);
     try std.testing.expect(std.mem.eql(u8, result.items[0].body, ""));
@@ -2554,11 +2554,11 @@ test "parse match body single clause" {
     tele_ast.free_tele_ast_list(result, talloc);
 }
 
-test "parse match body multi clause" {
+test "parse case body multi clause" {
     const parser = try fileToParser("snippets/match_body_multi.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parse_match_body(parser.*.token_queue);
+    const result = try parser.parseCaseBody(parser.*.token_queue);
     try std.testing.expect(result.items.len == 2);
     try std.testing.expect(result.items[0].ast_type == TeleAstType.case_clause);
     try std.testing.expect(std.mem.eql(u8, result.items[0].body, ""));
@@ -2587,11 +2587,11 @@ test "parse match body multi clause" {
     tele_ast.free_tele_ast_list(result, test_allocator);
 }
 
-test "parse match signature" {
+test "parse case signature" {
     const parser = try fileToParser("snippets/match_signature.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parse_match_signature(parser.*.token_queue);
+    const result = try parser.parseCaseSignature(parser.*.token_queue);
 
     const expected = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
     try std.testing.expect(tele_ast.equal(result, expected));

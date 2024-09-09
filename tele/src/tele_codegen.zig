@@ -419,8 +419,17 @@ pub const Context = struct {
                 break;
             }
 
-            _ = try w.write(a.body);
-            try self.write_function_signature(w, a.children.?.items[i]);
+            if (i == 0) {
+                _ = try w.write(a.body);
+
+                try self.write_function_signature(w, a.children.?.items[i]);
+            } else {
+                try self.push_padding(self.current_padding() + 2);
+                try self.write_padding(w);
+
+                try self.pop_padding();
+                try self.write_function_signature(w, a.children.?.items[i]);
+            }
             _ = try w.write(":");
 
             i = i + 1;
@@ -436,23 +445,11 @@ pub const Context = struct {
 
                 i = i + 1;
             }
-
-            var can_break = false;
-            if (i >= a.children.?.items.len) {
-                _ = try w.write("\n\n");
-                can_break = true;
-            } else if (a.children.?.items[i].ast_type == AstType.function_signature) {
-                _ = try w.write("\n");
-            } else {
-                return CodegenError.WritingFailure;
-            }
-
             try self.pop_padding();
 
-            if (can_break) {
-                break;
-            }
+            _ = try w.write("\n");
         }
+        _ = try w.write("\n");
     }
 
     pub fn write_macro_def(self: *Self, w: anytype, a: *const Ast) !void {
@@ -1086,7 +1083,7 @@ test "write anonymous function" {
     try children.append(&a3);
 
     try context.write_anonymous_function(list.writer(), &Ast{ .body = "", .ast_type = AstType.anonymous_function, .children = children, .col = 0 });
-    try std.testing.expect(std.mem.eql(u8, list.items, "() =>\n  hello()\n  world()\n"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "fun ():\n  hello()\n  world()\n"));
 }
 
 test "write function def" {
@@ -1143,7 +1140,7 @@ test "write function def matching" {
     try children.append(&a6);
 
     try context.write_function_def(list.writer(), &Ast{ .body = "hello", .ast_type = AstType.function_def, .children = children, .col = 0 }, false);
-    try std.testing.expect(std.mem.eql(u8, list.items, "fun hello(1):\n  1\nfun hello(2):\n  2\n\n"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "fun hello(1):\n  1\n  (2):\n  2\n\n"));
 }
 
 test "write case clause" {
@@ -1248,7 +1245,7 @@ test "write case" {
     var a7 = Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_2, .col = 0 };
     try children.append(&a7);
 
-    try context.write_case(list.writer(), &Ast{ .body = "", .ast_type = AstType.case, .children = children, .col = 0 });
+    try context.writeCase(list.writer(), &Ast{ .body = "", .ast_type = AstType.case, .children = children, .col = 0 });
 
-    try std.testing.expect(std.mem.eql(u8, list.items, "match x:\n  'true:\n    'ok\n  'false:\n    'error"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "case x:\n  'true:\n    'ok\n  'false:\n    'error"));
 }

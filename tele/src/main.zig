@@ -137,7 +137,7 @@ fn formatFile(code_path: []const u8, allocator: std.mem.Allocator) !void {
         return ExecutionError.Empty;
     }
 
-    var tfile = try std.fs.cwd().openFile(code_path, .{ .mode = .write_only });
+    var tfile = try std.fs.cwd().createFile(code_path, .{});
     defer tfile.close();
 
     var tcontext = TeleContext.init(allocator);

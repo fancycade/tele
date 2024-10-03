@@ -152,7 +152,7 @@ fn formatFile(code_path: []const u8, allocator: std.mem.Allocator) !void {
 }
 
 fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.mem.Allocator) !void {
-    const erlang_path = try erlang_name(code_path, output_path, allocator);
+    const erlang_path = try erlangName(code_path, output_path, allocator);
     errdefer allocator.free(erlang_path);
 
     const ta2 = try parseTeleFile(code_path, allocator);
@@ -180,11 +180,11 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
     _ = try w.write(").\n");
     _ = try w.write("-export([");
 
-    const metadata = try scan_function_metadata(ta2, allocator);
+    const metadata = try scanFunctionMetadata(ta2, allocator);
 
     var ctr: usize = 0;
     for (metadata.items) |m| {
-        try write_function_metadata(w, m);
+        try writeFunctionMetadata(w, m);
         if (ctr < metadata.items.len - 1) {
             _ = try w.write(", ");
         }
@@ -203,24 +203,11 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
     context.deinit();
     allocator.free(erlang_path);
     tast.free_tele_ast_list(ta2, allocator);
-    free_erlang_ast_list(east_list, allocator);
-    free_function_metadata(metadata, allocator);
+    ast.free_erlang_ast_list(east_list, allocator);
+    freeFunctionMetadata(metadata, allocator);
 }
 
-fn free_erlang_ast_list(ta: std.ArrayList(*const Ast), allocator: std.mem.Allocator) void {
-    for (ta.items) |c| {
-        if (c.*.body.len > 0) {
-            allocator.free(c.*.body);
-        }
-        if (c.*.children != null) {
-            free_erlang_ast_list(c.*.children.?, allocator);
-        }
-        allocator.destroy(c);
-    }
-    ta.deinit();
-}
-
-fn erlang_name(path: []const u8, output_prefix: ?[]const u8, allocator: std.mem.Allocator) ![]const u8 {
+fn erlangName(path: []const u8, output_prefix: ?[]const u8, allocator: std.mem.Allocator) ![]const u8 {
     const base = std.fs.path.basename(path);
 
     var buf: []u8 = undefined;
@@ -244,20 +231,20 @@ fn erlang_name(path: []const u8, output_prefix: ?[]const u8, allocator: std.mem.
 
 test "erlang name" {
     const tele_path = "src/foobar/foobar.tl";
-    const erlang_path = try erlang_name(tele_path, null, test_allocator);
+    const erlang_path = try erlangName(tele_path, null, test_allocator);
     try std.testing.expect(std.mem.eql(u8, erlang_path, "foobar.erl"));
     test_allocator.free(erlang_path);
 
-    const erlang_path2 = try erlang_name(tele_path, "_build/tele/", test_allocator);
+    const erlang_path2 = try erlangName(tele_path, "_build/tele/", test_allocator);
     try std.testing.expect(std.mem.eql(u8, erlang_path2, "_build/tele/foobar.erl"));
     test_allocator.free(erlang_path2);
 
-    const erlang_path3 = try erlang_name(tele_path, "_build/tele", test_allocator);
+    const erlang_path3 = try erlangName(tele_path, "_build/tele", test_allocator);
     try std.testing.expect(std.mem.eql(u8, erlang_path3, "_build/tele/foobar.erl"));
     test_allocator.free(erlang_path3);
 }
 
-fn write_function_metadata(w: anytype, md: *const FunctionMetadata) !void {
+fn writeFunctionMetadata(w: anytype, md: *const FunctionMetadata) !void {
     _ = try w.write(md.*.name);
     _ = try w.write("/");
     var buf: [24]u8 = undefined;
@@ -265,7 +252,7 @@ fn write_function_metadata(w: anytype, md: *const FunctionMetadata) !void {
     _ = try w.write(str);
 }
 
-fn scan_function_metadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !std.ArrayList(*const FunctionMetadata) {
+fn scanFunctionMetadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !std.ArrayList(*const FunctionMetadata) {
     var metadata = std.ArrayList(*const FunctionMetadata).init(allocator);
 
     for (ta.items) |t| {
@@ -300,7 +287,7 @@ fn scan_function_metadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Alloca
     return metadata;
 }
 
-fn free_function_metadata(metadata: std.ArrayList(*const FunctionMetadata), allocator: std.mem.Allocator) void {
+fn freeFunctionMetadata(metadata: std.ArrayList(*const FunctionMetadata), allocator: std.mem.Allocator) void {
     for (metadata.items) |m| {
         allocator.free(m.name);
         allocator.destroy(m);

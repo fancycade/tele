@@ -14,7 +14,7 @@ const ParserError = error{ ParsingFailure, TokenFailure, ExpectedStatement, Inva
 const ParserMode = enum { none, op };
 
 pub fn parse_reader(r: anytype, allocator: std.mem.Allocator) !std.ArrayList(*TeleAst) {
-    const token_queue = try tokenizer.read_tokens(r, allocator);
+    const token_queue = try tokenizer.readTokens(r, allocator);
 
     const parser = try Parser.init(token_queue, allocator);
 
@@ -71,7 +71,7 @@ pub const Parser = struct {
 
     pub fn parse_statements(self: *Self, allow_exps: bool) !std.ArrayList(*TeleAst) {
         var statements = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(statements, self.allocator);
+        errdefer tele_ast.freeTeleAstList(statements, self.allocator);
 
         while (!self.token_queue.empty()) {
             const pn = self.token_queue.peek() catch {
@@ -204,7 +204,7 @@ pub const Parser = struct {
         errdefer self.allocator.free(buf);
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
 
         const pn = try token_queue.peek();
         if (is_colon(pn.*.body)) {
@@ -278,7 +278,7 @@ pub const Parser = struct {
             var alist = self.parse_body(token_queue3) catch {
                 return ParserError.ParsingFailure;
             };
-            errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
+            errdefer tele_ast.freeTeleAstList(alist, self.allocator);
 
             for (alist.items) |a| {
                 try children.append(a);
@@ -361,7 +361,7 @@ pub const Parser = struct {
 
     fn free_null_children(children: ?std.ArrayList(*TeleAst), allocator: std.mem.Allocator) void {
         if (children != null) {
-            tele_ast.free_tele_ast_list(children.?, allocator);
+            tele_ast.freeTeleAstList(children.?, allocator);
         }
     }
 
@@ -522,7 +522,7 @@ pub const Parser = struct {
         const sig_ast = try self.parse_function_signature(token_queue2, true);
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
         try children.append(sig_ast);
 
         // Callback Definition Body
@@ -592,7 +592,7 @@ pub const Parser = struct {
         };
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
 
         if (is_colon(pn.*.body)) {
             const t = try self.allocator.create(TeleAst);
@@ -1176,10 +1176,10 @@ pub const Parser = struct {
                 return ParserError.ParsingFailure;
             };
         }
-        errdefer tele_ast.free_tele_ast(ast.?, self.allocator);
+        errdefer tele_ast.freeTeleAst(ast.?, self.allocator);
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
         if (arg != null) {
             try children.append(arg.?);
         }
@@ -1210,7 +1210,7 @@ pub const Parser = struct {
 
         if (!is_paren_end(pn2.*.body)) {
             children = std.ArrayList(*TeleAst).init(self.allocator);
-            errdefer tele_ast.free_tele_ast_list(children.?, self.allocator);
+            errdefer tele_ast.freeTeleAstList(children.?, self.allocator);
 
             // Gather paren exp tokens
             var buffer_token_queue = try TokenQueue.init(self.allocator);
@@ -1306,7 +1306,7 @@ pub const Parser = struct {
         self.allocator.destroy(n);
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
         var token_queue2 = try TokenQueue.init(self.allocator);
         errdefer token_queue2.deinit();
 
@@ -1376,7 +1376,7 @@ pub const Parser = struct {
         self.allocator.destroy(n);
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
 
         const pn_end = try token_queue.peek();
         if (is_list_end(pn_end.*.body)) {
@@ -1456,12 +1456,12 @@ pub const Parser = struct {
         self.allocator.destroy(n);
 
         const t = try self.allocator.create(TeleAst);
-        errdefer tele_ast.free_tele_ast(t, self.allocator);
+        errdefer tele_ast.freeTeleAst(t, self.allocator);
         t.*.body = "";
         t.*.children = null;
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
 
         const pn_end = try token_queue.peek();
         if (is_map_end(pn_end.*.body)) {
@@ -1591,7 +1591,7 @@ pub const Parser = struct {
         }
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
 
         const pn = try buffer_token_queue.peek();
         if (!is_paren_end(pn.*.body)) {
@@ -1630,7 +1630,7 @@ pub const Parser = struct {
 
     fn parse_body(self: *Self, token_queue: *TokenQueue) !std.ArrayList(*TeleAst) {
         var alist = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
+        errdefer tele_ast.freeTeleAstList(alist, self.allocator);
 
         while (!token_queue.empty()) {
             const ast = try self.parse_exp(token_queue);
@@ -1673,7 +1673,7 @@ pub const Parser = struct {
 
     fn parseFunctionSigAndBody(self: *Self, token_queue: *TokenQueue, type_exp: bool, current_col: usize) !std.ArrayList(*TeleAst) {
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
 
         var function_end: bool = false;
         while (!token_queue.empty()) {
@@ -1711,7 +1711,7 @@ pub const Parser = struct {
             }
 
             const ast = try self.parse_function_signature(token_queue2, type_exp);
-            errdefer tele_ast.free_tele_ast(ast, self.allocator);
+            errdefer tele_ast.freeTeleAst(ast, self.allocator);
             token_queue2.deinit();
 
             try children.append(ast);
@@ -1752,7 +1752,7 @@ pub const Parser = struct {
                     var alist = self.parse_body(token_queue3) catch {
                         return ParserError.ParsingFailure;
                     };
-                    errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
+                    errdefer tele_ast.freeTeleAstList(alist, self.allocator);
 
                     for (alist.items) |a| {
                         try children.append(a);
@@ -1938,11 +1938,11 @@ pub const Parser = struct {
         const signature_ast = try self.parseCaseSignature(buffer_token_queue);
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
         try children.append(signature_ast);
 
         var body = try self.parseCaseBody(buffer_token_queue);
-        errdefer tele_ast.free_tele_ast_list(body, self.allocator);
+        errdefer tele_ast.freeTeleAstList(body, self.allocator);
         if (!buffer_token_queue.empty()) {
             return ParserError.ParsingFailure;
         }
@@ -1996,18 +1996,18 @@ pub const Parser = struct {
     fn parseCaseBody(self: *Self, token_queue: *TokenQueue) !std.ArrayList(*TeleAst) {
         var clause_col: usize = 0;
         var alist = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
+        errdefer tele_ast.freeTeleAstList(alist, self.allocator);
 
         // Parse Case Clauses
         while (!token_queue.empty()) {
             var children = std.ArrayList(*TeleAst).init(self.allocator);
-            errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+            errdefer tele_ast.freeTeleAstList(children, self.allocator);
 
             var alist2 = try self.parse_case_clause_signature(token_queue, &clause_col);
             if (alist2.items.len == 2) {
                 const ast = alist.pop();
                 if (ast.ast_type != TeleAstType.guard_clause) {
-                    tele_ast.free_tele_ast(ast, self.allocator);
+                    tele_ast.freeTeleAst(ast, self.allocator);
                     return ParserError.ParsingFailure;
                 }
                 const ast2 = alist2.pop();
@@ -2016,13 +2016,13 @@ pub const Parser = struct {
             } else if (alist2.items.len == 1) {
                 try children.append(alist2.pop());
             } else {
-                tele_ast.free_tele_ast_list(alist2, self.allocator);
+                tele_ast.freeTeleAstList(alist2, self.allocator);
                 return ParserError.ParsingFailure;
             }
             alist2.deinit();
 
             var case_clause_body = try self.parse_case_clause_body(token_queue, clause_col);
-            errdefer tele_ast.free_tele_ast_list(case_clause_body, self.allocator);
+            errdefer tele_ast.freeTeleAstList(case_clause_body, self.allocator);
             for (case_clause_body.items) |c| {
                 try children.append(c);
             }
@@ -2033,7 +2033,7 @@ pub const Parser = struct {
             t.ast_type = TeleAstType.case_clause;
             t.children = children;
             t.col = 0;
-            errdefer tele_ast.free_tele_ast(t, self.allocator);
+            errdefer tele_ast.freeTeleAst(t, self.allocator);
 
             try alist.append(t);
         }
@@ -2072,14 +2072,14 @@ pub const Parser = struct {
         }
 
         const signature_ast = try self.parseCaseSignature(buffer_token_queue);
-        errdefer tele_ast.free_tele_ast(signature_ast, self.allocator);
+        errdefer tele_ast.freeTeleAst(signature_ast, self.allocator);
 
         var try_children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(try_children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(try_children, self.allocator);
         try try_children.append(signature_ast);
 
         var body = try self.parseCaseBody(buffer_token_queue);
-        errdefer tele_ast.free_tele_ast_list(body, self.allocator);
+        errdefer tele_ast.freeTeleAstList(body, self.allocator);
         if (!buffer_token_queue.empty()) {
             return ParserError.ParsingFailure;
         }
@@ -2136,11 +2136,11 @@ pub const Parser = struct {
         }
 
         var catch_children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(catch_children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(catch_children, self.allocator);
         try try_children.append(signature_ast);
 
         var body2 = try self.parseCaseBody(buffer_token_queue);
-        errdefer tele_ast.free_tele_ast_list(body2, self.allocator);
+        errdefer tele_ast.freeTeleAstList(body2, self.allocator);
         if (!buffer_token_queue.empty()) {
             return ParserError.ParsingFailure;
         }
@@ -2161,7 +2161,7 @@ pub const Parser = struct {
         final_ast.*.ast_type = TeleAstType.try_catch;
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(children, self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
         try children.append(try_ast);
         try children.append(catch_ast);
         final_ast.*.children = children;
@@ -2199,7 +2199,7 @@ pub const Parser = struct {
         }
 
         var alist = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
+        errdefer tele_ast.freeTeleAstList(alist, self.allocator);
 
         const ast = try self.parse_exp(buffer_token_queue);
         try alist.append(ast);
@@ -2240,7 +2240,7 @@ pub const Parser = struct {
         }
 
         const alist = try self.parse_body(buffer_token_queue);
-        errdefer tele_ast.free_tele_ast_list(alist, self.allocator);
+        errdefer tele_ast.freeTeleAstList(alist, self.allocator);
 
         if (!buffer_token_queue.empty()) {
             return ParserError.ParsingFailure;
@@ -2262,7 +2262,7 @@ pub const Parser = struct {
         var children: ?std.ArrayList(*TeleAst) = null;
         if (!is_paren_end(pn2.*.body)) {
             children = std.ArrayList(*TeleAst).init(self.allocator);
-            errdefer tele_ast.free_tele_ast_list(children.?, self.allocator);
+            errdefer tele_ast.freeTeleAstList(children.?, self.allocator);
             while (!token_queue.empty()) {
                 var found_end: bool = false;
                 const ast = try self.parse_function_call_arg(token_queue, type_exp, &found_end);
@@ -2326,7 +2326,7 @@ pub const Parser = struct {
             ast = try self.parse_exp(buffer_token_queue);
         }
         if (!buffer_token_queue.empty()) {
-            tele_ast.free_tele_ast(ast, self.allocator);
+            tele_ast.freeTeleAst(ast, self.allocator);
             return ParserError.ParsingFailure;
         }
         buffer_token_queue.deinit();

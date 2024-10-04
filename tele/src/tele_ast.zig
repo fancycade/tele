@@ -6,9 +6,9 @@ pub const AstType = enum { int, float, binary, atom, tuple, list, map, record, r
 
 pub const Ast = struct { children: ?std.ArrayList(*Ast), body: []const u8, ast_type: AstType, col: usize };
 
-pub fn free_tele_ast(t: *Ast, allocator: std.mem.Allocator) void {
+pub fn freeTeleAst(t: *Ast, allocator: std.mem.Allocator) void {
     if (t.*.children != null) {
-        free_tele_ast_list(t.*.children.?, allocator);
+        freeTeleAstList(t.*.children.?, allocator);
     }
     if (t.*.body.len > 0) {
         allocator.free(t.*.body);
@@ -16,13 +16,13 @@ pub fn free_tele_ast(t: *Ast, allocator: std.mem.Allocator) void {
     allocator.destroy(t);
 }
 
-pub fn free_tele_ast_list(ta: std.ArrayList(*Ast), allocator: std.mem.Allocator) void {
+pub fn freeTeleAstList(ta: std.ArrayList(*Ast), allocator: std.mem.Allocator) void {
     for (ta.items) |c| {
         if (c.*.body.len > 0) {
             allocator.free(c.*.body);
         }
         if (c.*.children != null) {
-            free_tele_ast_list(c.*.children.?, allocator);
+            freeTeleAstList(c.*.children.?, allocator);
         }
         allocator.destroy(c);
     }
@@ -70,7 +70,7 @@ test "make value" {
     const t = try makeValue(try util.copyString("foo", test_allocator), AstType.atom, test_allocator);
     try std.testing.expect(std.mem.eql(u8, "foo", t.*.body));
     try std.testing.expect(t.*.ast_type == AstType.atom);
-    free_tele_ast(t, test_allocator);
+    freeTeleAst(t, test_allocator);
 }
 
 pub fn makeInt(value: []const u8, allocator: std.mem.Allocator) !*Ast {
@@ -81,7 +81,7 @@ test "make int" {
     const t = try makeInt(try util.copyString("1", test_allocator), test_allocator);
     try std.testing.expect(std.mem.eql(u8, "1", t.*.body));
     try std.testing.expect(t.*.ast_type == AstType.int);
-    free_tele_ast(t, test_allocator);
+    freeTeleAst(t, test_allocator);
 }
 
 pub fn makeFloat(value: []const u8, allocator: std.mem.Allocator) !*Ast {
@@ -92,7 +92,7 @@ test "make float" {
     const t = try makeFloat(try util.copyString("1.1", test_allocator), test_allocator);
     try std.testing.expect(std.mem.eql(u8, "1.1", t.*.body));
     try std.testing.expect(t.*.ast_type == AstType.float);
-    free_tele_ast(t, test_allocator);
+    freeTeleAst(t, test_allocator);
 }
 
 pub fn makeAtom(value: []const u8, allocator: std.mem.Allocator) !*Ast {
@@ -103,7 +103,7 @@ test "make atom" {
     const t = try makeAtom(try util.copyString("foo", test_allocator), test_allocator);
     try std.testing.expect(std.mem.eql(u8, "foo", t.*.body));
     try std.testing.expect(t.*.ast_type == AstType.atom);
-    free_tele_ast(t, test_allocator);
+    freeTeleAst(t, test_allocator);
 }
 
 pub fn makeVariable(value: []const u8, allocator: std.mem.Allocator) !*Ast {
@@ -114,7 +114,7 @@ test "make variable" {
     const t = try makeVariable(try util.copyString("a", test_allocator), test_allocator);
     try std.testing.expect(std.mem.eql(u8, "a", t.*.body));
     try std.testing.expect(t.*.ast_type == AstType.variable);
-    free_tele_ast(t, test_allocator);
+    freeTeleAst(t, test_allocator);
 }
 
 pub fn makeOp(body: []const u8, arg1: *Ast, arg2: *Ast, allocator: std.mem.Allocator) !*Ast {
@@ -141,7 +141,7 @@ test "make op" {
     try std.testing.expect(std.mem.eql(u8, "1", t.*.children.?.items[0].*.body));
     try std.testing.expect(std.mem.eql(u8, "2", t.*.children.?.items[1].*.body));
 
-    free_tele_ast(t, test_allocator);
+    freeTeleAst(t, test_allocator);
 }
 
 pub fn makeCollection(items: []const *Ast, ast_type: AstType, allocator: std.mem.Allocator) !*Ast {
@@ -167,7 +167,7 @@ test "make collection" {
     try std.testing.expect(t.*.ast_type == AstType.tuple);
     try std.testing.expect(std.mem.eql(u8, "1", t.*.children.?.items[0].*.body));
     try std.testing.expect(std.mem.eql(u8, "2", t.*.children.?.items[1].*.body));
-    free_tele_ast(t, test_allocator);
+    freeTeleAst(t, test_allocator);
 }
 
 pub fn makeTuple(items: []const *Ast, allocator: std.mem.Allocator) !*Ast {

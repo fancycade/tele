@@ -120,7 +120,7 @@ fn parseTeleFile(code_path: []const u8, allocator: std.mem.Allocator) !std.Array
     defer input_file.close();
 
     const ta = try parser.parse_reader(input_file.reader(), allocator);
-    errdefer tast.free_tele_ast_list(ta, allocator);
+    errdefer tast.freeTeleAstList(ta, allocator);
 
     if (ta.items.len == 0) {
         return ExecutionError.Empty;
@@ -131,7 +131,7 @@ fn parseTeleFile(code_path: []const u8, allocator: std.mem.Allocator) !std.Array
 
 fn formatFile(code_path: []const u8, allocator: std.mem.Allocator) !void {
     const ta2 = try parseTeleFile(code_path, allocator);
-    errdefer tast.free_tele_ast_list(ta2, allocator);
+    errdefer tast.freeTeleAstList(ta2, allocator);
 
     if (ta2.items.len == 0) {
         return ExecutionError.Empty;
@@ -145,10 +145,10 @@ fn formatFile(code_path: []const u8, allocator: std.mem.Allocator) !void {
 
     const tw = tfile.writer();
     for (ta2.items) |c| {
-        try tcontext.write_ast(tw, c);
+        try tcontext.writeAst(tw, c);
     }
 
-    tast.free_tele_ast_list(ta2, allocator);
+    tast.freeTeleAstList(ta2, allocator);
 }
 
 fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.mem.Allocator) !void {
@@ -156,7 +156,7 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
     errdefer allocator.free(erlang_path);
 
     const ta2 = try parseTeleFile(code_path, allocator);
-    errdefer tast.free_tele_ast_list(ta2, allocator);
+    errdefer tast.freeTeleAstList(ta2, allocator);
 
     if (ta2.items.len == 0) {
         return ExecutionError.Empty;
@@ -197,12 +197,12 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
 
     var context = Context.init(allocator);
     for (east_list.items) |c| {
-        try context.write_ast(w, c, false);
+        try context.writeAst(w, c, false);
     }
 
     context.deinit();
     allocator.free(erlang_path);
-    tast.free_tele_ast_list(ta2, allocator);
+    tast.freeTeleAstList(ta2, allocator);
     ast.free_erlang_ast_list(east_list, allocator);
     freeFunctionMetadata(metadata, allocator);
 }

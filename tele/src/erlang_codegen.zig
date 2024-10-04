@@ -3,7 +3,7 @@ const ast = @import("erlang_ast.zig");
 const Ast = ast.Ast;
 const AstType = ast.AstType;
 const test_allocator = std.testing.allocator;
-
+const util = @import("util.zig");
 const CodegenError = error{WritingFailure};
 
 pub const Context = struct {
@@ -121,7 +121,7 @@ pub const Context = struct {
     pub fn writeRecord(self: *Self, w: anytype, a: *const Ast) !void {
         try self.writePadding(w);
 
-        if (containsHash(a.body)) {
+        if (util.containsHash(a.body)) {
             _ = try w.write(a.body);
         } else {
             _ = try w.write("#");
@@ -143,15 +143,6 @@ pub const Context = struct {
 
         try self.popPadding();
         _ = try w.write("}");
-    }
-
-    fn containsHash(buf: []const u8) bool {
-        for (buf) |c| {
-            if (c == '#') {
-                return true;
-            }
-        }
-        return false;
     }
 
     pub fn writeFunVal(self: *Self, w: anytype, a: *const Ast) !void {

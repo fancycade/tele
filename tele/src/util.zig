@@ -13,3 +13,17 @@ test "copyString" {
     try std.testing.expect(std.mem.eql(u8, s, result));
     test_allocator.free(result);
 }
+
+pub fn containsHash(buf: []const u8) bool {
+    for (buf) |c| {
+        if (c == '#') {
+            return true;
+        }
+    }
+    return false;
+}
+
+test "contains hash" {
+    try std.testing.expect(containsHash("foo#bar.a"));
+    try std.testing.expect(!containsHash("foobar"));
+}

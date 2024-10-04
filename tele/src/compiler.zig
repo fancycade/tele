@@ -267,7 +267,7 @@ test "tele to erlang binary" {
 fn teleToErlangVariable(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const idx = findDot(t.*.body);
 
-    if (idx > 0 and contains_hash(t.*.body)) {
+    if (idx > 0 and util.containsHash(t.*.body)) {
         const buf = try allocator.alloc(u8, t.*.body.len);
         std.mem.copyForwards(u8, buf, t.*.body);
         if (std.ascii.isLower(buf[0])) {
@@ -312,17 +312,6 @@ fn teleToErlangVariable(t: *const TeleAst, allocator: std.mem.Allocator) !*Erlan
             return try erlang_ast.makeValue(buf, ErlangAstType.variable, allocator);
         }
     }
-}
-
-fn containsDot(buf: []const u8) bool {
-    var i: usize = 0;
-    while (i < buf.len) {
-        if (buf[i] == '.') {
-            return true;
-        }
-        i = i + 1;
-    }
-    return false;
 }
 
 test "tele to erlang variable" {
@@ -454,7 +443,7 @@ fn teleToErlangRecord(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangA
 
     var buf = try allocator.alloc(u8, t.*.body.len);
     std.mem.copyForwards(u8, buf, t.*.body);
-    if (contains_hash(buf)) {
+    if (util.containsHash(buf)) {
         buf[0] = std.ascii.toUpper(buf[0]);
     }
 
@@ -462,15 +451,6 @@ fn teleToErlangRecord(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangA
     e.*.children = try compileChildren(t.*.children, allocator);
 
     return e;
-}
-
-fn contains_hash(buf: []const u8) bool {
-    for (buf) |c| {
-        if (c == '#') {
-            return true;
-        }
-    }
-    return false;
 }
 
 test "tele to erlang record" {

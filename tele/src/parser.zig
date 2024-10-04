@@ -936,7 +936,7 @@ pub const Parser = struct {
                     return ParserError.ParsingFailure;
                 };
                 if (res) {
-                    if (containsHash(n.*.body)) {
+                    if (util.containsHash(n.*.body)) {
                         ast = self.parseRecord(token_queue, true, n.*.body, false) catch { // Is a record variable
                             return ParserError.ParsingFailure;
                         };
@@ -1038,7 +1038,7 @@ pub const Parser = struct {
                     return ParserError.ParsingFailure;
                 };
                 if (res) {
-                    if (containsHash(n.*.body)) {
+                    if (util.containsHash(n.*.body)) {
                         // Record literal syntax not allowed in type expression
                         return ParserError.ParsingFailure;
                     } else { // Is a function call
@@ -3240,20 +3240,6 @@ fn isEqual(buf: []const u8) bool {
 test "is equal" {
     try std.testing.expect(isEqual("="));
     try std.testing.expect(!isEqual("-"));
-}
-
-fn containsHash(buf: []const u8) bool {
-    for (buf) |c| {
-        if (c == '#') {
-            return true;
-        }
-    }
-    return false;
-}
-
-test "contains hash" {
-    try std.testing.expect(containsHash("foo#bar.a"));
-    try std.testing.expect(!containsHash("foobar"));
 }
 
 fn containsParenStart(buf: []const u8) bool {

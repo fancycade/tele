@@ -166,7 +166,7 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
     errdefer ast.free_erlang_ast_list(east_list, allocator);
 
     for (ta2.items) |c| {
-        try east_list.append(try compiler.tele_to_erlang(c, allocator));
+        try east_list.append(try compiler.teleToErlang(c, allocator));
     }
 
     // Use code path to make output file name

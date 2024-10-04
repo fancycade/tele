@@ -119,7 +119,7 @@ fn parseTeleFile(code_path: []const u8, allocator: std.mem.Allocator) !std.Array
     var input_file = try std.fs.cwd().openFile(code_path, .{ .mode = .read_only });
     defer input_file.close();
 
-    const ta = try parser.parse_reader(input_file.reader(), allocator);
+    const ta = try parser.parseReader(input_file.reader(), allocator);
     errdefer tast.freeTeleAstList(ta, allocator);
 
     if (ta.items.len == 0) {

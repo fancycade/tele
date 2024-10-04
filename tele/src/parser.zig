@@ -2664,6 +2664,12 @@ fn extractRecordName(name: []const u8, allocator: std.mem.Allocator) ![]const u8
     return buf;
 }
 
+test "extract record name" {
+    const result = try extractRecordName("#foo(", test_allocator);
+    try std.testing.expect(std.mem.eql(u8, result, "foo"));
+    test_allocator.free(result);
+}
+
 fn checkParenStartPeek(token_queue: *TokenQueue) !bool {
     const peek_node = try token_queue.peek();
     return isParenStart(peek_node.*.body);

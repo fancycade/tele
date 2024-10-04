@@ -2397,7 +2397,7 @@ test "parse operator expression" {
     const expected = try tele_ast.makeOp(try util.copyString("+", talloc), arg1, arg2, talloc);
     try std.testing.expect(tele_ast.equal(result, expected));
 
-    tele_ast.freeFeleAst(result, talloc);
+    tele_ast.freeTeleAst(result, talloc);
     tele_ast.freeTeleAst(expected, talloc);
 }
 
@@ -2425,7 +2425,7 @@ test "parse tuple" {
     const parser = try fileToParser("snippets/tuple.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parse_tuple(parser.*.token_queue, false);
+    const result = try parser.parseTuple(parser.*.token_queue, false);
 
     const e1 = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
     const e2 = try tele_ast.makeInt(try util.copyString("2", talloc), talloc);

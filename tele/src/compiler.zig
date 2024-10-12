@@ -251,6 +251,12 @@ test "tele to erlang atom" {
 
     test_allocator.free(e3.*.body);
     test_allocator.destroy(e3);
+
+    const e4 = try teleToErlangAtom(&TeleAst{ .body = "#'foo bar'", .ast_type = TeleAstType.atom, .children = null, .col = 0 }, test_allocator);
+    try std.testing.expect(erlang_ast.equal(e4, &ErlangAst{ .body = "'foo bar'", .ast_type = ErlangAstType.atom, .children = null }));
+
+    test_allocator.free(e4.*.body);
+    test_allocator.destroy(e4);
 }
 
 fn teleToErlangBinary(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
@@ -264,6 +270,13 @@ test "tele to erlang binary" {
 
     test_allocator.free(e.*.body);
     test_allocator.destroy(e);
+
+    const e2 = try teleToErlangBinary(&TeleAst{ .body = "<<\"foo\">>", .ast_type = TeleAstType.binary, .children = null, .col = 0 }, test_allocator);
+
+    try std.testing.expect(erlang_ast.equal(e2, &ErlangAst{ .body = "<<\"foo\">>", .ast_type = ErlangAstType.binary, .children = null }));
+
+    test_allocator.free(e2.*.body);
+    test_allocator.destroy(e2);
 }
 
 fn teleToErlangVariable(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
@@ -330,6 +343,27 @@ test "tele to erlang variable" {
 
     test_allocator.free(e2.*.body);
     test_allocator.destroy(e2);
+
+    const e3 = try teleToErlangVariable(&TeleAst{ .body = "a#foo.x", .ast_type = TeleAstType.variable, .children = null, .col = 0 }, test_allocator);
+    try std.testing.expect(erlang_ast.equal(e3, &ErlangAst{ .body = "A#foo.x", .ast_type = ErlangAstType.variable, .children = null }));
+
+    test_allocator.free(e3.*.body);
+    test_allocator.destroy(e3);
+
+    const e4 = try teleToErlangVariable(&TeleAst{ .body = "foo.bar", .ast_type = TeleAstType.variable, .children = null, .col = 0 }, test_allocator);
+    try std.testing.expect(erlang_ast.equal(e4, &ErlangAst{ .body = "foo:bar", .ast_type = ErlangAstType.variable, .children = null }));
+    test_allocator.free(e4.*.body);
+    test_allocator.destroy(e4);
+
+    const e5 = try teleToErlangVariable(&TeleAst{ .body = "@foo", .ast_type = TeleAstType.variable, .children = null, .col = 0 }, test_allocator);
+    try std.testing.expect(erlang_ast.equal(e5, &ErlangAst{ .body = "Foo", .ast_type = ErlangAstType.variable, .children = null }));
+    test_allocator.free(e5.*.body);
+    test_allocator.destroy(e5);
+
+    const e6 = try teleToErlangVariable(&TeleAst{ .body = "_foo", .ast_type = TeleAstType.variable, .children = null, .col = 0 }, test_allocator);
+    try std.testing.expect(erlang_ast.equal(e6, &ErlangAst{ .body = "_Foo", .ast_type = ErlangAstType.variable, .children = null }));
+    test_allocator.free(e6.*.body);
+    test_allocator.destroy(e6);
 }
 
 fn compileChildren(tc: ?std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !?std.ArrayList(*const ErlangAst) {

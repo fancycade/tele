@@ -56,21 +56,21 @@ Scientific notation:
 
 ### Atoms
 
-Atoms are like Scheme. They are prefixed with a '
+tele's atom syntax is similar to LISP. They are prefixed with a '. Here is an example:
 
     'hello
 
 EXPERIMENTAL:
 
-Optionally end the prefix with another tick:
-
-    'hello'
-
-This is mostly useful for when you put a space in an atom:
+Erlang supports atom's with special characters such as spaces.
 
     'hello world'
 
-This is valid in Erlang, but might not be in Tele. Instead use binary_to_atom("hello world").
+Single quotes are an alternate syntax for atom's. Tele's apostrophe syntax cannot support the case of an atom with spaces.
+Instead tele also has an alternate syntax for atom's. Prefixing single quote atom's with a # means we want a single quote delimited
+atom. The above Erlang example would look like this in Tele:
+
+    #'hello world'
 
 ### Bit Strings
 
@@ -263,8 +263,8 @@ Erlang can handle exceptions with try/catch statements. The syntax for this in t
     try 42 / 0:
        result: result
     catch:
-       e.exception:
-         #('error, #(e, exception))
+       @e.@exception:
+         #('error, #(@e, @exception))
 
 ### Function Definitions
 
@@ -303,12 +303,12 @@ the possibility of mixing fun and funp. The first fun defines if it is public or
     fun factorial (0, acc): acc
                   (n, acc): factorial(n - 1, acc * n)
 
-We can see that this is similar to the match syntax:
+We can see that this is similar to the case syntax:
 
     spec foobar (any(), 'thing): any()
                 ('stuff, any()): any()
     fun foobar(y, z):
-      match #(y, z):
+      case #(y, z):
         #(x, 'thing): x
         #('stuff, x): x
 
@@ -334,7 +334,7 @@ Inside attributes, besides `define`, any fun vals are converted to `name/arity` 
 
 For example:
 
-    nifs([#hello/2])
+    nifs([fun hello/2])
 
 Becomes:
 
@@ -350,19 +350,22 @@ Tele equivalent of this Erlang code:
 
 Would be:
 
-    import foo_mod(do_thing/1, do_thing2/3)
+    import foo_mod(
+      fun do_thing/1, 
+      fun do_thing2/3
+    )
 
 ## on_load
 
-    on_load(init_info/2)
+    on_load(fun init_info/2)
 
 ## nifs
 
-    nifs([native_call/2, native_other_call/3])
+    nifs([fun native_call/2, fun native_other_call/3])
 
 ## export_type
 
-    export_type([some_type/0])
+    export_type([#('some_type, 0)])
 
 ## behaviour
 

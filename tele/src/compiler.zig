@@ -220,7 +220,9 @@ test "tele to erlang float" {
 
 fn teleToErlangAtom(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     var buf: []const u8 = undefined;
-    if (t.*.body[0] == '\'' and t.*.body[t.*.body.len - 1] != '\'') {
+    if (t.*.body[0] == '#') {
+        buf = try util.copyString(t.*.body[1..t.*.body.len], allocator);
+    } else if (t.*.body[0] == '\'' and t.*.body[t.*.body.len - 1] != '\'') {
         buf = try util.copyString(t.*.body[1..t.*.body.len], allocator);
     } else {
         buf = try util.copyString(t.*.body, allocator);

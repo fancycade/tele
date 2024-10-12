@@ -26,7 +26,7 @@ io.read
 [1, 2, 3]
 ++
 a#person(x=2)
-#foo/2
 "foo bar"
-#foo/2]
 ::
+#'foo bar'
+#'basic.ok'()

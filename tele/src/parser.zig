@@ -2911,12 +2911,21 @@ test "is int" {
 }
 
 fn isAtom(buf: []const u8) bool {
-    return buf[0] == '\'';
+    if (buf[0] == '\'') {
+        return true;
+    } else if (buf[0] == '#') {
+        if (buf[1] == '\'' and buf[buf.len - 1] == '\'') {
+            return true;
+        }
+    }
+    return false;
 }
 
 test "is atom" {
     try std.testing.expect(isAtom("'foo"));
     try std.testing.expect(!isAtom("foo"));
+    try std.testing.expect(isAtom("#'foo bar'"));
+    try std.testing.expect(!isAtom("#'foo bar"));
 }
 
 fn isBinary(buf: []const u8) bool {

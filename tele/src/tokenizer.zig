@@ -278,7 +278,7 @@ pub fn readTokens(r: anytype, allocator: std.mem.Allocator) !*TokenQueue {
     return queue;
 }
 
-const TokenMode = enum { word, op, hash, bit_string, binary, none };
+const TokenMode = enum { word, op, hash, bit_string, binary, atom, none };
 
 fn readToken(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext, tokenizer: *Tokenizer) !bool {
     ctx.line_number = ctx.next_line_number;
@@ -374,6 +374,8 @@ fn readToken(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext, tokenizer: *
                     if (!funval_mode) {
                         if (pb == '/') {
                             funval_mode = true;
+                        } else if (pb == '\'') {
+                            mode = TokenMode.atom;
                         }
                     } else {
                         return false;
@@ -383,6 +385,28 @@ fn readToken(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext, tokenizer: *
                 try l.append(try tokenizer.nextChar(r));
                 ctx.*.next_col_number += 1;
                 if (pb == '(') { // Is tuple start
+                    return false;
+                }
+            },
+            .atom => {
+                try l.append(try tokenizer.nextChar(r));
+                ctx.*.next_col_number += 1;
+                if (pb == '\'') {
+                    const pb2 = tokenizer.peekChar(r) catch |err| switch (err) {
+                        error.EndOfStream => {
+                            return false;
+                        },
+                        else => {
+                            return err;
+                        },
+                    };
+
+                    if (pb2 == '(') {
+                        try l.append(try tokenizer.nextChar(r));
+                        ctx.*.next_col_number += 1;
+                        return false;
+                    }
+
                     return false;
                 }
             },
@@ -446,7 +470,7 @@ fn newline(c: u8) bool {
 
 fn specialChar(c: u8) bool {
     switch (c) {
-        '(', ')', '{', '}', '[', ']', ':', ',', '#', '-', '+', '/', '*', '<', '>', '|', '=', '"' => {
+        '(', ')', '{', '}', '[', ']', ':', ',', '#', '-', '+', '/', '*', '<', '>', '|', '=', '"', '\'' => {
             return true;
         },
         else => {},
@@ -940,43 +964,43 @@ test "read token" {
     list.clearAndFree();
 
     _ = try readToken(file.reader(), &list, &ctx, tokenizer);
-    try expect(eql(u8, list.items, "#foo/2"));
+    try expect(eql(u8, list.items, "\"foo bar\""));
     try expect(ctx.line_number == 28);
     try expect(ctx.col_number == 0);
     try expect(ctx.next_line_number == 28);
-    try expect(ctx.next_col_number == 6);
-    list.clearAndFree();
-
-    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
-    try expect(eql(u8, list.items, "\"foo bar\""));
-    try expect(ctx.line_number == 29);
-    try expect(ctx.col_number == 0);
-    try expect(ctx.next_line_number == 29);
     try expect(ctx.next_col_number == 9);
     list.clearAndFree();
 
     _ = try readToken(file.reader(), &list, &ctx, tokenizer);
-    try expect(eql(u8, list.items, "#foo/2"));
+    try expect(eql(u8, list.items, "::"));
+    try expect(ctx.line_number == 29);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 29);
+    try expect(ctx.next_col_number == 2);
+    list.clearAndFree();
+
+    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, "#'foo bar'"));
     try expect(ctx.line_number == 30);
     try expect(ctx.col_number == 0);
     try expect(ctx.next_line_number == 30);
-    try expect(ctx.next_col_number == 6);
+    try expect(ctx.next_col_number == 10);
     list.clearAndFree();
 
     _ = try readToken(file.reader(), &list, &ctx, tokenizer);
-    try expect(eql(u8, list.items, "]"));
-    try expect(ctx.line_number == 30);
-    try expect(ctx.col_number == 6);
-    try expect(ctx.next_line_number == 30);
-    try expect(ctx.next_col_number == 7);
-    list.clearAndFree();
-
-    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
-    try expect(eql(u8, list.items, "::"));
+    try expect(eql(u8, list.items, "#'basic.ok'("));
     try expect(ctx.line_number == 31);
     try expect(ctx.col_number == 0);
     try expect(ctx.next_line_number == 31);
-    try expect(ctx.next_col_number == 2);
+    try expect(ctx.next_col_number == 12);
+    list.clearAndFree();
+
+    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, ")"));
+    try expect(ctx.line_number == 31);
+    try expect(ctx.col_number == 12);
+    try expect(ctx.next_line_number == 31);
+    try expect(ctx.next_col_number == 13);
 
     const eof = try readToken(file.reader(), &list, &ctx, tokenizer);
     try expect(eof);

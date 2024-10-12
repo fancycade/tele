@@ -17,14 +17,19 @@ record point: #(x, y)
 
 type stuff: integer | float
 
-
 fun fooboo():
   a = #point(x=0, y=0)
   a2 = a#point(x=42)
   a2#point.x
 
+fun atom_fun():
+  'a
+
+fun fooboo3():
+  put('a, 2)
+
 fun fooboo2():
-  maps.put('a, 2)
+  maps.put({}, 'a, 2)
 
 spec stuff(integer()): integer()
 fun stuff(x): x + 2
@@ -117,3 +122,5 @@ fun routes():
    ],
    "post": [#('mid, 'log_mid)]}
 
+fun alt_atom():
+  #'basic.cmd'

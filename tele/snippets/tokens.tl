@@ -30,3 +30,4 @@ a#person(x=2)
 ::
 #'foo bar'
 #'basic.ok'()
+'ok,

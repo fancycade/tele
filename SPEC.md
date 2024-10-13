@@ -256,6 +256,17 @@ Case expressions are very similar to Erlang:
         ok = 'ok
         #(ok, 'failure)
 
+#### Receive Expressions
+
+Erlang has a builtin keyword receive that is meant to be used for handling messages sent to a process. In Tele,
+it is like a case statement without a variable to match on. Here is an example:
+
+    receive:
+      #('msg, msg):
+        'ok
+      _:
+        #('error, 'unhandled_message)
+
 ### Try Catch Statements
 
 Erlang can handle exceptions with try/catch statements. The syntax for this in tele is similar to match statements.

@@ -767,6 +767,44 @@ fn teleToErlangParenExp(t: *const TeleAst, allocator: std.mem.Allocator) !*Erlan
     return e;
 }
 
+test "compile paren exp" {
+    var t_child1 = TeleAst{ .body = "1", .ast_type = TeleAstType.int, .children = null, .col = 0 };
+    var t_child2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0 };
+
+    var t_children = std.ArrayList(*TeleAst).init(test_allocator);
+    try t_children.append(&t_child1);
+    try t_children.append(&t_child2);
+
+    var t_op = TeleAst{ .body = "+", .ast_type = TeleAstType.op, .children = t_children, .col = 0 };
+
+    var t_children2 = std.ArrayList(*TeleAst).init(test_allocator);
+    try t_children2.append(&t_op);
+
+    const t_paren_exp = TeleAst{ .body = "", .ast_type = TeleAstType.paren_exp, .children = t_children2, .col = 0 };
+
+    var e_child1 = ErlangAst{ .body = "1", .ast_type = ErlangAstType.int, .children = null };
+    var e_child2 = ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null };
+    var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
+    try e_children.append(&e_child1);
+    try e_children.append(&e_child2);
+
+    var e_op = ErlangAst{ .body = "+", .ast_type = ErlangAstType.op, .children = e_children };
+
+    var e_children2 = std.ArrayList(*const ErlangAst).init(test_allocator);
+    try e_children2.append(&e_op);
+
+    var expected = ErlangAst{ .body = "", .ast_type = ErlangAstType.paren_exp, .children = e_children2 };
+
+    const result = try teleToErlangParenExp(&t_paren_exp, test_allocator);
+    try std.testing.expect(erlang_ast.equal(&expected, result));
+
+    t_children.deinit();
+    t_children2.deinit();
+    e_children.deinit();
+    e_children2.deinit();
+    erlang_ast.destroy(result, test_allocator);
+}
+
 fn teleToErlangGuardClause(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const children = try compileChildren(t.*.children, allocator);
     return try erlang_ast.makeCollection(children, ErlangAstType.guard_clause, allocator);
@@ -808,11 +846,29 @@ fn teleToErlangFunctionSignature(t: *const TeleAst, allocator: std.mem.Allocator
 }
 
 test "tele to erlang function signature" {
-    const e = try teleToErlangFunctionSignature(&TeleAst{ .body = "", .ast_type = TeleAstType.function_signature, .children = null, .col = 0 }, test_allocator);
+    var t_child1 = TeleAst{ .body = "a", .ast_type = TeleAstType.variable, .children = null, .col = 0 };
+    var t_child2 = TeleAst{ .body = "b", .ast_type = TeleAstType.variable, .children = null, .col = 0 };
+    var t_children = std.ArrayList(*TeleAst).init(test_allocator);
+    try t_children.append(&t_child1);
+    try t_children.append(&t_child2);
 
-    try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "", .ast_type = ErlangAstType.function_signature, .children = null }));
+    const e_child1 = ErlangAst{ .body = "A", .ast_type = ErlangAstType.variable, .children = null };
+    const e_child2 = ErlangAst{ .body = "B", .ast_type = ErlangAstType.variable, .children = null };
+    var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
+    try e_children.append(&e_child1);
+    try e_children.append(&e_child2);
+    const e = try teleToErlangFunctionSignature(&TeleAst{ .body = "", .ast_type = TeleAstType.function_signature, .children = t_children, .col = 0 }, test_allocator);
 
+    try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "", .ast_type = ErlangAstType.function_signature, .children = e_children }));
+
+    t_children.deinit();
+    e_children.deinit();
     erlang_ast.destroy(e, test_allocator);
+
+    // Handle empty children case
+    const e2 = try teleToErlangFunctionSignature(&TeleAst{ .body = "", .ast_type = TeleAstType.function_signature, .children = null, .col = 0 }, test_allocator);
+    try std.testing.expect(erlang_ast.equal(e2, &ErlangAst{ .body = "", .ast_type = ErlangAstType.function_signature, .children = null }));
+    erlang_ast.destroy(e2, test_allocator);
 }
 
 fn teleToErlangAnonymousFunction(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {

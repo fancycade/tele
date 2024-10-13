@@ -378,6 +378,29 @@ fn compileChildren(tc: ?std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !
     }
 }
 
+test "compile children" {
+    var l = std.ArrayList(*TeleAst).init(test_allocator);
+    var t1 = TeleAst{ .body = "foo", .ast_type = TeleAstType.variable, .children = null, .col = 0 };
+    var t2 = TeleAst{ .body = "bar", .ast_type = TeleAstType.variable, .children = null, .col = 0 };
+    try l.append(&t1);
+    try l.append(&t2);
+
+    const l2 = try compileChildren(l, test_allocator);
+
+    try std.testing.expect(l2 != null);
+
+    var expected = std.ArrayList(*const ErlangAst).init(test_allocator);
+    try expected.append(&ErlangAst{ .body = "Foo", .ast_type = ErlangAstType.variable, .children = null });
+    try expected.append(&ErlangAst{ .body = "Bar", .ast_type = ErlangAstType.variable, .children = null });
+
+    for (l2.?.items, expected.items) |t, e| {
+        try std.testing.expect(erlang_ast.equal(t, e));
+    }
+    l.deinit();
+    expected.deinit();
+    erlang_ast.free_erlang_ast_list(l2.?, test_allocator);
+}
+
 fn teleToErlangTuple(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const children = try compileChildren(t.*.children, allocator);
     return try erlang_ast.makeCollection(children, ErlangAstType.tuple, allocator);
@@ -540,6 +563,20 @@ fn teleToErlangFunVal(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangA
     return e;
 }
 
+test "tele to erlang function val" {
+    var t_fun_val = TeleAst{ .body = "foo/2", .ast_type = TeleAstType.fun_val, .children = null, .col = 0 };
+    const e_fun_val = ErlangAst{ .body = "foo/2", .ast_type = ErlangAstType.fun_val, .children = null };
+    const result = try teleToErlangFunVal(&t_fun_val, test_allocator);
+    try std.testing.expect(erlang_ast.equal(&e_fun_val, result));
+    erlang_ast.destroy(result, test_allocator);
+
+    var t_fun_val2 = TeleAst{ .body = "foo.bar/2", .ast_type = TeleAstType.fun_val, .children = null, .col = 0 };
+    const e_fun_val2 = ErlangAst{ .body = "foo:bar/2", .ast_type = ErlangAstType.fun_val, .children = null };
+    const result2 = try teleToErlangFunVal(&t_fun_val2, test_allocator);
+    try std.testing.expect(erlang_ast.equal(&e_fun_val2, result2));
+    erlang_ast.destroy(result2, test_allocator);
+}
+
 fn teleToErlangFunctionCall(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const e = try allocator.create(ErlangAst);
     e.*.ast_type = ErlangAstType.function_call;
@@ -557,8 +594,7 @@ fn teleToErlangFunctionCall(t: *const TeleAst, allocator: std.mem.Allocator) !*E
 
         e.*.body = buf;
     } else {
-        const buf = try allocator.alloc(u8, t.*.body.len);
-        std.mem.copyForwards(u8, buf, t.*.body);
+        const buf = try copyFunctionCallSection(t.*.body, allocator);
 
         e.*.body = buf;
     }
@@ -566,6 +602,58 @@ fn teleToErlangFunctionCall(t: *const TeleAst, allocator: std.mem.Allocator) !*E
     e.*.children = try compileChildren(t.*.children, allocator);
 
     return e;
+}
+
+test "compile function call" {
+    var t_children = std.ArrayList(*TeleAst).init(test_allocator);
+    var t_arg1 = TeleAst{ .body = "1", .ast_type = TeleAstType.int, .children = null, .col = 0 };
+    var t_arg2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0 };
+    try t_children.append(&t_arg1);
+    try t_children.append(&t_arg2);
+
+    const t_fcall = TeleAst{ .body = "foo", .ast_type = TeleAstType.function_call, .children = t_children, .col = 0 };
+
+    var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
+    var e_arg1 = ErlangAst{ .body = "1", .ast_type = ErlangAstType.int, .children = null };
+    var e_arg2 = ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null };
+    try e_children.append(&e_arg1);
+    try e_children.append(&e_arg2);
+    const expected = ErlangAst{ .body = "foo", .ast_type = ErlangAstType.function_call, .children = e_children };
+
+    const result = try teleToErlangFunctionCall(&t_fcall, test_allocator);
+    try std.testing.expect(erlang_ast.equal(result, &expected));
+
+    const t_fcall2 = TeleAst{ .body = "foo.bar", .ast_type = TeleAstType.function_call, .children = t_children, .col = 0 };
+    const expected2 = ErlangAst{ .body = "foo:bar", .ast_type = ErlangAstType.function_call, .children = e_children };
+
+    const result2 = try teleToErlangFunctionCall(&t_fcall2, test_allocator);
+    try std.testing.expect(erlang_ast.equal(result2, &expected2));
+
+    const t_fcall3 = TeleAst{ .body = "@foo", .ast_type = TeleAstType.function_call, .children = t_children, .col = 0 };
+    const expected3 = ErlangAst{ .body = "Foo", .ast_type = ErlangAstType.function_call, .children = e_children };
+
+    const result3 = try teleToErlangFunctionCall(&t_fcall3, test_allocator);
+    try std.testing.expect(erlang_ast.equal(result3, &expected3));
+
+    const t_fcall4 = TeleAst{ .body = "@foo.bar", .ast_type = TeleAstType.function_call, .children = t_children, .col = 0 };
+    const expected4 = ErlangAst{ .body = "Foo:bar", .ast_type = ErlangAstType.function_call, .children = e_children };
+
+    const result4 = try teleToErlangFunctionCall(&t_fcall4, test_allocator);
+    try std.testing.expect(erlang_ast.equal(result4, &expected4));
+
+    const t_fcall5 = TeleAst{ .body = "@foo.@bar", .ast_type = TeleAstType.function_call, .children = t_children, .col = 0 };
+    const expected5 = ErlangAst{ .body = "Foo:Bar", .ast_type = ErlangAstType.function_call, .children = e_children };
+
+    const result5 = try teleToErlangFunctionCall(&t_fcall5, test_allocator);
+    try std.testing.expect(erlang_ast.equal(result5, &expected5));
+
+    t_children.deinit();
+    e_children.deinit();
+    erlang_ast.destroy(result, test_allocator);
+    erlang_ast.destroy(result2, test_allocator);
+    erlang_ast.destroy(result3, test_allocator);
+    erlang_ast.destroy(result4, test_allocator);
+    erlang_ast.destroy(result5, test_allocator);
 }
 
 fn findDot(buf: []const u8) usize {
@@ -577,6 +665,14 @@ fn findDot(buf: []const u8) usize {
         i += 1;
     }
     return 0;
+}
+
+test "find dot" {
+    const result = findDot("foo.bar");
+    try std.testing.expect(result == 3);
+
+    const result2 = findDot("foo");
+    try std.testing.expect(result2 == 0);
 }
 
 fn copyFunctionCallSection(buf: []const u8, allocator: std.mem.Allocator) ![]const u8 {
@@ -592,6 +688,16 @@ fn copyFunctionCallSection(buf: []const u8, allocator: std.mem.Allocator) ![]con
         std.mem.copyForwards(u8, buf2, buf);
         return buf2;
     }
+}
+
+test "copy function call section" {
+    const result = try copyFunctionCallSection("@foobar", test_allocator);
+    try std.testing.expect(std.mem.eql(u8, result, "Foobar"));
+    test_allocator.free(result);
+
+    const result2 = try copyFunctionCallSection("foobar", test_allocator);
+    try std.testing.expect(std.mem.eql(u8, result2, "foobar"));
+    test_allocator.free(result2);
 }
 
 test "tele to erlang function call" {

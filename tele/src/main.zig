@@ -63,6 +63,8 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
         try formatFile(code_path, allocator);
     } else if (std.mem.eql(u8, "build", command)) {
         try build(allocator);
+    } else if (std.mem.eql(u8, "test", command)) {
+        try eunit(allocator);
     } else {
         // TODO: Better error message
         return error.InvalidArgs;
@@ -97,10 +99,22 @@ fn build(allocator: std.mem.Allocator) !void {
     try file.seekTo(stat.size);
 
     var w = file.writer();
-    _ = try w.write("{src_dirs, [\"src\", \"_build/_tele\"]}.\n");
+    _ = try w.write("\n{src_dirs, [\"src\", \"_build/_tele\"]}.\n");
 
     // Run rebar3 compile with modified rebar.config
     const argv = [_][]const u8{ "rebar3", "compile" };
+    var em = try std.process.getEnvMap(allocator);
+    defer em.deinit();
+    try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
+    const result = try std.ChildProcess.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    std.debug.print("{s}", .{result.stdout});
+}
+
+fn eunit(allocator: std.mem.Allocator) !void {
+    // Run rebar3 compile with modified rebar.config
+    const argv = [_][]const u8{ "rebar3", "eunit" };
     var em = try std.process.getEnvMap(allocator);
     defer em.deinit();
     try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");

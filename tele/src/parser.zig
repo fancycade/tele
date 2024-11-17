@@ -920,6 +920,10 @@ pub const Parser = struct {
             ast = self.parseCaseExpression(token_queue) catch {
                 return ParserError.ParsingFailure;
             };
+        } else if (isReceiveKeyword(pn.*.body)) {
+            ast = self.parseReceiveExpression(token_queue) catch {
+                return ParserError.ParsingFailure;
+            };
         } else if (isTryKeyword(pn.*.body)) {
             ast = self.parseTryCatch(token_queue) catch {
                 return ParserError.ParsingFailure;
@@ -1863,6 +1867,10 @@ pub const Parser = struct {
                     } else if (isCatchKeyword(peek_node.*.body)) {
                         nested_body = true;
                         nested_body_col = peek_node.*.col;
+                    } else if (isReceiveKeyword(peek_node.*.body)) {
+                        nested_body = true;
+                        nested_body_col = peek_node.*.col;
+                        signature_ready = true;
                     }
                 } else {
                     if (peek_node.*.col <= nested_body_col) {
@@ -2039,6 +2047,57 @@ pub const Parser = struct {
         }
 
         return alist;
+    }
+
+    fn parseReceiveExpression(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        // Pop off receive keyword
+        const n = try token_queue.pop();
+        const current_col = n.*.col;
+        self.allocator.free(n.*.body);
+        self.allocator.destroy(n);
+
+        // Pop off colon
+        const nc = try token_queue.pop();
+        self.allocator.free(nc.*.body);
+        self.allocator.destroy(nc);
+
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
+
+        while (!token_queue.empty()) {
+            const pnode2 = token_queue.peek() catch {
+                return ParserError.ParsingFailure;
+            };
+
+            if (pnode2.*.col <= current_col) {
+                break;
+            } else {
+                const node = try token_queue.pop();
+                errdefer self.allocator.free(node.*.body);
+                errdefer self.allocator.destroy(node);
+
+                buffer_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                    return ParserError.ParsingFailure;
+                };
+
+                self.allocator.destroy(node);
+            }
+        }
+
+        const body = try self.parseCaseBody(buffer_token_queue);
+        errdefer tele_ast.freeTeleAstList(body, self.allocator);
+        if (!buffer_token_queue.empty()) {
+            return ParserError.ParsingFailure;
+        }
+        buffer_token_queue.deinit();
+
+        const final_ast = try self.allocator.create(TeleAst);
+        final_ast.*.body = "";
+        final_ast.*.ast_type = TeleAstType.receive_exp;
+        final_ast.*.children = body;
+        final_ast.*.col = 0;
+
+        return final_ast;
     }
 
     fn parseTryCatch(self: *Self, token_queue: *TokenQueue) !*TeleAst {
@@ -3163,6 +3222,15 @@ fn isCaseKeyword(buf: []const u8) bool {
 test "is case keyword" {
     try std.testing.expect(isCaseKeyword("case"));
     try std.testing.expect(!isCaseKeyword("foobar"));
+}
+
+fn isReceiveKeyword(buf: []const u8) bool {
+    return std.mem.eql(u8, "receive", buf);
+}
+
+test "is receive keyword" {
+    try std.testing.expect(isReceiveKeyword("receive"));
+    try std.testing.expect(!isReceiveKeyword("receive"));
 }
 
 fn isTryKeyword(buf: []const u8) bool {

@@ -164,6 +164,11 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
+        .receive_exp => {
+            return teleToErlangReceive(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         .attribute => {
             return teleToErlangAttribute(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -1024,6 +1029,13 @@ fn teleToErlangCase(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst
 }
 
 test "tele to erlang case" {}
+
+fn teleToErlangReceive(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeCollection(children, ErlangAstType.receive_exp, allocator);
+}
+
+test "test to erlang receive" {}
 
 fn teleToErlangTryCatch(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     const children = try compileChildren(t.*.children, allocator);

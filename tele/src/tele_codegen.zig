@@ -354,6 +354,26 @@ pub const Context = struct {
         try self.popPadding();
     }
 
+    pub fn writeReceive(self: *Self, w: anytype, a: *const Ast) !void {
+        try self.writePadding(w);
+        _ = try w.write("receive:\n");
+
+        var i: usize = 0;
+        var loop = true;
+        try self.pushPadding(self.currentPadding() + 2);
+        const len = a.children.?.items.len;
+        while (loop) {
+            try self.writeAst(w, a.children.?.items[i]);
+            i = i + 1;
+            if (i >= len) {
+                loop = false;
+            } else {
+                _ = try w.write("\n");
+            }
+        }
+        try self.popPadding();
+    }
+
     pub fn writeTryCatch(self: *Self, w: anytype, a: *const Ast) !void {
         try self.writeTryExp(w, a.*.children.?.items[0]);
         try self.writeCatchExp(w, a.*.children.?.items[1]);
@@ -783,6 +803,11 @@ pub const Context = struct {
             },
             .catch_exp => {
                 self.writeCatchExp(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .receive_exp => {
+                self.writeReceive(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

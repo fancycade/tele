@@ -17,7 +17,7 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "tele",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{ .src_path = .{ .sub_path = "src/main.zig", .owner = b }},
         .target = target,
         .optimize = optimize,
     });
@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) void {
 
     for (src) |path| {
         const unit_tests = b.addTest(.{
-            .root_source_file = .{ .path = path },
+            .root_source_file = .{ .src_path = .{ .sub_path = path, .owner = b }},
             .target = target,
             .optimize = optimize,
         });

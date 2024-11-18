@@ -106,7 +106,7 @@ fn build(allocator: std.mem.Allocator) !void {
     var em = try std.process.getEnvMap(allocator);
     defer em.deinit();
     try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
-    const result = try std.ChildProcess.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
+    const result = try std.process.Child.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
     std.debug.print("{s}", .{result.stdout});
@@ -118,7 +118,7 @@ fn eunit(allocator: std.mem.Allocator) !void {
     var em = try std.process.getEnvMap(allocator);
     defer em.deinit();
     try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
-    const result = try std.ChildProcess.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
+    const result = try std.process.Child.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
     std.debug.print("{s}", .{result.stdout});

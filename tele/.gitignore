@@ -6,3 +6,4 @@ zig-out/
 *.tl
 !basic.tl
 !snippets/*.tl
+.zig-cache/

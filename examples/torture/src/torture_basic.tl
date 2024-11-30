@@ -96,3 +96,19 @@ fun hello_erlang_lists_map(l):
       x + 2,
     l
   )
+
+fun hello_fun_val(f):
+  @f()
+
+fun hello_mod_fun_val(m, f):
+  @m.@f()
+
+fun hello_call_me():
+  42
+
+fun hello_try_catch():
+  try 1 = 'ok:
+    result: result
+  catch:
+    _._:
+      42

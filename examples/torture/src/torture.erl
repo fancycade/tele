@@ -118,5 +118,15 @@ torture_basic_hello_erlang_lists_map_test() ->
         [3, 4, 5],
         torture_basic:hello_erlang_lists_map([1, 2, 3])
     ).
-    
+
+torture_basic_hello_fun_val_test() ->
+    F = fun () -> 42 end,
+    ?assertEqual(42, torture_basic:hello_fun_val(F)).
+
+torture_basic_hello_mod_fun_val_test() ->
+    ?assertEqual(42, torture_basic:hello_mod_fun_val(torture_basic, hello_call_me)).
+
+torture_basic_try_catch_test() ->
+    ?assertEqual(42, torture_basic:hello_try_catch()).
+
 -endif.

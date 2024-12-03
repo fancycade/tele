@@ -107,7 +107,7 @@ fun hello_call_me():
   42
 
 fun hello_try_catch():
-  try 1 = 'ok:
+  try throw("oops!"):
     result: result
   catch:
     _._:

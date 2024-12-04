@@ -169,7 +169,7 @@ More examples:
           z = x + y
           z + 42
 
-    f2 = (x, y): f(x, y)
+    f2 = fun (x, y): f(x, y)
 
 Passing functions as values requires similar syntax as Erlang:
 
@@ -452,7 +452,7 @@ Opaque type aliases are:
 
     opaque foo(): integer()
 
-Unlike Erlang, parentheses for types optional.
+Unlike Erlang, parentheses for types are optional.
 
 Both of the syntaxes below are valid.
 

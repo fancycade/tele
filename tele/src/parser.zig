@@ -1096,8 +1096,12 @@ pub const Parser = struct {
         if (type_exp and buf[0] != '@') {
             const t = try self.allocator.create(TeleAst);
             t.*.body = buf;
-            t.*.ast_type = TeleAstType.function_call;
-            t.*.children = std.ArrayList(*TeleAst).init(self.allocator);
+            if (buf[0] == '#') {
+                t.*.ast_type = TeleAstType.record;
+            } else {
+                t.*.ast_type = TeleAstType.function_call;
+            }
+            t.*.children = null;
             t.*.col = 0;
             return t;
         } else {
@@ -2444,6 +2448,45 @@ pub const Parser = struct {
     }
 };
 
+test "parse variable" {
+    const token_queue = try TokenQueue.init(talloc);
+
+    const parser = try Parser.init(token_queue, talloc);
+    defer parser.deinit();
+
+    const result = try parser.parseVariable(try util.copyString("a", talloc), false);
+    const expected = try tele_ast.makeVariable(try util.copyString("a", talloc), talloc);
+
+    try std.testing.expect(tele_ast.equal(result, expected));
+
+    tele_ast.freeTeleAst(result, talloc);
+    tele_ast.freeTeleAst(expected, talloc);
+
+    const result2 = try parser.parseVariable(try util.copyString("point", talloc), true);
+    const expected2 = try tele_ast.makeValue(try util.copyString("point", talloc), TeleAstType.function_call, talloc);
+
+    try std.testing.expect(tele_ast.equal(result2, expected2));
+
+    tele_ast.freeTeleAst(result2, talloc);
+    tele_ast.freeTeleAst(expected2, talloc);
+
+    const result3 = try parser.parseVariable(try util.copyString("@stuff", talloc), true);
+    const expected3 = try tele_ast.makeVariable(try util.copyString("@stuff", talloc), talloc);
+
+    try std.testing.expect(tele_ast.equal(result3, expected3));
+
+    tele_ast.freeTeleAst(result3, talloc);
+    tele_ast.freeTeleAst(expected3, talloc);
+
+    const result4 = try parser.parseVariable(try util.copyString("#point", talloc), true);
+    const expected4 = try tele_ast.makeValue(try util.copyString("#point", talloc), TeleAstType.record, talloc);
+
+    try std.testing.expect(tele_ast.equal(result4, expected4));
+
+    tele_ast.freeTeleAst(result4, talloc);
+    tele_ast.freeTeleAst(expected4, talloc);
+}
+
 test "parse operator expression" {
     const parser = try fileToParser("snippets/op.tl", talloc);
     defer parser.deinit();
@@ -3230,7 +3273,7 @@ fn isReceiveKeyword(buf: []const u8) bool {
 
 test "is receive keyword" {
     try std.testing.expect(isReceiveKeyword("receive"));
-    try std.testing.expect(!isReceiveKeyword("receive"));
+    try std.testing.expect(!isReceiveKeyword("recieve"));
 }
 
 fn isTryKeyword(buf: []const u8) bool {

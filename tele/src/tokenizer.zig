@@ -285,7 +285,6 @@ fn readToken(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext, tokenizer: *
     ctx.col_number = ctx.next_col_number;
     var mode: TokenMode = TokenMode.none;
 
-    var funval_mode: bool = false;
     while (!tokenizer.*.eof) {
         const pb = try tokenizer.peekChar(r);
 
@@ -384,13 +383,9 @@ fn readToken(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext, tokenizer: *
                 } else if (newline(pb)) {
                     return false;
                 } else if (specialChar(pb)) {
-                    if (!funval_mode) {
-                        if (pb == '/') {
-                            funval_mode = true;
-                        } else if (pb == '\'') {
-                            mode = TokenMode.atom;
-                        }
-                    } else {
+                    if (pb == '\'') {
+                        mode = TokenMode.atom;
+                    } else if (pb != '(') {
                         return false;
                     }
                 }
@@ -483,7 +478,7 @@ fn newline(c: u8) bool {
 
 fn specialChar(c: u8) bool {
     switch (c) {
-        '(', ')', '{', '}', '[', ']', ':', ',', '#', '-', '+', '/', '*', '<', '>', '|', '=', '"', '\'' => {
+        '(', ')', '{', '}', '[', ']', ':', ',', '#', '-', '+', '/', '*', '<', '>', '|', '=', '"', '\'', '!' => {
             return true;
         },
         else => {},
@@ -493,7 +488,7 @@ fn specialChar(c: u8) bool {
 
 fn opChar(c: u8) bool {
     switch (c) {
-        '-', '+', '/', '*', '<', '>', '=', '|', ':' => {
+        '-', '+', '/', '*', '<', '>', '=', '|', ':', '!' => {
             return true;
         },
         else => {},
@@ -1030,6 +1025,30 @@ test "read token" {
     try expect(ctx.col_number == 3);
     try expect(ctx.next_line_number == 32);
     try expect(ctx.next_col_number == 4);
+    list.clearAndFree();
+
+    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, "#point"));
+    try expect(ctx.line_number == 33);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 33);
+    try expect(ctx.next_col_number == 6);
+    list.clearAndFree();
+
+    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, ")"));
+    try expect(ctx.line_number == 33);
+    try expect(ctx.col_number == 6);
+    try expect(ctx.next_line_number == 33);
+    try expect(ctx.next_col_number == 7);
+    list.clearAndFree();
+
+    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, ":"));
+    try expect(ctx.line_number == 33);
+    try expect(ctx.col_number == 7);
+    try expect(ctx.next_line_number == 33);
+    try expect(ctx.next_col_number == 8);
     list.clearAndFree();
 
     const eof = try readToken(file.reader(), &list, &ctx, tokenizer);

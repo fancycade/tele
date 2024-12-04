@@ -131,14 +131,16 @@ pub const Context = struct {
 
         try self.pushPadding(0);
 
-        var i: usize = 0;
-        for (a.children.?.items) |c| {
-            try self.writeAst(w, c, false);
+        if (a.children != null) {
+            var i: usize = 0;
+            for (a.children.?.items) |c| {
+                try self.writeAst(w, c, false);
 
-            if (i + 1 < a.children.?.items.len) {
-                _ = try w.write(", ");
+                if (i + 1 < a.children.?.items.len) {
+                    _ = try w.write(", ");
+                }
+                i += 1;
             }
-            i += 1;
         }
 
         try self.popPadding();

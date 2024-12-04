@@ -1,8 +1,15 @@
-fun hello():
-  "Hello, World!"
+// This is a single line comment
+
+/* This is a multiline comment */
+
+fun hello(): // comment here
+  "Hello, World!" // and a comment here
 
 fun hello_atom():
   'ok
+
+fun hello_other_atom():
+  #'foo bar'
 
 fun hello_integer_1():
   1
@@ -16,8 +23,15 @@ fun hello_list():
 fun hello_map():
   {"hello": "world"}
 
+fun hello_map_put_val():
+  maps.put('foo, 'bar, {})
+
 fun hello_add(a, b):
   a + b
+
+fun hello_parens():
+  ((2 + 2) + 
+   (2 + 2))
 
 fun hello_equal():
   1 == 1
@@ -112,3 +126,20 @@ fun hello_try_catch():
   catch:
     _._:
       42
+
+fun hello_pass_me(x): x + 2
+fun hello_return_fun_val(): fun hello_pass_me/1
+
+fun hello_multline_fun():
+  f =
+  fun ():
+    a = "Hello World!"
+    b = a
+    c = b
+    c
+  @f()
+
+fun hello_routes():
+  {"pre": #('nine_cowboy_mid, 'json_request),
+   "post": #('logger_mid, 'log),
+   "handle": #('example, 'api)}

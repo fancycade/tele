@@ -12,6 +12,9 @@ stress_basic_hello_test() ->
 stress_basic_hello_atom_test() ->
     ?assertEqual(ok, stress_basic:hello_atom()).
 
+stress_basic_hello_other_atom_test() ->
+    ?assertEqual('foo bar', stress_basic:hello_other_atom()).
+
 stress_basic_hello_integer_test() ->
     ?assertEqual(1, stress_basic:hello_integer_1()),
     ?assertEqual(-1, stress_basic:hello_integer_2()).
@@ -129,6 +132,25 @@ stress_basic_hello_mod_fun_val_test() ->
 stress_basic_try_catch_test() ->
     ?assertEqual(42, stress_basic:hello_try_catch()).
 
+stress_basic_hello_return_fun_val_test() ->
+    F = stress_basic:hello_return_fun_val(),
+    ?assertEqual(4, F(2)).
+
+stress_basic_hello_map_put_call_test() ->
+    ?assertEqual(#{foo => bar}, stress_basic:hello_map_put_val()).
+
+stress_basic_hello_parens_test() ->
+    ?assertEqual(8, stress_basic:hello_parens()).
+
+stress_basic_hello_multiline_fun_test() ->
+    ?assertEqual(<<"Hello World!"/utf8>>, stress_basic:hello_multline_fun()).
+
+stress_basic_hello_routes_test() ->
+    ?assertEqual(#{<<"pre">> => {nine_cowboy_mid, json_request},
+                   <<"post">> => {logger_mid, log},
+                   <<"handle">> => {example, api}},
+                stress_basic:hello_routes()).
+
 stress_statements_add2_test() ->
     ?assertEqual(6, stress_statements:add2_example()).
 
@@ -144,5 +166,9 @@ stress_statements_point_test() ->
 stress_statements_point_default_test() ->
     P = stress_statements:point_default(),
     ?assertEqual({point, 0, 0}, P).
+
+stress_statements_get_tx_type_test() ->
+    ?assertEqual(debit, stress_statements:get_tx_type(42)),
+    ?assertEqual(credit, stress_statements:get_tx_type(-42)).
 
 -endif.

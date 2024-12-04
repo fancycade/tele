@@ -2,6 +2,15 @@ import stress_math(
   fun add2/1
 )
 
+type tx_type: 'debit | 'credit
+
+spec get_tx_type(integer): tx_type
+fun get_tx_type(n):
+  case n >= 0:
+    'true: 'debit
+    'false: 'credit
+
+spec add2_example(): integer
 fun add2_example():
   add2(4)
 

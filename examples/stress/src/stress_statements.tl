@@ -1,5 +1,5 @@
 import stress_math(
-  fun add2/1
+  add2/1
 )
 
 type tx_type: 'debit | 'credit

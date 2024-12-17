@@ -154,9 +154,6 @@ stress_basic_hello_routes_test() ->
                    <<"handle">> => {example, api}},
                 stress_basic:hello_routes()).
 
-stress_basic_hello_bitstring_matching() ->
-    ?assertEqual(<<"bar">>, stress_basic:hello_bitstring_matching()).
-
 stress_statements_add2_test() ->
     ?assertEqual(6, stress_statements:add2_example()).
 

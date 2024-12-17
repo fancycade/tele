@@ -813,6 +813,11 @@ pub const Context = struct {
                     return CodegenError.WritingFailure;
                 };
             },
+            .import_element => {
+                self.writeValue(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
         }
     }
 };

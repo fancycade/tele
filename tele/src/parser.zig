@@ -107,10 +107,10 @@ pub const Parser = struct {
                     const ast = try self.parseAttribute(self.token_queue);
                     try statements.append(ast);
                 } else if (isNifsKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(self.token_queue);
+                    const ast = try self.parseNifs(self.token_queue);
                     try statements.append(ast);
                 } else if (isExportTypeKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(self.token_queue);
+                    const ast = try self.parseExportType(self.token_queue);
                     try statements.append(ast);
                 } else if (isDocKeyword(pn.*.body)) {
                     const ast = try self.parseAttribute(self.token_queue);
@@ -119,7 +119,7 @@ pub const Parser = struct {
                     const ast = try self.parseAttribute(self.token_queue);
                     try statements.append(ast);
                 } else if (isOnLoadKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(self.token_queue);
+                    const ast = try self.parseOnLoad(self.token_queue);
                     try statements.append(ast);
                 } else if (isCallbackKeyword(pn.*.body)) {
                     const ast = try self.parseCallbackDefinition(self.token_queue);
@@ -2441,10 +2441,224 @@ pub const Parser = struct {
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
-        const bast = try self.parseAttribute(token_queue);
-        bast.*.ast_type = TeleAstType.import_def;
+        // Pop off module name
+        const name_node = try token_queue.pop();
+        const name = name_node.*.body;
+        errdefer self.allocator.free(name);
+        self.allocator.destroy(name_node);
 
-        return bast;
+        if (!try checkParenStartPeek(token_queue)) {
+            return ParserError.ParsingFailure;
+        }
+        // Pop off paren start
+        const paren_start = try token_queue.pop();
+        self.allocator.free(paren_start.*.body);
+        self.allocator.destroy(paren_start);
+
+        var children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
+
+        while (!token_queue.empty()) {
+            const pelement_name_node = try token_queue.peek();
+
+            if (isParenEnd(pelement_name_node.*.body)) {
+                const element_name_node = try token_queue.pop();
+                self.allocator.free(element_name_node.*.body);
+                self.allocator.destroy(element_name_node);
+                break;
+            } else if (isComma(pelement_name_node.*.body)) {
+                const element_name_node = try token_queue.pop();
+                self.allocator.free(element_name_node.*.body);
+                self.allocator.destroy(element_name_node);
+            }
+
+            const et = try self.parseImportElement(token_queue);
+            try children.append(et);
+        }
+
+        const ast = try self.allocator.create(TeleAst);
+        ast.*.body = name;
+        ast.*.ast_type = TeleAstType.import_def;
+        ast.*.children = children;
+        ast.*.col = 0;
+
+        return ast;
+    }
+
+    fn parseOnLoad(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        // Pop off on_load
+        const n = try token_queue.pop();
+        const name = n.*.body;
+        errdefer self.allocator.free(name);
+        self.allocator.destroy(n);
+
+        if (!try checkParenStartPeek(token_queue)) {
+            return ParserError.ParsingFailure;
+        }
+
+        // Pop off paren_start
+        const paren_start = try token_queue.pop();
+        self.allocator.free(paren_start.*.body);
+        self.allocator.destroy(n);
+
+        var children = std.ArrayList(*TeleAst).init(self.allocator);
+
+        const ast = try self.parseImportElement(token_queue);
+        try children.append(ast);
+
+        const onload = try self.allocator.create(TeleAst);
+        onload.*.body = name;
+        onload.*.ast_type = TeleAstType.attribute;
+        onload.*.children = children;
+        onload.*.col = 0;
+
+        return onload;
+    }
+
+    fn parseNifs(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        const name_node = try token_queue.pop();
+        const name = name_node.*.body;
+        errdefer self.allocator.free(name);
+        self.allocator.destroy(name_node);
+
+        if (!try checkParenStartPeek(token_queue)) {
+            return ParserError.ParsingFailure;
+        }
+
+        // Pop off paren_start
+        const paren_start = try token_queue.pop();
+        self.allocator.free(paren_start.*.body);
+        self.allocator.destroy(paren_start);
+
+        var children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
+
+        while (!token_queue.empty()) {
+            const pn = try token_queue.peek();
+
+            if (isParenEnd(pn.*.body)) {
+                const n2 = try token_queue.pop();
+                self.allocator.free(n2.*.body);
+                self.allocator.destroy(n2);
+            } else if (isComma(pn.*.body)) {
+                const n2 = try token_queue.pop();
+                self.allocator.free(n2.*.body);
+                self.allocator.destroy(n2);
+            }
+
+            const e = try self.parseImportElement(token_queue);
+            try children.append(e);
+        }
+
+        const wrapper = try self.allocator.create(TeleAst);
+        wrapper.*.body = "";
+        wrapper.*.ast_type = TeleAstType.list;
+        wrapper.*.children = children;
+        wrapper.*.col = 0;
+
+        var final_children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.freeTeleAstList(final_children, self.allocator);
+
+        try final_children.append(wrapper);
+
+        const ast = try self.allocator.create(TeleAst);
+        ast.*.body = name;
+        ast.*.ast_type = TeleAstType.attribute;
+        ast.*.children = final_children;
+        ast.*.col = 0;
+
+        return ast;
+    }
+
+    fn parseExportType(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        const name_node = try token_queue.pop();
+        const name = name_node.*.body;
+        errdefer self.allocator.free(name);
+        self.allocator.destroy(name_node);
+
+        if (!try checkParenStartPeek(token_queue)) {
+            return ParserError.ParsingFailure;
+        }
+
+        // Pop off paren_start
+        const paren_start = try token_queue.pop();
+        self.allocator.free(paren_start.*.body);
+        self.allocator.destroy(paren_start);
+
+        var children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
+
+        while (!token_queue.empty()) {
+            const pn = try token_queue.peek();
+
+            if (isParenEnd(pn.*.body)) {
+                const n2 = try token_queue.pop();
+                self.allocator.free(n2.*.body);
+                self.allocator.destroy(n2);
+            } else if (isComma(pn.*.body)) {
+                const n2 = try token_queue.pop();
+                self.allocator.free(n2.*.body);
+                self.allocator.destroy(n2);
+            }
+
+            const e = try self.parseImportElement(token_queue);
+            try children.append(e);
+        }
+
+        const wrapper = try self.allocator.create(TeleAst);
+        wrapper.*.body = "";
+        wrapper.*.ast_type = TeleAstType.list;
+        wrapper.*.children = children;
+        wrapper.*.col = 0;
+
+        var final_children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.freeTeleAstList(final_children, self.allocator);
+
+        try final_children.append(wrapper);
+
+        const ast = try self.allocator.create(TeleAst);
+        ast.*.body = name;
+        ast.*.ast_type = TeleAstType.attribute;
+        ast.*.children = final_children;
+        ast.*.col = 0;
+
+        return ast;
+    }
+
+    fn parseImportElement(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        const element_name_node = try token_queue.pop();
+        const element_name = element_name_node.*.body;
+        errdefer self.allocator.free(element_name);
+        self.allocator.destroy(element_name_node);
+
+        const div_node = try token_queue.pop();
+        if (!std.mem.eql(u8, "/", div_node.*.body)) {
+            self.allocator.free(div_node.*.body);
+            self.allocator.destroy(div_node);
+            return ParserError.ParsingFailure;
+        }
+        self.allocator.free(div_node.*.body);
+        self.allocator.destroy(div_node);
+
+        const arg_number_node = try token_queue.pop();
+        const arg_number = arg_number_node.*.body;
+        errdefer self.allocator.free(arg_number);
+        self.allocator.destroy(arg_number_node);
+
+        var buf = try self.allocator.alloc(u8, element_name.len + arg_number.len + 1);
+        std.mem.copyForwards(u8, buf, element_name);
+        buf[element_name.len] = '/';
+        std.mem.copyForwards(u8, buf[element_name.len + 1 ..], arg_number);
+        self.allocator.free(element_name);
+        self.allocator.free(arg_number);
+
+        const et = try self.allocator.create(TeleAst);
+        et.*.body = buf;
+        et.*.ast_type = TeleAstType.import_element;
+        et.*.children = null;
+        et.*.col = 0;
+
+        return et;
     }
 };
 

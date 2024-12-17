@@ -194,6 +194,11 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
+        .import_element => {
+            return teleToErlangImportElement(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
     }
 }
 
@@ -1093,3 +1098,7 @@ fn teleToErlangCustomAttribute(t: *const TeleAst, allocator: std.mem.Allocator) 
 }
 
 test "tele to erlang custom attribute" {}
+
+fn teleToErlangImportElement(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    return try erlang_ast.makeValue(try util.copyString(t.*.body, allocator), ErlangAstType.import_element, allocator);
+}

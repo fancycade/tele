@@ -362,21 +362,21 @@ Tele equivalent of this Erlang code:
 Would be:
 
     import foo_mod(
-      fun do_thing/1, 
-      fun do_thing2/3
+      do_thing/1, 
+      do_thing2/3
     )
 
 ## on_load
 
-    on_load(fun init_info/2)
+    on_load(init_info/2)
 
 ## nifs
 
-    nifs([fun native_call/2, fun native_other_call/3])
+    nifs([native_call/2, native_other_call/3])
 
 ## export_type
 
-    export_type([#('some_type, 0)])
+    export_type([some_type/0])
 
 ## behaviour
 

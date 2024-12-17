@@ -146,9 +146,3 @@ fun hello_routes():
   {"pre": #('nine_cowboy_mid, 'json_request),
    "post": #('logger_mid, 'log),
    "handle": #('example, 'api)}
-
-fun hello_bitstring_matching():
-  # TODO: Using capital B for bar is a hack to work around missing bitstring parsing
-  # Planning on fixing this in next release.
-  <<"foo", Bar/binary>> = "foobar"
-  bar

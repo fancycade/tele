@@ -9,6 +9,9 @@
 stress_basic_hello_test() ->
     ?assertEqual(<<"Hello, World!">>, stress_basic:hello()).
 
+stress_basic_hello_bitstring_test() ->
+    ?assertEqual(<<"Hello, World!">>, stress_basic:hello_bitstring()).
+
 stress_basic_hello_atom_test() ->
     ?assertEqual(ok, stress_basic:hello_atom()).
 
@@ -150,6 +153,9 @@ stress_basic_hello_routes_test() ->
                    <<"post">> => {logger_mid, log},
                    <<"handle">> => {example, api}},
                 stress_basic:hello_routes()).
+
+stress_basic_hello_bitstring_matching() ->
+    ?assertEqual(<<"bar">>, stress_basic:hello_bitstring_matching()).
 
 stress_statements_add2_test() ->
     ?assertEqual(6, stress_statements:add2_example()).

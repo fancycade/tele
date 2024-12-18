@@ -2,6 +2,10 @@ import stress_math(
   add2/1
 )
 
+export_type(
+  tx_type/0
+)
+
 type tx_type: 'debit | 'credit
 
 spec get_tx_type(integer): tx_type

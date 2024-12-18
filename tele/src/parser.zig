@@ -2540,6 +2540,7 @@ pub const Parser = struct {
                 const n2 = try token_queue.pop();
                 self.allocator.free(n2.*.body);
                 self.allocator.destroy(n2);
+                break;
             } else if (isComma(pn.*.body)) {
                 const n2 = try token_queue.pop();
                 self.allocator.free(n2.*.body);
@@ -2595,6 +2596,7 @@ pub const Parser = struct {
                 const n2 = try token_queue.pop();
                 self.allocator.free(n2.*.body);
                 self.allocator.destroy(n2);
+                break;
             } else if (isComma(pn.*.body)) {
                 const n2 = try token_queue.pop();
                 self.allocator.free(n2.*.body);

@@ -174,4 +174,8 @@ stress_statements_get_tx_type_test() ->
     ?assertEqual(debit, stress_statements:get_tx_type(42)),
     ?assertEqual(credit, stress_statements:get_tx_type(-42)).
 
+stress_hello_goodbye_test() ->
+    ?assertEqual(hello, stress_hello_goodbye:hello()),
+    ?assertEqual(200, stress_hello_goodbye:goodbye()).
+
 -endif.

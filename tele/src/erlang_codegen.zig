@@ -775,9 +775,24 @@ pub const Context = struct {
         _ = try w.write("catch\n");
 
         try self.pushPadding(self.currentPadding() + 4);
-        for (a.*.children.?.items) |c| {
-            try self.writeAst(w, c, false);
+
+        var loop = true;
+        var i: usize = 0;
+        while (loop) {
+            _ = try w.write("\n");
+            try self.writeAst(w, a.children.?.items[i], false);
+            const len = a.children.?.items.len;
+
+            if (i + 1 != len) {
+                _ = try w.write(";");
+            }
+
+            i += 1;
+            if (i >= len) {
+                loop = false;
+            }
         }
+
         try self.popPadding();
         _ = try w.write("\n");
 
@@ -1478,28 +1493,264 @@ test "write case" {
     try std.testing.expect(std.mem.eql(u8, list.items, "case X of\n    true ->\n        ok;\n    false ->\n        error\nend"));
 }
 
-test "write spec def" {}
+test "write spec def" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
 
-test "write macro def" {}
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
 
-test "write callback def" {}
+    try children.append(&Ast{ .body = "", .ast_type = AstType.function_signature, .children = null });
+    try children.append(&Ast{ .body = "integer", .ast_type = AstType.function_call, .children = null });
 
-test "write opaque type def" {}
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeSpecDef(list.writer(), &Ast{ .body = "foobar", .ast_type = AstType.spec_def, .children = children });
 
-test "write type def" {}
+    try std.testing.expect(std.mem.eql(u8, list.items, "-spec foobar() ->\n    integer().\n\n"));
+}
 
-test "write record def" {}
+test "write macro def" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
 
-test "write record field" {}
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
 
-test "write record field value" {}
+    try children.append(&Ast{ .body = "4200", .ast_type = AstType.int, .children = null });
 
-test "write record field type" {}
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeMacroDef(list.writer(), &Ast{ .body = "TIMEOUT", .ast_type = AstType.macro_def, .children = children });
 
-test "write receive" {}
+    try std.testing.expect(std.mem.eql(u8, list.items, "-define(TIMEOUT, 4200).\n\n"));
 
-test "write try catch" {}
+    // TODO: Test case multiline expression
+}
 
-test "write try exp" {}
+test "write callback def" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
 
-test "write catch exp" {}
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "", .ast_type = AstType.function_signature, .children = null });
+    try children.append(&Ast{ .body = "integer", .ast_type = AstType.function_call, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeCallbackDef(list.writer(), &Ast{ .body = "foobar", .ast_type = AstType.spec_def, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "-callback foobar() -> integer().\n"));
+}
+
+test "write opaque type def" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "id", .ast_type = AstType.function_call, .children = null });
+    try children.append(&Ast{ .body = "integer", .ast_type = AstType.function_call, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeOpaqueTypeDef(list.writer(), &Ast{ .body = "id", .ast_type = AstType.opaque_type_def, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "-opaque id() :: integer().\n\n"));
+}
+
+test "write type def" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "id", .ast_type = AstType.function_call, .children = null });
+    try children.append(&Ast{ .body = "integer", .ast_type = AstType.function_call, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeTypeDef(list.writer(), &Ast{ .body = "id", .ast_type = AstType.opaque_type_def, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "-type id() :: integer().\n\n"));
+}
+
+test "write record def" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "x", .ast_type = AstType.record_field, .children = null });
+    try children.append(&Ast{ .body = "y", .ast_type = AstType.record_field, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeRecordDef(list.writer(), &Ast{ .body = "point", .ast_type = AstType.record_def, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "-record(point, {x, y}).\n\n"));
+}
+
+test "write record field" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeRecordField(list.writer(), &Ast{ .body = "foobar", .ast_type = AstType.record_field, .children = null });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "foobar"));
+
+    // TODO: Cases with field value, and field types
+}
+
+test "write record field value" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "42", .ast_type = AstType.int, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeRecordFieldValue(list.writer(), &Ast{ .body = "", .ast_type = AstType.record_field_value, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "=42"));
+}
+
+test "write record field type" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "integer", .ast_type = AstType.function_call, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeRecordFieldType(list.writer(), &Ast{ .body = "", .ast_type = AstType.record_field_type, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, " :: integer()"));
+}
+
+test "write receive" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var case_clause_children_1 = std.ArrayList(*const Ast).init(test_allocator);
+    defer case_clause_children_1.deinit();
+
+    try case_clause_children_1.append(&Ast{ .body = "true", .ast_type = AstType.atom, .children = null });
+    try case_clause_children_1.append(&Ast{ .body = "ok", .ast_type = AstType.atom, .children = null });
+
+    var case_clause_children_2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer case_clause_children_2.deinit();
+
+    try case_clause_children_2.append(&Ast{ .body = "false", .ast_type = AstType.atom, .children = null });
+    try case_clause_children_2.append(&Ast{ .body = "error", .ast_type = AstType.atom, .children = null });
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_1 });
+    try children.append(&Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_2 });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeReceive(list.writer(), &Ast{ .body = "", .ast_type = AstType.receive_exp, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "receive\n    true ->\n        ok;\n    false ->\n        error\nend"));
+}
+
+test "write try catch" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var try_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer try_children.deinit();
+
+    try try_children.append(&Ast{ .body = "_", .ast_type = AstType.variable, .children = null });
+    try try_children.append(&Ast{ .body = "42", .ast_type = AstType.int, .children = null });
+
+    var try_children2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer try_children2.deinit();
+
+    try try_children2.append(&Ast{ .body = "foobar", .ast_type = AstType.function_call, .children = null });
+    try try_children2.append(&Ast{ .body = "", .ast_type = AstType.case_clause, .children = try_children });
+
+    var catch_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer catch_children.deinit();
+
+    try catch_children.append(&Ast{ .body = "_", .ast_type = AstType.variable, .children = null });
+    try catch_children.append(&Ast{ .body = "42", .ast_type = AstType.int, .children = null });
+
+    var catch_children2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer catch_children2.deinit();
+
+    try catch_children2.append(&Ast{ .body = "", .ast_type = AstType.case_clause, .children = catch_children });
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "", .ast_type = AstType.try_exp, .children = try_children2 });
+    try children.append(&Ast{ .body = "", .ast_type = AstType.catch_exp, .children = catch_children2 });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeTryCatch(list.writer(), &Ast{ .body = "", .ast_type = AstType.try_catch, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "try foobar() of\n    _ ->\n        42\ncatch\n\n    _ ->\n        42\nend"));
+}
+
+test "write try exp" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "_", .ast_type = AstType.variable, .children = null });
+    try children.append(&Ast{ .body = "42", .ast_type = AstType.int, .children = null });
+
+    var children2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer children2.deinit();
+
+    try children2.append(&Ast{ .body = "foobar", .ast_type = AstType.function_call, .children = null });
+    try children2.append(&Ast{ .body = "", .ast_type = AstType.case_clause, .children = children });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeTryExp(list.writer(), &Ast{ .body = "", .ast_type = AstType.try_exp, .children = children2 });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "try foobar() of\n    _ ->\n        42\n"));
+}
+
+test "write catch exp" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "_", .ast_type = AstType.variable, .children = null });
+    try children.append(&Ast{ .body = "42", .ast_type = AstType.int, .children = null });
+
+    var children2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer children2.deinit();
+
+    try children2.append(&Ast{ .body = "", .ast_type = AstType.case_clause, .children = children });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeCatchExp(list.writer(), &Ast{ .body = "", .ast_type = AstType.catch_exp, .children = children2 });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "catch\n\n    _ ->\n        42\nend"));
+}

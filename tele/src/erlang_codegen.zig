@@ -149,9 +149,7 @@ pub const Context = struct {
 
     pub fn writeFunVal(self: *Self, w: anytype, a: *const Ast) !void {
         try self.writePadding(w);
-        if (!self.attribute_mode) {
-            _ = try w.write("fun ");
-        }
+        _ = try w.write("fun ");
         _ = try w.write(a.body);
     }
 
@@ -217,7 +215,6 @@ pub const Context = struct {
 
     pub fn writeImportDef(self: *Self, w: anytype, a: *const Ast) !void {
         try self.writePadding(w);
-        self.attribute_mode = true;
         _ = try w.write("-import(");
         _ = try w.write(a.body);
         _ = try w.write(", [");
@@ -233,7 +230,6 @@ pub const Context = struct {
         }
 
         _ = try w.write("]).\n");
-        self.attribute_mode = false;
     }
 
     pub fn writeAttribute(self: *Self, w: anytype, a: *const Ast) !void {
@@ -1150,6 +1146,20 @@ test "write record" {
     try std.testing.expect(std.mem.eql(u8, list.items, "#person{name=<<\"Joe\"/utf8>>, age=68}"));
 }
 
+test "write fun val" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    const a = Ast{ .body = "foobar/1", .ast_type = AstType.fun_val, .children = null };
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    try context.writeFunVal(list.writer(), &a);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "fun foobar/1"));
+}
+
 test "write op" {
     var list = std.ArrayList(u8).init(test_allocator);
     defer list.deinit();
@@ -1165,6 +1175,28 @@ test "write op" {
     try context.writeOp(list.writer(), &Ast{ .body = "+", .children = children, .ast_type = AstType.op }, false);
 
     try std.testing.expect(std.mem.eql(u8, list.items, "1 + 2"));
+}
+
+test "write paren exp" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var op_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer op_children.deinit();
+
+    try op_children.append(&Ast{ .body = "1", .ast_type = AstType.int, .children = null });
+    try op_children.append(&Ast{ .body = "2", .ast_type = AstType.int, .children = null });
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "+", .ast_type = AstType.op, .children = op_children });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeParenExp(list.writer(), &Ast{ .body = "", .ast_type = AstType.paren_exp, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "(1 + 2)"));
 }
 
 test "write function call" {
@@ -1186,6 +1218,23 @@ test "write function call" {
     // TODO: Test no arguments
 }
 
+test "write import def" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "foobar/1", .ast_type = AstType.import_element, .children = null });
+    try children.append(&Ast{ .body = "barfoo/2", .ast_type = AstType.import_element, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeImportDef(list.writer(), &Ast{ .body = "other", .ast_type = AstType.import_def, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "-import(other, [foobar/1, barfoo/2]).\n"));
+}
+
 test "write attribute" {
     var list = std.ArrayList(u8).init(test_allocator);
     defer list.deinit();
@@ -1202,6 +1251,22 @@ test "write attribute" {
     try std.testing.expect(std.mem.eql(u8, list.items, "-module(foobar).\n"));
 
     // Test multi arg string
+}
+
+test "write custom attribute" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "TEST", .ast_type = AstType.atom, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeCustomAttribute(list.writer(), &Ast{ .body = "ifdef", .ast_type = AstType.custom_attribute, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "-ifdef(TEST).\n\n"));
 }
 
 test "write function def" {
@@ -1412,3 +1477,29 @@ test "write case" {
 
     try std.testing.expect(std.mem.eql(u8, list.items, "case X of\n    true ->\n        ok;\n    false ->\n        error\nend"));
 }
+
+test "write spec def" {}
+
+test "write macro def" {}
+
+test "write callback def" {}
+
+test "write opaque type def" {}
+
+test "write type def" {}
+
+test "write record def" {}
+
+test "write record field" {}
+
+test "write record field value" {}
+
+test "write record field type" {}
+
+test "write receive" {}
+
+test "write try catch" {}
+
+test "write try exp" {}
+
+test "write catch exp" {}

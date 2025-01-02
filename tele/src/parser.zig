@@ -1686,13 +1686,13 @@ pub const Parser = struct {
         var function_end: bool = false;
         while (!token_queue.empty()) {
             var token_queue_section = try self.collectFunctionSection(token_queue, current_col, &function_end);
+            errdefer token_queue_section.deinit();
 
             // Function Signature
             var token_queue2 = TokenQueue.init(self.allocator) catch {
                 return ParserError.ParsingFailure;
             };
             errdefer token_queue2.deinit();
-
             // Gather tokens for function signature
 
             var map_count: usize = 0;
@@ -1783,21 +1783,73 @@ pub const Parser = struct {
     // Function Section = signature and body
     // Stop at end of function body or new signature
     fn collectFunctionSection(self: *Self, token_queue: *TokenQueue, current_col: usize, function_end: *bool) !*TokenQueue {
-        var token_queue2 = TokenQueue.init(self.allocator) catch {
-            return ParserError.ParsingFailure;
-        };
-        errdefer token_queue2.deinit();
+        var signature_queue = try self.collectFunctionSignatureSection(token_queue);
+        errdefer signature_queue.deinit();
 
+        var body_queue = try self.collectFunctionBodySection(token_queue, current_col, function_end);
+        errdefer body_queue.deinit();
+
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
+
+        // Reverse order for signature
+        while (!signature_queue.empty()) {
+            const n = try signature_queue.pop();
+            try buffer_token_queue.push(n.*.body, n.*.line, n.*.col);
+            self.allocator.destroy(n);
+        }
+
+        // Reverse order for body
+        while (!body_queue.empty()) {
+            const n = try body_queue.pop();
+            try buffer_token_queue.push(n.*.body, n.*.line, n.*.col);
+            self.allocator.destroy(n);
+        }
+
+        signature_queue.deinit();
+        body_queue.deinit();
+        return buffer_token_queue;
+    }
+
+    fn collectFunctionSignatureSection(self: *Self, token_queue: *TokenQueue) !*TokenQueue {
         var buffer_token_queue = TokenQueue.init(self.allocator) catch {
             return ParserError.ParsingFailure;
         };
-        errdefer buffer_token_queue.deinit();
 
-        var body: bool = false;
         var paren_count: usize = 0;
-        var signature_ready: bool = false;
+        var end_of_signature = false;
+        var signature_ready = false;
+
+        while (!end_of_signature and !token_queue.empty()) {
+            const peek_node = try token_queue.peek();
+
+            if (isParenStart(peek_node.*.body) or isTupleStart(peek_node.*.body) or isRecordStart(peek_node.*.body) or containsParenStart(peek_node.*.body)) {
+                paren_count += 1;
+            } else if (isParenEnd(peek_node.*.body)) {
+                paren_count -= 1;
+                if (paren_count == 0) {
+                    signature_ready = true;
+                }
+            } else if (signature_ready and isColon(peek_node.*.body)) {
+                end_of_signature = true;
+            } else if (signature_ready) {
+                signature_ready = false;
+            }
+
+            const n = try token_queue.pop();
+            try buffer_token_queue.push(n.*.body, n.*.line, n.*.col);
+            self.allocator.destroy(n);
+        }
+
+        return buffer_token_queue;
+    }
+
+    fn collectFunctionBodySection(self: *Self, token_queue: *TokenQueue, current_col: usize, function_end: *bool) !*TokenQueue {
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
         var nested_body: bool = false;
         var nested_body_col: usize = 0;
+        var paren_count: usize = 0;
+        var signature_ready: bool = false;
 
         while (!token_queue.empty()) {
             const peek_node = try token_queue.peek();
@@ -1806,115 +1858,67 @@ pub const Parser = struct {
                 break;
             }
 
-            if (!body) {
-                if (isParenStart(peek_node.*.body) or isTupleStart(peek_node.*.body) or isRecordStart(peek_node.*.body) or containsParenStart(peek_node.*.body)) {
-                    paren_count += 1;
-                } else if (isParenEnd(peek_node.*.body)) {
-                    paren_count -= 1;
-                    if (paren_count == 0) {
-                        signature_ready = true;
-                    }
-                } else if (signature_ready and isColon(peek_node.*.body)) {
-                    body = true;
-                    signature_ready = false;
-                } else if (signature_ready) {
-                    signature_ready = false;
-                }
-
-                const node = try token_queue.pop();
-                errdefer self.allocator.free(node.*.body);
-                errdefer self.allocator.destroy(node);
-
-                try token_queue2.push(node.*.body, node.*.line, node.*.col);
-                self.allocator.destroy(node);
-            } else {
-                if (!nested_body) {
-                    if (isParenStart(peek_node.*.body) or isTupleStart(peek_node.*.body) or isRecordStart(peek_node.*.body) or containsParenStart(peek_node.*.body)) {
-                        paren_count += 1;
-                    } else if (isParenEnd(peek_node.*.body)) {
-                        paren_count -= 1;
-                        if (paren_count == 0) {
-                            signature_ready = true;
-                        }
-                    } else if (signature_ready and isColon(peek_node.*.body)) {
-                        // TODO: Memory management for buffer list
-                        var buffer_list = std.ArrayList(*TokenQueueNode).init(self.allocator);
-
-                        while (!buffer_token_queue.empty()) {
-                            const n = try buffer_token_queue.pop();
-                            try buffer_list.append(n);
-                        }
-
-                        while (buffer_list.items.len > 0) {
-                            const n = buffer_list.pop();
-                            try token_queue.pushHead(n.*.body, n.*.line, n.*.col);
-                            self.allocator.destroy(n);
-                        }
-                        buffer_list.deinit();
-                        break;
-                    } else if (signature_ready) {
-                        signature_ready = false;
-                        while (!buffer_token_queue.empty()) {
-                            const n = try buffer_token_queue.pop();
-                            try token_queue2.push(n.*.body, n.*.line, n.*.col);
-                            self.allocator.destroy(n);
-                        }
-                    } else if (isFun(peek_node.*.body) and paren_count == 0) {
-                        nested_body = true;
-                        nested_body_col = peek_node.*.col;
-                    } else if (isCaseKeyword(peek_node.*.body)) {
-                        nested_body = true;
-                        nested_body_col = peek_node.*.col;
-                    } else if (isTryKeyword(peek_node.*.body)) {
-                        nested_body = true;
-                        nested_body_col = peek_node.*.col;
-                    } else if (isCatchKeyword(peek_node.*.body)) {
-                        nested_body = true;
-                        nested_body_col = peek_node.*.col;
-                    } else if (isReceiveKeyword(peek_node.*.body)) {
-                        nested_body = true;
-                        nested_body_col = peek_node.*.col;
-                        signature_ready = true;
-                    }
-                } else {
-                    if (peek_node.*.col <= nested_body_col) {
-                        nested_body = false;
-                        nested_body_col = 0;
-                    }
-                }
-
-                const node = try token_queue.pop();
-                errdefer self.allocator.free(node.*.body);
-                errdefer self.allocator.destroy(node);
-
-                if (paren_count > 0 or signature_ready) {
-                    try buffer_token_queue.push(node.*.body, node.*.line, node.*.col);
-                    self.allocator.destroy(node);
-                } else {
-                    try token_queue2.push(node.*.body, node.*.line, node.*.col);
-                    self.allocator.destroy(node);
-                }
+            if (peek_node.*.col <= nested_body_col) {
+                nested_body = false;
             }
-        }
 
-        // Make sure to clear buffer_token_queue
-        while (!buffer_token_queue.empty()) {
-            const n = try buffer_token_queue.pop();
-            try token_queue2.push(n.*.body, n.*.line, n.*.col);
+            if (isParenStart(peek_node.*.body) or isTupleStart(peek_node.*.body) or isRecordStart(peek_node.*.body) or containsParenStart(peek_node.*.body)) {
+                paren_count += 1;
+            } else if (isParenEnd(peek_node.*.body)) {
+                paren_count -= 1;
+                if (paren_count == 0 and !nested_body) {
+                    signature_ready = true;
+                }
+            } else if (signature_ready and isColon(peek_node.*.body) and !nested_body) {
+                var buffer_list = std.ArrayList(*TokenQueueNode).init(self.allocator);
+                // Reverse order
+                while (!buffer_token_queue.empty()) {
+                    const n = try buffer_token_queue.pop();
+                    try buffer_list.append(n);
+                }
+
+                var signature_paren_count: usize = 0;
+
+                // Checking paren count in reverse
+                while (buffer_list.items.len > 0) {
+                    const node = buffer_list.pop();
+                    if (isParenEnd(node.*.body)) {
+                        signature_paren_count += 1;
+                    } else if (isParenStart(node.*.body) or isTupleStart(node.*.body) or isRecordStart(node.*.body) or containsParenStart(node.*.body)) {
+                        signature_paren_count -= 1;
+                    }
+
+                    try token_queue.pushHead(node.*.body, node.*.line, node.*.col);
+                    self.allocator.destroy(node);
+                    if (signature_paren_count == 0) {
+                        break;
+                    }
+                }
+
+                // Push remaining tokens back into buffer_token_queue
+                while (buffer_list.items.len > 0) {
+                    const n = buffer_list.pop();
+                    try buffer_token_queue.pushHead(n.*.body, n.*.line, n.*.col);
+                    self.allocator.destroy(n);
+                }
+
+                buffer_list.deinit();
+                break;
+            } else if (signature_ready) {
+                signature_ready = false;
+            }
+
+            if ((isFun(peek_node.*.body) and paren_count == 0) or isCaseKeyword(peek_node.*.body) or isTryKeyword(peek_node.*.body) or isCatchKeyword(peek_node.*.body) or isReceiveKeyword(peek_node.*.body)) {
+                nested_body = true;
+                nested_body_col = peek_node.*.col;
+            }
+
+            const n = try token_queue.pop();
+            try buffer_token_queue.push(n.*.body, n.*.line, n.*.col);
             self.allocator.destroy(n);
         }
 
-        if (token_queue2.empty()) {
-            return ParserError.ParsingFailure;
-        }
-
-        if (token_queue.empty()) {
-            function_end.* = true;
-        }
-
-        buffer_token_queue.deinit();
-
-        return token_queue2;
+        return buffer_token_queue;
     }
 
     fn parseCaseExpression(self: *Self, token_queue: *TokenQueue) !*TeleAst {

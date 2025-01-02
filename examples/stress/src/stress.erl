@@ -178,4 +178,12 @@ stress_hello_goodbye_test() ->
     ?assertEqual(hello, stress_hello_goodbye:hello()),
     ?assertEqual(200, stress_hello_goodbye:goodbye()).
 
+stress_real_world_example1_test() ->
+    ?assertEqual({noreply, []}, stress_real_world:example1(ok, [])),
+    ?assertEqual({noreply, []}, stress_real_world:example1({send_async, ok}, [])).
+
+
+stress_real_world_example2_test() ->
+    ?assertEqual({noreply, []}, stress_real_world:example2(ok, [])).
+
 -endif.

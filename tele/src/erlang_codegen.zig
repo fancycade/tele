@@ -27,6 +27,10 @@ pub const Context = struct {
     }
 
     pub fn writeBinary(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.binary) {
+            return CodegenError.WritingFailure;
+        }
+
         try self.writePadding(w);
 
         if (self.*.attribute_mode) {
@@ -43,6 +47,10 @@ pub const Context = struct {
     }
 
     pub fn writeTuple(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.tuple) {
+            return CodegenError.WritingFailure;
+        }
+
         try self.writePadding(w);
         _ = try w.write("{");
         var i: usize = 0;
@@ -61,6 +69,10 @@ pub const Context = struct {
     }
 
     pub fn writeList(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.list) {
+            return CodegenError.WritingFailure;
+        }
+
         try self.writePadding(w);
         _ = try w.write("[");
         var i: usize = 0;
@@ -80,6 +92,10 @@ pub const Context = struct {
     // Children list consist of alternating key value pairs [k1, v1, k2, v2...]
 
     fn writeMap(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.map) {
+            return CodegenError.WritingFailure;
+        }
+
         try self.writePadding(w);
         if (!std.mem.eql(u8, a.*.body, "")) {
             _ = try w.write(a.*.body);
@@ -119,6 +135,10 @@ pub const Context = struct {
     }
 
     pub fn writeRecord(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.record) {
+            return CodegenError.WritingFailure;
+        }
+
         try self.writePadding(w);
 
         if (util.containsHash(a.body)) {
@@ -148,6 +168,9 @@ pub const Context = struct {
     }
 
     pub fn writeFunVal(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.fun_val) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
         _ = try w.write("fun ");
         _ = try w.write(a.body);
@@ -155,9 +178,11 @@ pub const Context = struct {
 
     // Matching must be done on left side of operator
     pub fn writeOp(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.op) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
         try self.pushPadding(0);
-        // TODO: Throw error if children is not length 2
 
         if (a.children.?.items.len == 2) {
             self.pushMatch();
@@ -182,15 +207,28 @@ pub const Context = struct {
     }
 
     pub fn writeParenExp(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.paren_exp) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
         try self.pushPadding(0);
         _ = try w.write("(");
-        try self.writeAst(w, a.children.?.items[0], false);
+        if (a.children != null) {
+            if (a.children.?.items.len == 1) {
+                try self.writeAst(w, a.children.?.items[0], false);
+            } else {
+                return CodegenError.WritingFailure;
+            }
+        }
+
         _ = try w.write(")");
         try self.popPadding();
     }
 
     pub fn writeFunctionCall(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.function_call) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
         _ = try w.write(a.body);
         _ = try w.write("(");
@@ -214,6 +252,9 @@ pub const Context = struct {
     }
 
     pub fn writeImportDef(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.import_def) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
         _ = try w.write("-import(");
         _ = try w.write(a.body);
@@ -233,6 +274,9 @@ pub const Context = struct {
     }
 
     pub fn writeAttribute(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.attribute) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
         self.attribute_mode = true;
         _ = try w.write("-");
@@ -254,15 +298,29 @@ pub const Context = struct {
     }
 
     pub fn writeCustomAttribute(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.custom_attribute) {
+            return CodegenError.WritingFailure;
+        }
         self.attribute_mode = true;
         try self.writePadding(w);
         _ = try w.write("-");
-        try self.writeFunctionCall(w, a, false);
+        try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .ast_type = AstType.function_call, .children = a.*.children }, false);
         _ = try w.write(".\n\n");
         self.attribute_mode = false;
     }
 
     pub fn writeFunctionDef(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.function_def) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (a.*.children.?.items.len < 2) {
+            return CodegenError.WritingFailure;
+        }
         var i: usize = 0;
 
         while (true) {
@@ -314,6 +372,15 @@ pub const Context = struct {
     }
 
     pub fn writeMacroDef(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.macro_def) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len < 1) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
         _ = try w.write("-define(");
         _ = try w.write(a.body);
@@ -334,6 +401,15 @@ pub const Context = struct {
     }
 
     pub fn writeSpecDef(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.spec_def) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len < 2) {
+            return CodegenError.WritingFailure;
+        }
         _ = try w.write("-spec ");
 
         var i: usize = 0;
@@ -389,6 +465,15 @@ pub const Context = struct {
     }
 
     pub fn writeCallbackDef(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.callback_def) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len != 2) {
+            return CodegenError.WritingFailure;
+        }
         _ = try w.write("-callback ");
         _ = try w.write(a.body);
         try self.writeFunctionSignature(w, a.children.?.items[0], true);
@@ -398,6 +483,15 @@ pub const Context = struct {
     }
 
     pub fn writeOpaqueTypeDef(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.opaque_type_def) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len != 2) {
+            return CodegenError.WritingFailure;
+        }
         _ = try w.write("-opaque ");
         try self.writeAst(w, a.*.children.?.items[0], false);
         _ = try w.write(" :: ");
@@ -406,6 +500,15 @@ pub const Context = struct {
     }
 
     pub fn writeTypeDef(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.type_def) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len != 2) {
+            return CodegenError.WritingFailure;
+        }
         _ = try w.write("-type ");
         try self.writeAst(w, a.*.children.?.items[0], false);
         _ = try w.write(" :: ");
@@ -414,6 +517,9 @@ pub const Context = struct {
     }
 
     pub fn writeRecordDef(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.record_def) {
+            return CodegenError.WritingFailure;
+        }
         _ = try w.write("-record(");
         _ = try w.write(a.*.body);
         _ = try w.write(", {");
@@ -434,6 +540,9 @@ pub const Context = struct {
     }
 
     pub fn writeRecordField(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.record_field) {
+            return CodegenError.WritingFailure;
+        }
         _ = try w.write(a.*.body);
 
         if (a.*.children != null) {
@@ -467,6 +576,9 @@ pub const Context = struct {
     }
 
     pub fn writeRecordFieldValue(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.record_field_value) {
+            return CodegenError.WritingFailure;
+        }
         _ = try w.write("=");
         if (a.children.?.items.len < 1) {
             return CodegenError.WritingFailure;
@@ -475,6 +587,9 @@ pub const Context = struct {
     }
 
     pub fn writeRecordFieldType(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.record_field_type) {
+            return CodegenError.WritingFailure;
+        }
         _ = try w.write(" :: ");
         if (a.children.?.items.len < 1) {
             return CodegenError.WritingFailure;
@@ -483,6 +598,9 @@ pub const Context = struct {
     }
 
     pub fn writeAnonymousFunction(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.anonymous_function) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
         _ = try w.write("fun");
 
@@ -551,6 +669,9 @@ pub const Context = struct {
     }
 
     pub fn writeFunctionSignature(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.function_signature) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
         if (a.children == null) {
             _ = try w.write("()");
@@ -604,11 +725,28 @@ pub const Context = struct {
     }
 
     pub fn writeGuardClause(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.guard_clause) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len != 1) {
+            return CodegenError.WritingFailure;
+        }
         try self.writeAst(w, a.children.?.items[0], type_exp);
     }
 
     pub fn writeCaseClause(self: *Self, w: anytype, a: *const Ast) !void {
-        // TODO: Check that children are at least length of 2
+        if (a.*.ast_type != AstType.case_clause) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len < 2) {
+            return CodegenError.WritingFailure;
+        }
 
         self.pushMatch();
         try self.writeAst(w, a.children.?.items[0], false);
@@ -666,8 +804,16 @@ pub const Context = struct {
     }
 
     pub fn writeCase(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.case) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len < 2) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
-        // TODO: Check for children with minimum children length of 2
 
         _ = try w.write("case ");
         try self.pushPadding(0);
@@ -701,6 +847,15 @@ pub const Context = struct {
     }
 
     pub fn writeReceive(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.receive_exp) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len < 1) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
 
         _ = try w.write("receive");
@@ -731,13 +886,30 @@ pub const Context = struct {
     }
 
     pub fn writeTryCatch(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.try_catch) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len != 2) {
+            return CodegenError.WritingFailure;
+        }
         try self.writeTryExp(w, a.*.children.?.items[0]);
         try self.writeCatchExp(w, a.*.children.?.items[1]);
     }
 
     pub fn writeTryExp(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.try_exp) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len < 2) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
-        // Check for children with minimum length of 2
 
         _ = try w.write("try ");
         try self.pushPadding(0);
@@ -769,8 +941,16 @@ pub const Context = struct {
     }
 
     pub fn writeCatchExp(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.catch_exp) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len < 1) {
+            return CodegenError.WritingFailure;
+        }
         try self.writePadding(w);
-        // Check for children with minimum length of 1
 
         _ = try w.write("catch\n");
 
@@ -1079,7 +1259,7 @@ test "write tuple" {
     var context = Context.init(test_allocator);
     defer context.deinit();
 
-    try context.writeTuple(list.writer(), &Ast{ .body = "", .ast_type = AstType.list, .children = children }, false);
+    try context.writeTuple(list.writer(), &Ast{ .body = "", .ast_type = AstType.tuple, .children = children }, false);
 
     try std.testing.expect(std.mem.eql(u8, list.items, "{1, 2}"));
 }
@@ -1540,7 +1720,7 @@ test "write callback def" {
 
     var context = Context.init(test_allocator);
     defer context.deinit();
-    try context.writeCallbackDef(list.writer(), &Ast{ .body = "foobar", .ast_type = AstType.spec_def, .children = children });
+    try context.writeCallbackDef(list.writer(), &Ast{ .body = "foobar", .ast_type = AstType.callback_def, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "-callback foobar() -> integer().\n"));
 }
@@ -1574,7 +1754,7 @@ test "write type def" {
 
     var context = Context.init(test_allocator);
     defer context.deinit();
-    try context.writeTypeDef(list.writer(), &Ast{ .body = "id", .ast_type = AstType.opaque_type_def, .children = children });
+    try context.writeTypeDef(list.writer(), &Ast{ .body = "id", .ast_type = AstType.type_def, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "-type id() :: integer().\n\n"));
 }

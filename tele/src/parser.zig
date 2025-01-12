@@ -336,7 +336,6 @@ pub const Parser = struct {
         if (!isParenStart(ini.*.body)) {
             self.allocator.free(ini.*.body);
             self.allocator.destroy(ini);
-            // TODO: Error expected paren start
             return ParserError.ParsingFailure;
         }
         self.allocator.free(ini.*.body);
@@ -472,6 +471,10 @@ pub const Parser = struct {
             try clauses.append(ast);
         }
 
+        if (clauses.items.len == 0) {
+            return ParserError.ParsingFailure;
+        }
+
         return clauses;
     }
 
@@ -490,6 +493,11 @@ pub const Parser = struct {
     fn parseSpecDefinition(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         // Pop off spec keyword
         const n = try token_queue.pop();
+        if (!isSpecKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         const current_col = n.*.col;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
@@ -504,6 +512,10 @@ pub const Parser = struct {
         errdefer self.allocator.free(buf);
 
         const children = try self.parseFunctionSigAndBody(token_queue, true, current_col);
+        if (children.items.len < 2) {
+            tele_ast.freeTeleAstList(children, self.allocator);
+            return ParserError.ParsingFailure;
+        }
 
         // Assemble Spec Definition Ast
         const t = try self.allocator.create(TeleAst);
@@ -518,6 +530,11 @@ pub const Parser = struct {
     fn parseCallbackDefinition(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         // Pop off callback keyword
         const n = try token_queue.pop();
+        if (!isCallbackKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         const current_col = n.*.col;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
@@ -619,9 +636,15 @@ pub const Parser = struct {
         const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
+        if (!isTypeKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         const current_col = n.*.col;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
+
         const node3 = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
@@ -709,9 +732,11 @@ pub const Parser = struct {
     }
 
     fn parseRecordDefinition(self: *Self, token_queue: *TokenQueue) !*TeleAst {
-        const n = token_queue.pop() catch {
-            return ParserError.ParsingFailure;
-        };
+        const n = try token_queue.pop();
+        if (!isRecordKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+        }
         const current_col = n.*.col;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
@@ -723,11 +748,15 @@ pub const Parser = struct {
 
         const buf = node3.*.body;
         self.allocator.destroy(node3);
+        errdefer self.allocator.free(buf);
 
         // Skip colon
-        const cn = token_queue.pop() catch {
+        const cn = try token_queue.pop();
+        if (!isColon(cn.*.body)) {
+            self.allocator.free(cn.*.body);
+            self.allocator.destroy(cn);
             return ParserError.ParsingFailure;
-        };
+        }
         self.allocator.free(cn.*.body);
         self.allocator.destroy(cn);
 
@@ -757,9 +786,12 @@ pub const Parser = struct {
         }
 
         // Skip tuple start
-        const cn2 = token_queue3.pop() catch {
+        const cn2 = try token_queue3.pop();
+        if (!isTupleStart(cn2.*.body)) {
+            self.allocator.free(cn2.*.body);
+            self.allocator.destroy(cn2);
             return ParserError.ParsingFailure;
-        };
+        }
         self.allocator.free(cn2.*.body);
         self.allocator.destroy(cn2);
 

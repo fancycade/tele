@@ -156,20 +156,34 @@ pub const Parser = struct {
         const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
+        if (!isFunKeyword(n.*.body) and !isFunpKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         const current_col = n.*.col;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
-        const node3 = token_queue.pop() catch {
+        const node = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
 
         // Function Definition Name
-        const buf = node3.*.body;
-        self.allocator.destroy(node3);
+        const buf = node.*.body;
+        self.allocator.destroy(node);
         errdefer self.allocator.free(buf);
 
+        // Ensure function name isn't blank
+        if (buf.len == 0) {
+            return ParserError.ParsingFailure;
+        }
+
         const children = try self.parseFunctionSigAndBody(token_queue, false, current_col);
+        if (children.items.len < 2) {
+            tele_ast.freeTeleAstList(children, self.allocator);
+            return ParserError.ParsingFailure;
+        }
 
         // Assemble Function Definition Ast
         const t = try self.allocator.create(TeleAst);
@@ -191,6 +205,11 @@ pub const Parser = struct {
         const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
+        if (!isDefineKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         const current_col = n.*.col;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
@@ -202,6 +221,9 @@ pub const Parser = struct {
         const buf = node3.*.body;
         self.allocator.destroy(node3);
         errdefer self.allocator.free(buf);
+        if (buf.len == 0) {
+            return ParserError.ParsingFailure;
+        }
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.freeTeleAstList(children, self.allocator);
@@ -245,6 +267,9 @@ pub const Parser = struct {
 
                 self.allocator.destroy(node2);
             }
+            if (token_queue2.empty()) {
+                return ParserError.ParsingFailure;
+            }
 
             const ast = try self.parseFunctionSignature(token_queue2, false);
             try children.append(ast);
@@ -279,6 +304,9 @@ pub const Parser = struct {
                 return ParserError.ParsingFailure;
             };
             errdefer tele_ast.freeTeleAstList(alist, self.allocator);
+            if (alist.items.len == 0) {
+                return ParserError.ParsingFailure;
+            }
 
             for (alist.items) |a| {
                 try children.append(a);
@@ -287,6 +315,9 @@ pub const Parser = struct {
             token_queue3.deinit();
             token_queue2.deinit();
         } else {
+            return ParserError.ParsingFailure;
+        }
+        if (children.items.len == 0) {
             return ParserError.ParsingFailure;
         }
 
@@ -327,6 +358,9 @@ pub const Parser = struct {
                     break;
                 }
             }
+            if (children.?.items.len == 0) {
+                return ParserError.ParsingFailure;
+            }
         } else {
             // Free Paren End Token
             const tn = try token_queue.pop();
@@ -334,12 +368,14 @@ pub const Parser = struct {
             self.allocator.destroy(tn);
         }
 
+        // Parse guard clauses
         if (!token_queue.empty()) {
+            // Can't have guard clauses if no params
             if (children == null) {
                 return ParserError.ParsingFailure;
             }
             const pn = try token_queue.peek();
-            if (std.mem.eql(u8, "when", pn.*.body)) {
+            if (isWhenKeyword(pn.*.body)) {
                 const al = try self.parseGuardClauses(token_queue);
                 for (al.items) |a| {
                     try children.?.append(a);
@@ -404,13 +440,20 @@ pub const Parser = struct {
 
     fn parseGuardClauses(self: *Self, token_queue: *TokenQueue) !std.ArrayList(*TeleAst) {
         var clauses = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.freeTeleAstList(clauses, self.allocator);
 
         // Pop off when keyword
         const n = try token_queue.pop();
+        if (!isWhenKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
         var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
         defer buffer_token_queue.deinit();
 
         while (!token_queue.empty()) {
@@ -1869,7 +1912,7 @@ pub const Parser = struct {
                 if (paren_count == 0 and !nested_body) {
                     signature_ready = true;
                 }
-            } else if (signature_ready and isColon(peek_node.*.body) and !nested_body) {
+            } else if (signature_ready and (isColon(peek_node.*.body) or isWhenKeyword(peek_node.*.body)) and !nested_body) {
                 var buffer_list = std.ArrayList(*TokenQueueNode).init(self.allocator);
                 // Reverse order
                 while (!buffer_token_queue.empty()) {
@@ -2272,7 +2315,7 @@ pub const Parser = struct {
         try alist.append(ast);
         if (!buffer_token_queue.empty()) {
             const pn = try buffer_token_queue.peek();
-            if (std.mem.eql(u8, "when", pn.*.body)) {
+            if (isWhenKeyword(pn.*.body)) {
                 const gc_ast_list = try self.parseGuardClauses(buffer_token_queue);
                 for (gc_ast_list.items) |a| {
                     try alist.append(a);
@@ -3177,6 +3220,10 @@ fn isOnLoadKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "on_load");
 }
 
+fn isWhenKeyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "when");
+}
+
 test "is keywords" {
     try std.testing.expect(isTypeKeyword("type"));
     try std.testing.expect(isSpecKeyword("spec"));
@@ -3196,6 +3243,7 @@ test "is keywords" {
     try std.testing.expect(isImportKeyword("import"));
     try std.testing.expect(isOpaqueKeyword("opaque"));
     try std.testing.expect(isExportTypeKeyword("export_type"));
+    try std.testing.expect(isWhenKeyword("when"));
 }
 
 fn isFloat(buf: []const u8) bool {

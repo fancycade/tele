@@ -146,3 +146,14 @@ fun hello_routes():
   {"pre": #('nine_cowboy_mid, 'json_request),
    "post": #('logger_mid, 'log),
    "handle": #('example, 'api)}
+
+
+fun hello_guard
+  (x) when is_integer(x):
+    x + 2
+  (x) when is_atom(x):
+    atom_to_binary(x)
+  (x) when is_binary(x):
+    binary_to_atom(x)
+  (x):
+    x

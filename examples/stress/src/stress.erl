@@ -154,6 +154,12 @@ stress_basic_hello_routes_test() ->
                    <<"handle">> => {example, api}},
                 stress_basic:hello_routes()).
 
+stress_basic_hello_guard_test() ->
+    ?assertEqual(4, stress_basic:hello_guard(2)),
+    ?assertEqual(<<"hello">>, stress_basic:hello_guard(hello)),
+    ?assertEqual(hello, stress_basic:hello_guard(<<"hello">>)),
+    ?assertEqual([], stress_basic:hello_guard([])).
+
 stress_statements_add2_test() ->
     ?assertEqual(6, stress_statements:add2_example()).
 
@@ -185,5 +191,23 @@ stress_real_world_example1_test() ->
 
 stress_real_world_example2_test() ->
     ?assertEqual({noreply, []}, stress_real_world:example2(ok, [])).
+
+stress_math_test() ->
+    ?assertEqual(2, stress_math:add(1, 1)),
+    ?assertEqual(1, stress_math:sub(2, 1)),
+    ?assertEqual(4, stress_math:add2(2)),
+    ?assertEqual(5, stress_math:add3(2)).
+
+stress_math_factorial_test() ->
+    ?assertEqual(1, stress_math:factorial(0)),
+    ?assertEqual(6, stress_math:factorial(3)).
+
+stress_math_fibonacci_test() ->
+    ?assertEqual(0, stress_math:fibonacci(0)),
+    ?assertEqual(1, stress_math:fibonacci(1)),
+    ?assertEqual(1, stress_math:fibonacci(2)),
+    ?assertEqual(2, stress_math:fibonacci(3)),
+    ?assertEqual(3, stress_math:fibonacci(4)),
+    ?assertEqual(5, stress_math:fibonacci(5)).
 
 -endif.

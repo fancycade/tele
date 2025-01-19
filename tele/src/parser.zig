@@ -539,7 +539,7 @@ pub const Parser = struct {
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
-        // Spec Definition Name
+        // Callback Definition Name
         const node3 = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
@@ -669,7 +669,7 @@ pub const Parser = struct {
             try children.append(t);
         } else {
 
-            // TODO: Change to parse function signature
+            // TODO: Make separate parser for this instead of function call
             const tfcall = self.parseFunctionCall(token_queue, buf, true) catch {
                 return ParserError.ParsingFailure;
             };
@@ -681,6 +681,12 @@ pub const Parser = struct {
         const cn = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
+
+        if (!isColon(cn.*.body)) {
+            self.allocator.free(cn.*.body);
+            self.allocator.destroy(cn);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(cn.*.body);
         self.allocator.destroy(cn);
 
@@ -873,8 +879,10 @@ pub const Parser = struct {
         var children: ?std.ArrayList(*TeleAst) = std.ArrayList(*TeleAst).init(self.allocator);
         if (!buffer_token_queue.empty()) {
             const op = try buffer_token_queue.pop();
-            //errdefer self.allocator.free(op.*.body);
-            //errdefer self.allocator.destroy(op);
+            errdefer self.allocator.free(op.*.body);
+            errdefer self.allocator.destroy(op);
+            defer self.allocator.destroy(op);
+            defer self.allocator.free(op.*.body);
 
             if (isEqual(op.*.body)) {
                 const ast = try self.parseRecordFieldValue(buffer_token_queue);
@@ -883,20 +891,23 @@ pub const Parser = struct {
                 const ast = try self.parseRecordFieldType(buffer_token_queue);
                 try children.?.append(ast);
             } else {
+                self.allocator.free(op.*.body);
+                self.allocator.destroy(op);
                 return ParserError.ParsingFailure;
             }
-            self.allocator.free(op.*.body);
-            self.allocator.destroy(op);
         }
 
+        // Check if buffer_token_queue is not empty second time for type expressions explicitly
         if (!buffer_token_queue.empty() and type_exp) {
             if (children == null) {
                 return ParserError.ParsingFailure;
             }
 
             const op = try buffer_token_queue.pop();
-            //errdefer self.allocator.free(op.*.body);
-            //errdefer self.allocator.destroy(op);
+            errdefer self.allocator.free(op.*.body);
+            errdefer self.allocator.destroy(op);
+            defer self.allocator.destroy(op);
+            defer self.allocator.free(op.*.body);
 
             if (isColon(op.*.body) and type_exp) {
                 const ast = try self.parseRecordFieldType(buffer_token_queue);
@@ -904,8 +915,6 @@ pub const Parser = struct {
             } else {
                 return ParserError.ParsingFailure;
             }
-            self.allocator.free(op.*.body);
-            self.allocator.destroy(op);
         }
 
         const t = try self.allocator.create(TeleAst);
@@ -922,6 +931,7 @@ pub const Parser = struct {
         const t = try self.allocator.create(TeleAst);
         t.*.body = "";
         t.*.children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.freeTeleAstList(t.*.children.?, self.allocator);
         try t.*.children.?.append(ast);
         t.*.ast_type = TeleAstType.record_field_value;
         t.*.col = 0;
@@ -934,6 +944,7 @@ pub const Parser = struct {
         const t = try self.allocator.create(TeleAst);
         t.*.body = "";
         t.*.children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.freeTeleAstList(t.*.children.?, self.allocator);
         try t.*.children.?.append(ast);
         t.*.ast_type = TeleAstType.record_field_type;
         t.*.col = 0;
@@ -1007,6 +1018,8 @@ pub const Parser = struct {
             const n = token_queue.pop() catch {
                 return ParserError.ParsingFailure;
             };
+            errdefer self.allocator.free(n.*.body);
+            errdefer self.allocator.destroy(n);
             defer self.allocator.destroy(n);
 
             if (!token_queue.empty()) {
@@ -3072,12 +3085,47 @@ fn checkParenStartPeek(token_queue: *TokenQueue) !bool {
     return isParenStart(peek_node.*.body);
 }
 
+test "check paren start peek" {
+    const token_queue = try TokenQueue.init(test_allocator);
+    defer token_queue.deinit();
+    try token_queue.push(try util.copyString("(", test_allocator), 0, 0);
+
+    try std.testing.expect(try checkParenStartPeek(token_queue));
+
+    const n = try token_queue.pop();
+    test_allocator.free(n.*.body);
+    test_allocator.destroy(n);
+
+    try token_queue.push(try util.copyString("foo", test_allocator), 0, 0);
+
+    try std.testing.expect(!try checkParenStartPeek(token_queue));
+}
+
 fn checkOperatorPeek(token_queue: *TokenQueue) !bool {
     const peek_node = try token_queue.peek();
     return isOperator(peek_node.*.body);
 }
 
+test "check operator peek" {
+    const token_queue = try TokenQueue.init(test_allocator);
+    defer token_queue.deinit();
+    try token_queue.push(try util.copyString("+", test_allocator), 0, 0);
+
+    try std.testing.expect(try checkOperatorPeek(token_queue));
+
+    const n = try token_queue.pop();
+    test_allocator.free(n.*.body);
+    test_allocator.destroy(n);
+
+    try token_queue.push(try util.copyString("foo", test_allocator), 0, 0);
+
+    try std.testing.expect(!try checkOperatorPeek(token_queue));
+}
+
 fn parenExpToFunctionSignature(paren_exp: *TeleAst, allocator: std.mem.Allocator) !*TeleAst {
+    if (paren_exp.*.ast_type != TeleAst.paren_exp) {
+        return ParserError.ParsingFailure;
+    }
     const t = try allocator.create(TeleAst);
     t.*.body = "";
     t.*.ast_type = TeleAstType.function_signature;

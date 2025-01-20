@@ -78,6 +78,11 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
             try tele_error.printErrorMessage();
             return e;
         };
+    } else if (std.mem.eql(u8, "ct", command)) {
+        commonTest(allocator) catch |e| {
+            try tele_error.printErrorMessage();
+            return e;
+        };
     } else {
         // TODO: Better error message
         return error.InvalidArgs;
@@ -130,8 +135,20 @@ fn build(allocator: std.mem.Allocator) !void {
 }
 
 fn eunit(allocator: std.mem.Allocator) !void {
-    // Run rebar3 compile with modified rebar.config
+    // Run rebar3 eunit with modified rebar.config
     const argv = [_][]const u8{ "rebar3", "eunit" };
+    var em = try std.process.getEnvMap(allocator);
+    defer em.deinit();
+    try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
+    const result = try std.process.Child.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    std.debug.print("{s}", .{result.stdout});
+}
+
+fn commonTest(allocator: std.mem.Allocator) !void {
+    // Run rebar3 common test with modified rebar.config
+    const argv = [_][]const u8{ "rebar3", "ct" };
     var em = try std.process.getEnvMap(allocator);
     defer em.deinit();
     try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");

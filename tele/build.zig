@@ -17,7 +17,7 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "tele",
-        .root_source_file = .{ .src_path = .{ .sub_path = "src/main.zig", .owner = b }},
+        .root_source_file = .{ .src_path = .{ .sub_path = "src/main.zig", .owner = b } },
         .target = target,
         .optimize = optimize,
     });
@@ -50,7 +50,7 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const src = [_][]const u8{ "src/main.zig", "src/erlang_codegen.zig", "src/erlang_ast.zig", "src/tele_codegen.zig", "src/tele_ast.zig", "src/tokenizer.zig", "src/compiler.zig", "src/parser.zig", "src/util.zig" };
+    const src = [_][]const u8{ "src/main.zig", "src/erlang_codegen.zig", "src/erlang_ast.zig", "src/tele_codegen.zig", "src/tele_ast.zig", "src/tokenizer.zig", "src/compiler.zig", "src/parser.zig", "src/util.zig", "src/error.zig" };
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) void {
 
     for (src) |path| {
         const unit_tests = b.addTest(.{
-            .root_source_file = .{ .src_path = .{ .sub_path = path, .owner = b }},
+            .root_source_file = .{ .src_path = .{ .sub_path = path, .owner = b } },
             .target = target,
             .optimize = optimize,
         });

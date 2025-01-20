@@ -8,6 +8,7 @@ const tele_ast = @import("tele_ast.zig");
 const TeleAst = tele_ast.Ast;
 const TeleAstType = tele_ast.AstType;
 const util = @import("util.zig");
+const tele_error = @import("error.zig");
 
 const ParserError = error{ ParsingFailure, TokenFailure, ExpectedStatement, InvalidStatement };
 
@@ -142,6 +143,7 @@ pub const Parser = struct {
                     try statements.append(ast);
                 } else {
                     // TODO: Expected Statement Error
+                    tele_error.setErrorMessage(pn.*.line, pn.*.col, tele_error.ErrorType.invalid_statement);
                     return ParserError.ExpectedStatement;
                 }
             }
@@ -159,6 +161,7 @@ pub const Parser = struct {
         if (!isFunKeyword(n.*.body) and !isFunpKeyword(n.*.body)) {
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.invalid_statement);
             return ParserError.ParsingFailure;
         }
         const current_col = n.*.col;

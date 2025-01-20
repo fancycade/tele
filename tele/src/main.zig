@@ -12,6 +12,7 @@ const TeleAstType = tast.AstType;
 const tokenizer = @import("tokenizer.zig");
 const parser = @import("parser.zig");
 const compiler = @import("compiler.zig");
+const tele_error = @import("error.zig");
 const test_allocator = std.testing.allocator;
 
 const ExecutionError = error{Empty};
@@ -54,21 +55,37 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
             return error.InvalidArgs;
         };
 
-        try compileFile(code_path, output_path, allocator);
+        compileFile(code_path, output_path, allocator) catch |e| {
+            try tele_error.printErrorMessage();
+            return e;
+        };
     } else if (std.mem.eql(u8, "format", command)) {
         const code_path = arg_it.next() orelse {
             return error.InvalidArgs;
         };
 
-        try formatFile(code_path, allocator);
+        formatFile(code_path, allocator) catch |e| {
+            try tele_error.printErrorMessage();
+            return e;
+        };
     } else if (std.mem.eql(u8, "build", command)) {
-        try build(allocator);
+        build(allocator) catch |e| {
+            try tele_error.printErrorMessage();
+            return e;
+        };
     } else if (std.mem.eql(u8, "test", command)) {
-        try eunit(allocator);
+        eunit(allocator) catch |e| {
+            try tele_error.printErrorMessage();
+            return e;
+        };
     } else {
         // TODO: Better error message
         return error.InvalidArgs;
     }
+}
+
+fn handleError() !void {
+    tele_error.printErrorMessage();
 }
 
 fn build(allocator: std.mem.Allocator) !void {

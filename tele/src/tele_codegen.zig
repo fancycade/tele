@@ -236,7 +236,7 @@ pub const Context = struct {
         }
         try self.writePadding(w);
         _ = try w.write("import ");
-        try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .col = a.*.col });
+        try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .line = a.*.line, .col = a.*.col });
     }
 
     pub fn writeAttribute(self: *Self, w: anytype, a: *const Ast) !void {
@@ -244,7 +244,7 @@ pub const Context = struct {
             return CodegenError.WritingFailure;
         }
         try self.writePadding(w);
-        try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .col = a.*.col });
+        try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .line = a.*.line, .col = a.*.col });
     }
 
     pub fn writeCustomAttribute(self: *Self, w: anytype, a: *const Ast) !void {
@@ -253,7 +253,7 @@ pub const Context = struct {
         }
         try self.writePadding(w);
         _ = try w.write("attr ");
-        try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .col = a.*.col });
+        try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .line = a.*.line, .col = a.*.col });
     }
 
     pub fn writeGuardClause(self: *Self, w: anytype, a: *const Ast) !void {
@@ -1017,22 +1017,22 @@ test "write value" {
     var list = std.ArrayList(u8).init(test_allocator);
     defer list.deinit();
 
-    const a = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0 };
+    const a = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try context.writeValue(list.writer(), &a);
     try std.testing.expect(std.mem.eql(u8, list.items, "1"));
     list.clearAndFree();
 
-    try context.writeValue(list.writer(), &Ast{ .body = "100_000", .ast_type = AstType.int, .children = null, .col = 0 });
+    try context.writeValue(list.writer(), &Ast{ .body = "100_000", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 });
     try std.testing.expect(std.mem.eql(u8, list.items, "100_000"));
     list.clearAndFree();
 
-    try context.writeValue(list.writer(), &Ast{ .body = "1.0", .ast_type = AstType.int, .children = null, .col = 0 });
+    try context.writeValue(list.writer(), &Ast{ .body = "1.0", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 });
     try std.testing.expect(std.mem.eql(u8, list.items, "1.0"));
     list.clearAndFree();
 
     // TODO: Scientific notation
 
-    try context.writeValue(list.writer(), &Ast{ .body = "'foo", .ast_type = AstType.atom, .children = null, .col = 0 });
+    try context.writeValue(list.writer(), &Ast{ .body = "'foo", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 });
     try std.testing.expect(std.mem.eql(u8, list.items, "'foo"));
     // TODO: Atom with double quotes
 }
@@ -1047,12 +1047,12 @@ test "write tuple" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var t = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0 };
+    var t = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try children.append(&t);
-    var t2 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0 };
+    var t2 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try children.append(&t2);
 
-    try context.writeTuple(list.writer(), &Ast{ .body = "", .ast_type = AstType.tuple, .children = children, .col = 0 });
+    try context.writeTuple(list.writer(), &Ast{ .body = "", .ast_type = AstType.tuple, .children = children, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "#(1, 2)"));
 }
@@ -1067,16 +1067,16 @@ test "write list" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var t = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0 };
+    var t = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try children.append(&t);
-    var t2 = Ast{ .body = "'foo", .ast_type = AstType.atom, .children = null, .col = 0 };
+    var t2 = Ast{ .body = "'foo", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
     try children.append(&t2);
-    var t3 = Ast{ .body = "42.42", .ast_type = AstType.float, .children = null, .col = 0 };
+    var t3 = Ast{ .body = "42.42", .ast_type = AstType.float, .children = null, .col = 0, .line = 0 };
     try children.append(&t3);
-    var t4 = Ast{ .body = "\"foobar\"", .ast_type = AstType.binary, .children = null, .col = 0 };
+    var t4 = Ast{ .body = "\"foobar\"", .ast_type = AstType.binary, .children = null, .col = 0, .line = 0 };
     try children.append(&t4);
 
-    try context.writeList(list.writer(), &Ast{ .body = "", .children = children, .ast_type = AstType.list, .col = 0 });
+    try context.writeList(list.writer(), &Ast{ .body = "", .children = children, .ast_type = AstType.list, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "[1, 'foo, 42.42, \"foobar\"]"));
 }
@@ -1091,16 +1091,16 @@ test "write map" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var t = Ast{ .body = "'foo", .ast_type = AstType.atom, .children = null, .col = 0 };
+    var t = Ast{ .body = "'foo", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
     try children.append(&t);
-    var t2 = Ast{ .body = "'bar", .ast_type = AstType.atom, .children = null, .col = 0 };
+    var t2 = Ast{ .body = "'bar", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
     try children.append(&t2);
-    var t3 = Ast{ .body = "'foo2", .ast_type = AstType.atom, .children = null, .col = 0 };
+    var t3 = Ast{ .body = "'foo2", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
     try children.append(&t3);
-    var t4 = Ast{ .body = "'baz", .ast_type = AstType.atom, .children = null, .col = 0 };
+    var t4 = Ast{ .body = "'baz", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
     try children.append(&t4);
 
-    try context.writeMap(list.writer(), &Ast{ .body = "", .ast_type = AstType.map, .children = children, .col = 0 });
+    try context.writeMap(list.writer(), &Ast{ .body = "", .ast_type = AstType.map, .children = children, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "{'foo: 'bar, 'foo2: 'baz}"));
 }
@@ -1119,26 +1119,26 @@ test "write record" {
     defer field1_children.deinit();
     var fv1_children = std.ArrayList(*Ast).init(test_allocator);
     defer fv1_children.deinit();
-    var fv1 = Ast{ .body = "\"Joe\"", .ast_type = AstType.binary, .children = null, .col = 0 };
+    var fv1 = Ast{ .body = "\"Joe\"", .ast_type = AstType.binary, .children = null, .col = 0, .line = 0 };
     try fv1_children.append(&fv1);
-    var fvv1 = Ast{ .body = "", .ast_type = AstType.record_field_value, .children = fv1_children, .col = 0 };
+    var fvv1 = Ast{ .body = "", .ast_type = AstType.record_field_value, .children = fv1_children, .col = 0, .line = 0 };
     try field1_children.append(&fvv1);
 
     var field2_children = std.ArrayList(*Ast).init(test_allocator);
     defer field2_children.deinit();
     var fv2_children = std.ArrayList(*Ast).init(test_allocator);
     defer fv2_children.deinit();
-    var fv2 = Ast{ .body = "68", .ast_type = AstType.binary, .children = null, .col = 0 };
+    var fv2 = Ast{ .body = "68", .ast_type = AstType.binary, .children = null, .col = 0, .line = 0 };
     try fv2_children.append(&fv2);
-    var fvv2 = Ast{ .body = "", .ast_type = AstType.record_field_value, .children = fv2_children, .col = 0 };
+    var fvv2 = Ast{ .body = "", .ast_type = AstType.record_field_value, .children = fv2_children, .col = 0, .line = 0 };
     try field2_children.append(&fvv2);
 
-    var t = Ast{ .body = "name", .ast_type = AstType.record_field, .children = field1_children, .col = 0 };
+    var t = Ast{ .body = "name", .ast_type = AstType.record_field, .children = field1_children, .col = 0, .line = 0 };
     try children.append(&t);
-    var t2 = Ast{ .body = "age", .ast_type = AstType.record_field, .children = field2_children, .col = 0 };
+    var t2 = Ast{ .body = "age", .ast_type = AstType.record_field, .children = field2_children, .col = 0, .line = 0 };
     try children.append(&t2);
 
-    try context.writeRecord(list.writer(), &Ast{ .body = "person", .ast_type = AstType.record, .children = children, .col = 0 });
+    try context.writeRecord(list.writer(), &Ast{ .body = "person", .ast_type = AstType.record, .children = children, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "#person(name=\"Joe\", age=68)"));
 }
@@ -1153,12 +1153,12 @@ test "write op" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var a = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0 };
+    var a = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try children.append(&a);
-    var a2 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0 };
+    var a2 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try children.append(&a2);
 
-    try context.writeOp(list.writer(), &Ast{ .body = "+", .children = children, .ast_type = AstType.op, .col = 0 });
+    try context.writeOp(list.writer(), &Ast{ .body = "+", .children = children, .ast_type = AstType.op, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "1 + 2"));
 }
@@ -1173,12 +1173,12 @@ test "write function call" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var a = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0 };
+    var a = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try children.append(&a);
-    var a2 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0 };
+    var a2 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try children.append(&a2);
 
-    try context.writeFunctionCall(list.writer(), &Ast{ .body = "erlang.add", .ast_type = AstType.function_call, .children = children, .col = 0 });
+    try context.writeFunctionCall(list.writer(), &Ast{ .body = "erlang.add", .ast_type = AstType.function_call, .children = children, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "erlang.add(1, 2)"));
 
@@ -1195,10 +1195,10 @@ test "write attribute" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var c = Ast{ .body = "\"hello world\"", .ast_type = AstType.binary, .children = null, .col = 0 };
+    var c = Ast{ .body = "\"hello world\"", .ast_type = AstType.binary, .children = null, .col = 0, .line = 0 };
     try children.append(&c);
 
-    var a = Ast{ .body = "doc", .ast_type = AstType.attribute, .children = children, .col = 0 };
+    var a = Ast{ .body = "doc", .ast_type = AstType.attribute, .children = children, .col = 0, .line = 0 };
 
     try context.writeAttribute(list.writer(), &a);
 
@@ -1218,12 +1218,12 @@ test "write guard clause" {
     var children2 = std.ArrayList(*Ast).init(test_allocator);
     defer children2.deinit();
 
-    var a = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try children2.append(&a);
-    var a2 = Ast{ .body = "is_number", .ast_type = AstType.function_call, .children = children2, .col = 0 };
+    var a2 = Ast{ .body = "is_number", .ast_type = AstType.function_call, .children = children2, .col = 0, .line = 0 };
     try children.append(&a2);
 
-    try context.writeGuardClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.guard_clause, .children = children, .col = 0 });
+    try context.writeGuardClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.guard_clause, .children = children, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "when is_number(x)"));
 }
@@ -1237,12 +1237,12 @@ test "write function signature" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var a = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try children.append(&a);
-    var a2 = Ast{ .body = "b", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a2 = Ast{ .body = "b", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try children.append(&a2);
 
-    try context.writeFunctionSignature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children, .col = 0 });
+    try context.writeFunctionSignature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children, .col = 0, .line = 0 });
 
     const expected = "(a, b)";
     try std.testing.expect(std.mem.eql(u8, list.items, expected));
@@ -1252,9 +1252,9 @@ test "write function signature" {
     var children2 = std.ArrayList(*Ast).init(test_allocator);
     defer children2.deinit();
 
-    var a3 = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a3 = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try children2.append(&a3);
-    var a4 = Ast{ .body = "b", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a4 = Ast{ .body = "b", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try children2.append(&a4);
 
     var guard_children = std.ArrayList(*Ast).init(test_allocator);
@@ -1263,16 +1263,16 @@ test "write function signature" {
     var function_children = std.ArrayList(*Ast).init(test_allocator);
     defer function_children.deinit();
 
-    var a5 = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a5 = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try function_children.append(&a5);
 
-    var a6 = Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children, .col = 0 };
+    var a6 = Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children, .col = 0, .line = 0 };
     try guard_children.append(&a6);
 
-    var a7 = Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children, .col = 0 };
+    var a7 = Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children, .col = 0, .line = 0 };
     try children2.append(&a7);
 
-    try context.writeFunctionSignature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children2, .col = 0 });
+    try context.writeFunctionSignature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children2, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "(a, b) when is_integer(a)"));
 }
@@ -1287,14 +1287,14 @@ test "write anonymous function" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var a = Ast{ .body = "", .ast_type = AstType.function_signature, .children = null, .col = 0 };
+    var a = Ast{ .body = "", .ast_type = AstType.function_signature, .children = null, .col = 0, .line = 0 };
     try children.append(&a);
-    var a2 = Ast{ .body = "hello", .ast_type = AstType.function_call, .children = null, .col = 0 };
+    var a2 = Ast{ .body = "hello", .ast_type = AstType.function_call, .children = null, .col = 0, .line = 0 };
     try children.append(&a2);
-    var a3 = Ast{ .body = "world", .ast_type = AstType.function_call, .children = null, .col = 0 };
+    var a3 = Ast{ .body = "world", .ast_type = AstType.function_call, .children = null, .col = 0, .line = 0 };
     try children.append(&a3);
 
-    try context.writeAnonymousFunction(list.writer(), &Ast{ .body = "", .ast_type = AstType.anonymous_function, .children = children, .col = 0 });
+    try context.writeAnonymousFunction(list.writer(), &Ast{ .body = "", .ast_type = AstType.anonymous_function, .children = children, .col = 0, .line = 0 });
     try std.testing.expect(std.mem.eql(u8, list.items, "fun ():\n  hello()\n  world()\n"));
 }
 
@@ -1308,14 +1308,14 @@ test "write function def" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var a = Ast{ .body = "", .ast_type = AstType.function_signature, .children = null, .col = 0 };
+    var a = Ast{ .body = "", .ast_type = AstType.function_signature, .children = null, .col = 0, .line = 0 };
     try children.append(&a);
-    var a2 = Ast{ .body = "hello", .ast_type = AstType.function_call, .children = null, .col = 0 };
+    var a2 = Ast{ .body = "hello", .ast_type = AstType.function_call, .children = null, .col = 0, .line = 0 };
     try children.append(&a2);
-    var a3 = Ast{ .body = "world", .ast_type = AstType.function_call, .children = null, .col = 0 };
+    var a3 = Ast{ .body = "world", .ast_type = AstType.function_call, .children = null, .col = 0, .line = 0 };
     try children.append(&a3);
 
-    try context.writeFunctionDef(list.writer(), &Ast{ .body = "hello_world", .ast_type = AstType.function_def, .children = children, .col = 0 }, false);
+    try context.writeFunctionDef(list.writer(), &Ast{ .body = "hello_world", .ast_type = AstType.function_def, .children = children, .col = 0, .line = 0 }, false);
     try std.testing.expect(std.mem.eql(u8, list.items, "fun hello_world():\n  hello()\n  world()\n\n"));
 }
 
@@ -1332,26 +1332,26 @@ test "write function def matching" {
     var signature_children = std.ArrayList(*Ast).init(test_allocator);
     defer signature_children.deinit();
 
-    var a = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0 };
+    var a = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try signature_children.append(&a);
 
-    var a2 = Ast{ .body = "", .ast_type = AstType.function_signature, .children = signature_children, .col = 0 };
+    var a2 = Ast{ .body = "", .ast_type = AstType.function_signature, .children = signature_children, .col = 0, .line = 0 };
     try children.append(&a2);
-    var a3 = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0 };
+    var a3 = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try children.append(&a3);
 
     var signature_children2 = std.ArrayList(*Ast).init(test_allocator);
     defer signature_children2.deinit();
 
-    var a4 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0 };
+    var a4 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try signature_children2.append(&a4);
 
-    var a5 = Ast{ .body = "", .ast_type = AstType.function_signature, .children = signature_children2, .col = 0 };
+    var a5 = Ast{ .body = "", .ast_type = AstType.function_signature, .children = signature_children2, .col = 0, .line = 0 };
     try children.append(&a5);
-    var a6 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0 };
+    var a6 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try children.append(&a6);
 
-    try context.writeFunctionDef(list.writer(), &Ast{ .body = "hello", .ast_type = AstType.function_def, .children = children, .col = 0 }, false);
+    try context.writeFunctionDef(list.writer(), &Ast{ .body = "hello", .ast_type = AstType.function_def, .children = children, .col = 0, .line = 0 }, false);
     try std.testing.expect(std.mem.eql(u8, list.items, "fun hello(1):\n  1\n  (2):\n  2\n\n"));
 }
 
@@ -1365,31 +1365,31 @@ test "write case clause" {
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var a = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try children.append(&a);
 
     var op1_children = std.ArrayList(*Ast).init(test_allocator);
     defer op1_children.deinit();
 
-    var a2 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a2 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try op1_children.append(&a2);
-    var a3 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0 };
+    var a3 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
     try op1_children.append(&a3);
 
     var op2_children = std.ArrayList(*Ast).init(test_allocator);
     defer op2_children.deinit();
 
-    var a4 = Ast{ .body = "y", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a4 = Ast{ .body = "y", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try op2_children.append(&a4);
-    var a5 = Ast{ .body = "+", .ast_type = AstType.op, .children = op1_children, .col = 0 };
+    var a5 = Ast{ .body = "+", .ast_type = AstType.op, .children = op1_children, .col = 0, .line = 0 };
     try op2_children.append(&a5);
 
-    var a6 = Ast{ .body = "=", .ast_type = AstType.op, .children = op2_children, .col = 0 };
+    var a6 = Ast{ .body = "=", .ast_type = AstType.op, .children = op2_children, .col = 0, .line = 0 };
     try children.append(&a6);
-    var a7 = Ast{ .body = "y", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a7 = Ast{ .body = "y", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try children.append(&a7);
 
-    try context.writeCaseClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children, .col = 0 });
+    try context.writeCaseClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "x:\n  y = x + 2\n  y"));
 
@@ -1398,7 +1398,7 @@ test "write case clause" {
     var children2 = std.ArrayList(*Ast).init(test_allocator);
     defer children2.deinit();
 
-    var a8 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a8 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try children2.append(&a8);
 
     var guard_children = std.ArrayList(*Ast).init(test_allocator);
@@ -1407,19 +1407,19 @@ test "write case clause" {
     var function_children = std.ArrayList(*Ast).init(test_allocator);
     defer function_children.deinit();
 
-    var a9 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a9 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try function_children.append(&a9);
 
-    var a10 = Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children, .col = 0 };
+    var a10 = Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children, .col = 0, .line = 0 };
     try guard_children.append(&a10);
 
-    var a11 = Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children, .col = 0 };
+    var a11 = Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children, .col = 0, .line = 0 };
     try children2.append(&a11);
 
-    var a12 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a12 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try children2.append(&a12);
 
-    try context.writeCaseClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children2, .col = 0 });
+    try context.writeCaseClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children2, .col = 0, .line = 0 });
     try std.testing.expect(std.mem.eql(u8, list.items, "x when is_integer(x):\n  x"));
 }
 
@@ -1433,31 +1433,31 @@ test "write case" {
     var case_clause_children_1 = std.ArrayList(*Ast).init(test_allocator);
     defer case_clause_children_1.deinit();
 
-    var a = Ast{ .body = "'true", .ast_type = AstType.atom, .children = null, .col = 0 };
+    var a = Ast{ .body = "'true", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
     try case_clause_children_1.append(&a);
-    var a2 = Ast{ .body = "'ok", .ast_type = AstType.atom, .children = null, .col = 0 };
+    var a2 = Ast{ .body = "'ok", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
     try case_clause_children_1.append(&a2);
 
     var case_clause_children_2 = std.ArrayList(*Ast).init(test_allocator);
     defer case_clause_children_2.deinit();
 
-    var a3 = Ast{ .body = "'false", .ast_type = AstType.atom, .children = null, .col = 0 };
+    var a3 = Ast{ .body = "'false", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
     try case_clause_children_2.append(&a3);
-    var a4 = Ast{ .body = "'error", .ast_type = AstType.atom, .children = null, .col = 0 };
+    var a4 = Ast{ .body = "'error", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
     try case_clause_children_2.append(&a4);
 
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
 
-    var a5 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0 };
+    var a5 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
     try children.append(&a5);
 
-    var a6 = Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_1, .col = 0 };
+    var a6 = Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_1, .col = 0, .line = 0 };
     try children.append(&a6);
-    var a7 = Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_2, .col = 0 };
+    var a7 = Ast{ .body = "", .ast_type = AstType.case_clause, .children = case_clause_children_2, .col = 0, .line = 0 };
     try children.append(&a7);
 
-    try context.writeCase(list.writer(), &Ast{ .body = "", .ast_type = AstType.case, .children = children, .col = 0 });
+    try context.writeCase(list.writer(), &Ast{ .body = "", .ast_type = AstType.case, .children = children, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "case x:\n  'true:\n    'ok\n  'false:\n    'error"));
 }

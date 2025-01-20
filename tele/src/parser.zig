@@ -162,6 +162,7 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         }
         const current_col = n.*.col;
+        const ast_line = n.*.line;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -194,7 +195,8 @@ pub const Parser = struct {
             t.*.ast_type = TeleAstType.function_def;
         }
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         return t;
     }
@@ -211,6 +213,7 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         }
         const current_col = n.*.col;
+        const ast_line = n.*.line;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -326,7 +329,8 @@ pub const Parser = struct {
         t.*.body = buf;
         t.*.ast_type = TeleAstType.macro_def;
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         return t;
     }
@@ -338,6 +342,8 @@ pub const Parser = struct {
             self.allocator.destroy(ini);
             return ParserError.ParsingFailure;
         }
+        const current_col = ini.*.col;
+        const ast_line = ini.*.line;
         self.allocator.free(ini.*.body);
         self.allocator.destroy(ini);
 
@@ -389,7 +395,8 @@ pub const Parser = struct {
         tast.*.body = "";
         tast.*.ast_type = TeleAstType.function_signature;
         tast.*.children = children;
-        tast.*.col = 0;
+        tast.*.col = current_col;
+        tast.*.line = ast_line;
 
         return tast;
     }
@@ -480,12 +487,17 @@ pub const Parser = struct {
 
     fn parseGuardClause(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         const alist = try self.parseBody(token_queue);
+        if (alist.items.len == 0) {
+            tele_ast.freeTeleAstList(alist, self.allocator);
+            return ParserError.ParsingFailure;
+        }
 
         const t = try self.allocator.create(TeleAst);
         t.*.body = "";
         t.*.ast_type = TeleAstType.guard_clause;
         t.*.children = alist;
-        t.*.col = 0;
+        t.*.col = alist.items[0].*.col;
+        t.*.line = alist.items[0].*.line;
 
         return t;
     }
@@ -499,6 +511,7 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         }
         const current_col = n.*.col;
+        const ast_line = n.*.line;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -522,7 +535,8 @@ pub const Parser = struct {
         t.*.body = buf;
         t.*.ast_type = TeleAstType.spec_def;
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         return t;
     }
@@ -536,6 +550,7 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         }
         const current_col = n.*.col;
+        const ast_line = n.*.line;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -623,7 +638,8 @@ pub const Parser = struct {
         t.*.body = buf;
         t.*.ast_type = TeleAstType.callback_def;
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         token_queue2.deinit();
         token_queue3.deinit();
@@ -642,6 +658,7 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         }
         const current_col = n.*.col;
+        const ast_line = n.*.line;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -730,7 +747,8 @@ pub const Parser = struct {
             t.*.ast_type = TeleAstType.type_def;
         }
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         token_queue3.deinit();
 
@@ -744,6 +762,7 @@ pub const Parser = struct {
             self.allocator.destroy(n);
         }
         const current_col = n.*.col;
+        const ast_line = n.*.line;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -830,7 +849,8 @@ pub const Parser = struct {
         t.*.body = buf;
         t.*.ast_type = TeleAstType.record_def;
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         token_queue3.deinit();
 
@@ -873,6 +893,8 @@ pub const Parser = struct {
         // Parse Field Key
         const key = try buffer_token_queue.pop();
         const name = key.*.body;
+        const current_col = key.*.col;
+        const ast_line = key.*.line;
         errdefer self.allocator.free(name);
         self.allocator.destroy(key);
 
@@ -921,7 +943,8 @@ pub const Parser = struct {
         t.*.body = name;
         t.*.children = children;
         t.*.ast_type = TeleAstType.record_field;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         return t;
     }
@@ -934,7 +957,8 @@ pub const Parser = struct {
         errdefer tele_ast.freeTeleAstList(t.*.children.?, self.allocator);
         try t.*.children.?.append(ast);
         t.*.ast_type = TeleAstType.record_field_value;
-        t.*.col = 0;
+        t.*.col = ast.*.col;
+        t.*.line = ast.*.line;
 
         return t;
     }
@@ -947,7 +971,8 @@ pub const Parser = struct {
         errdefer tele_ast.freeTeleAstList(t.*.children.?, self.allocator);
         try t.*.children.?.append(ast);
         t.*.ast_type = TeleAstType.record_field_type;
-        t.*.col = 0;
+        t.*.col = ast.*.col;
+        t.*.line = ast.*.line;
         return t;
     }
 
@@ -1038,12 +1063,12 @@ pub const Parser = struct {
                         };
                     }
                 } else {
-                    ast = self.parseVariable(n.*.body, false) catch {
+                    ast = self.parseVariable(n.*.body, false, n.*.line, n.*.col) catch {
                         return ParserError.ParsingFailure;
                     };
                 }
             } else {
-                ast = self.parseVariable(n.*.body, false) catch {
+                ast = self.parseVariable(n.*.body, false, n.*.line, n.*.col) catch {
                     return ParserError.ParsingFailure;
                 };
             }
@@ -1139,12 +1164,12 @@ pub const Parser = struct {
                         };
                     }
                 } else {
-                    ast = self.parseVariable(n.*.body, true) catch {
+                    ast = self.parseVariable(n.*.body, true, n.*.line, n.*.col) catch {
                         return ParserError.ParsingFailure;
                     };
                 }
             } else {
-                ast = self.parseVariable(n.*.body, true) catch {
+                ast = self.parseVariable(n.*.body, true, n.*.line, n.*.col) catch {
                     return ParserError.ParsingFailure;
                 };
             }
@@ -1180,7 +1205,7 @@ pub const Parser = struct {
         return try self.parseValue(token_queue, TeleAstType.binary);
     }
 
-    fn parseVariable(self: *Self, buf: []const u8, type_exp: bool) !*TeleAst {
+    fn parseVariable(self: *Self, buf: []const u8, type_exp: bool, line: usize, col: usize) !*TeleAst {
         if (type_exp and buf[0] != '@') {
             const t = try self.allocator.create(TeleAst);
             t.*.body = buf;
@@ -1190,14 +1215,16 @@ pub const Parser = struct {
                 t.*.ast_type = TeleAstType.function_call;
             }
             t.*.children = null;
-            t.*.col = 0;
+            t.*.col = col;
+            t.*.line = line;
             return t;
         } else {
             const t = try self.allocator.create(TeleAst);
             t.*.body = buf;
             t.*.ast_type = TeleAstType.variable;
             t.*.children = null;
-            t.*.col = 0;
+            t.*.col = col;
+            t.*.line = line;
             return t;
         }
     }
@@ -1208,12 +1235,13 @@ pub const Parser = struct {
         t.*.body = n.*.body;
         t.*.ast_type = ast_type;
         t.*.children = null;
-        t.*.col = 0;
+        t.*.col = n.*.col;
+        t.*.line = n.*.line;
         self.allocator.destroy(n);
         return t;
     }
 
-    fn parseFunVal(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+    fn parseFunVal(self: *Self, token_queue: *TokenQueue, line: usize, col: usize) !*TeleAst {
         // TODO: Check that name is not numbers
         const name = try token_queue.pop();
         const div = try token_queue.pop();
@@ -1243,7 +1271,8 @@ pub const Parser = struct {
         t.*.body = buf;
         t.*.ast_type = TeleAstType.fun_val;
         t.*.children = null;
-        t.*.col = 0;
+        t.*.col = col;
+        t.*.line = line;
         return t;
     }
 
@@ -1252,6 +1281,8 @@ pub const Parser = struct {
         const node = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
+        const current_col = node.*.col;
+        const ast_line = node.*.line;
         errdefer self.allocator.destroy(node);
 
         // TODO: Allow for negative numbers
@@ -1285,7 +1316,8 @@ pub const Parser = struct {
         t.*.body = node.*.body;
         t.*.ast_type = TeleAstType.op;
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         self.allocator.destroy(node);
 
@@ -1298,6 +1330,7 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         };
         const col = n.*.col;
+        const line = n.*.line;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
         var children: ?std.ArrayList(*TeleAst) = null;
@@ -1353,6 +1386,7 @@ pub const Parser = struct {
         tast.*.ast_type = TeleAstType.paren_exp;
         tast.*.children = children;
         tast.*.col = col;
+        tast.*.line = line;
 
         return tast;
     }
@@ -1396,8 +1430,14 @@ pub const Parser = struct {
 
     fn parseTuple(self: *Self, token_queue: *TokenQueue, type_exp: bool) !*TeleAst {
         //Pop off #(
-
         const n = try token_queue.pop();
+        const current_col = n.*.col;
+        const ast_line = n.*.line;
+        if (!isTupleStart(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -1459,7 +1499,8 @@ pub const Parser = struct {
         t.*.body = "";
         t.*.ast_type = TeleAstType.tuple;
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
         token_queue2.deinit();
 
         return t;
@@ -1468,6 +1509,12 @@ pub const Parser = struct {
     fn parseList(self: *Self, token_queue: *TokenQueue, type_exp: bool) !*TeleAst {
         // Pop off [
         const n = try token_queue.pop();
+        const current_col = n.*.col;
+        const ast_line = n.*.line;
+        if (!isListStart(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+        }
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -1539,7 +1586,8 @@ pub const Parser = struct {
         t.*.body = "";
         t.*.ast_type = TeleAstType.list;
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         return t;
     }
@@ -1548,6 +1596,12 @@ pub const Parser = struct {
     fn parseMap(self: *Self, token_queue: *TokenQueue, type_exp: bool) !*TeleAst {
         // Pop off {
         const n = try token_queue.pop();
+        const current_col = n.*.col;
+        const ast_line = n.*.line;
+        if (!isMapStart(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+        }
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -1638,20 +1692,27 @@ pub const Parser = struct {
 
         t.*.ast_type = TeleAstType.map;
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         return t;
     }
 
     fn parseRecord(self: *Self, token_queue: *TokenQueue, variable: bool, buf: []const u8, type_exp: bool) !*TeleAst {
         var buf2: []const u8 = undefined;
+        var current_col: usize = 0;
+        var ast_line: usize = 0;
         if (!variable) {
             const node = try token_queue.pop();
             buf2 = node.*.body;
+            current_col = node.*.col;
+            ast_line = node.*.line;
             self.allocator.destroy(node);
         } else {
             buf2 = buf;
             const node = try token_queue.pop();
+            current_col = node.*.col;
+            ast_line = node.*.line;
             self.allocator.free(node.*.body);
             self.allocator.destroy(node);
         }
@@ -1720,7 +1781,8 @@ pub const Parser = struct {
         }
         t.*.ast_type = TeleAstType.record;
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
         return t;
     }
 
@@ -1743,6 +1805,12 @@ pub const Parser = struct {
         // Pop off fun
         const temp = try token_queue.pop();
         const current_col = temp.*.col;
+        const ast_line = temp.*.line;
+        if (!isFunKeyword(temp.*.body)) {
+            self.allocator.free(temp.*.body);
+            self.allocator.destroy(temp);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(temp.*.body);
         self.allocator.destroy(temp);
 
@@ -1751,7 +1819,7 @@ pub const Parser = struct {
         };
 
         if (!isParenStart(pn.*.body)) {
-            const t = try self.parseFunVal(token_queue);
+            const t = try self.parseFunVal(token_queue, ast_line, current_col);
             return t;
         } else {
             const children = try self.parseFunctionSigAndBody(token_queue, type_exp, current_col);
@@ -1762,6 +1830,7 @@ pub const Parser = struct {
             t.*.ast_type = TeleAstType.anonymous_function;
             t.*.children = children;
             t.*.col = current_col;
+            t.*.line = ast_line;
 
             return t;
         }
@@ -2010,9 +2079,15 @@ pub const Parser = struct {
     }
 
     fn parseCaseExpression(self: *Self, token_queue: *TokenQueue) !*TeleAst {
-        // Pop off match keyword
+        // Pop off case keyword
         const n = try token_queue.pop();
+        if (!isCaseKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         const current_col = n.*.col;
+        const ast_line = n.*.line;
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -2056,12 +2131,16 @@ pub const Parser = struct {
             try children.append(c);
         }
         body.deinit();
+        if (children.items.len == 0) {
+            return ParserError.ParsingFailure;
+        }
 
         const final_ast = try self.allocator.create(TeleAst);
         final_ast.*.body = "";
         final_ast.*.ast_type = TeleAstType.case;
         final_ast.*.children = children;
-        final_ast.*.col = 0;
+        final_ast.*.col = current_col;
+        final_ast.*.line = ast_line;
 
         return final_ast;
     }
@@ -2098,6 +2177,8 @@ pub const Parser = struct {
     }
 
     fn parseCaseBody(self: *Self, token_queue: *TokenQueue) !std.ArrayList(*TeleAst) {
+        var current_col: usize = 0;
+        var ast_line: usize = 0;
         var clause_col: usize = 0;
         var alist = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.freeTeleAstList(alist, self.allocator);
@@ -2115,10 +2196,15 @@ pub const Parser = struct {
                     return ParserError.ParsingFailure;
                 }
                 const ast2 = alist2.pop();
+                current_col = ast2.*.col;
+                ast_line = ast2.*.line;
                 try children.append(ast2);
                 try children.append(ast);
             } else if (alist2.items.len == 1) {
-                try children.append(alist2.pop());
+                const ast = alist2.pop();
+                clause_col = ast.*.col;
+                ast_line = ast.*.line;
+                try children.append(ast);
             } else {
                 tele_ast.freeTeleAstList(alist2, self.allocator);
                 return ParserError.ParsingFailure;
@@ -2136,7 +2222,8 @@ pub const Parser = struct {
             t.body = "";
             t.ast_type = TeleAstType.case_clause;
             t.children = children;
-            t.col = 0;
+            t.col = current_col;
+            t.line = ast_line;
             errdefer tele_ast.freeTeleAst(t, self.allocator);
 
             try alist.append(t);
@@ -2149,11 +2236,22 @@ pub const Parser = struct {
         // Pop off receive keyword
         const n = try token_queue.pop();
         const current_col = n.*.col;
+        const ast_line = n.*.line;
+        if (!isReceiveKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
         // Pop off colon
         const nc = try token_queue.pop();
+        if (!isColon(nc.*.body)) {
+            self.allocator.free(nc.*.body);
+            self.allocator.destroy(nc);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(nc.*.body);
         self.allocator.destroy(nc);
 
@@ -2191,7 +2289,8 @@ pub const Parser = struct {
         final_ast.*.body = "";
         final_ast.*.ast_type = TeleAstType.receive_exp;
         final_ast.*.children = body;
-        final_ast.*.col = 0;
+        final_ast.*.col = current_col;
+        final_ast.*.line = ast_line;
 
         return final_ast;
     }
@@ -2200,6 +2299,12 @@ pub const Parser = struct {
         // Pop off try keyword
         const n = try token_queue.pop();
         const current_col = n.*.col;
+        const ast_line = n.*.line;
+        if (!isTryKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -2248,12 +2353,15 @@ pub const Parser = struct {
         try_ast.*.body = "";
         try_ast.*.ast_type = TeleAstType.try_exp;
         try_ast.*.children = try_children;
-        try_ast.*.col = 0;
+        try_ast.*.col = current_col;
+        try_ast.*.line = ast_line;
 
         // Pop off catch keyword
         const n_catch = try token_queue.pop();
         errdefer self.allocator.free(n_catch.*.body);
         errdefer self.allocator.destroy(n_catch);
+        const current_col_catch = n_catch.*.col;
+        const ast_line_catch = n_catch.*.line;
         if (!isCatchKeyword(n_catch.*.body)) {
             return ParserError.ParsingFailure;
         }
@@ -2309,7 +2417,8 @@ pub const Parser = struct {
         catch_ast.*.body = "";
         catch_ast.*.ast_type = TeleAstType.catch_exp;
         catch_ast.*.children = catch_children;
-        catch_ast.*.col = 0;
+        catch_ast.*.col = current_col_catch;
+        catch_ast.*.line = ast_line_catch;
 
         const final_ast = try self.allocator.create(TeleAst);
         final_ast.*.body = "";
@@ -2320,7 +2429,8 @@ pub const Parser = struct {
         try children.append(try_ast);
         try children.append(catch_ast);
         final_ast.*.children = children;
-        final_ast.*.col = 0;
+        final_ast.*.col = current_col;
+        final_ast.*.line = ast_line;
 
         buffer_token_queue.deinit();
 
@@ -2409,6 +2519,13 @@ pub const Parser = struct {
     fn parseFunctionCall(self: *Self, token_queue: *TokenQueue, buf: []const u8, type_exp: bool) !*TeleAst {
         // Remove paren start
         const pn = try token_queue.pop();
+        const current_col = pn.*.col;
+        const ast_line = pn.*.line;
+        if (!isParenStart(pn.*.body)) {
+            self.allocator.free(pn.*.body);
+            self.allocator.destroy(pn);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(pn.*.body);
         self.allocator.destroy(pn);
 
@@ -2437,7 +2554,8 @@ pub const Parser = struct {
         t.*.body = buf;
         t.*.ast_type = TeleAstType.function_call;
         t.*.children = children;
-        t.*.col = 0;
+        t.*.col = current_col;
+        t.*.line = ast_line;
 
         return t;
     }
@@ -2493,6 +2611,8 @@ pub const Parser = struct {
         // Pop off attribute name
         const name_node = try token_queue.pop();
         const name = name_node.*.body;
+        const current_col = name_node.*.col;
+        const ast_line = name_node.*.line;
         errdefer self.allocator.free(name);
         self.allocator.destroy(name_node);
 
@@ -2501,6 +2621,8 @@ pub const Parser = struct {
         };
 
         bast.*.ast_type = TeleAstType.attribute;
+        bast.*.col = current_col;
+        bast.*.line = ast_line;
 
         return bast;
     }
@@ -2508,17 +2630,27 @@ pub const Parser = struct {
     fn parseCustomAttribute(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         // Pop off attr
         const a_node = try token_queue.pop();
+        const current_col = a_node.*.col;
+        const ast_line = a_node.*.line;
+        if (!isAttrKeyword(a_node.*.body)) {
+            self.allocator.free(a_node.*.body);
+            self.allocator.destroy(a_node);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(a_node.*.body);
         self.allocator.destroy(a_node);
 
         const bast = try self.parseAttribute(token_queue);
 
         bast.*.ast_type = TeleAstType.custom_attribute;
+        bast.*.col = current_col;
+        bast.*.line = ast_line;
 
         return bast;
     }
 
     fn parseBehaviour(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        // TODO: Check for behabiour keyword
         const bast = try self.parseAttribute(token_queue);
 
         bast.*.children.?.items[0].ast_type = TeleAstType.atom;
@@ -2530,6 +2662,13 @@ pub const Parser = struct {
     fn parseImport(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         // Pop off import
         const n = try token_queue.pop();
+        const current_col = n.*.col;
+        const ast_line = n.*.line;
+        if (!isImportKeyword(n.*.body)) {
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
 
@@ -2572,7 +2711,8 @@ pub const Parser = struct {
         ast.*.body = name;
         ast.*.ast_type = TeleAstType.import_def;
         ast.*.children = children;
-        ast.*.col = 0;
+        ast.*.col = current_col;
+        ast.*.line = ast_line;
 
         return ast;
     }
@@ -2580,7 +2720,14 @@ pub const Parser = struct {
     fn parseOnLoad(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         // Pop off on_load
         const n = try token_queue.pop();
+        const current_col = n.*.col;
+        const ast_line = n.*.line;
         const name = n.*.body;
+        if (!isOnLoadKeyword(name)) {
+            self.allocator.free(name);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         errdefer self.allocator.free(name);
         self.allocator.destroy(n);
 
@@ -2590,6 +2737,11 @@ pub const Parser = struct {
 
         // Pop off paren_start
         const paren_start = try token_queue.pop();
+        if (!isParenStart(paren_start.*.body)) {
+            self.allocator.free(paren_start.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         self.allocator.free(paren_start.*.body);
         self.allocator.destroy(n);
 
@@ -2602,7 +2754,8 @@ pub const Parser = struct {
         onload.*.body = name;
         onload.*.ast_type = TeleAstType.attribute;
         onload.*.children = children;
-        onload.*.col = 0;
+        onload.*.col = current_col;
+        onload.*.line = ast_line;
 
         return onload;
     }
@@ -2610,6 +2763,8 @@ pub const Parser = struct {
     fn parseNifs(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         const name_node = try token_queue.pop();
         const name = name_node.*.body;
+        const current_col = name_node.*.col;
+        const ast_line = name_node.*.line;
         errdefer self.allocator.free(name);
         self.allocator.destroy(name_node);
 
@@ -2619,6 +2774,8 @@ pub const Parser = struct {
 
         // Pop off paren_start
         const paren_start = try token_queue.pop();
+        const paren_current_col = paren_start.*.col;
+        const paren_ast_line = paren_start.*.line;
         self.allocator.free(paren_start.*.body);
         self.allocator.destroy(paren_start);
 
@@ -2647,7 +2804,8 @@ pub const Parser = struct {
         wrapper.*.body = "";
         wrapper.*.ast_type = TeleAstType.list;
         wrapper.*.children = children;
-        wrapper.*.col = 0;
+        wrapper.*.col = paren_current_col;
+        wrapper.*.line = paren_ast_line;
 
         var final_children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.freeTeleAstList(final_children, self.allocator);
@@ -2658,7 +2816,8 @@ pub const Parser = struct {
         ast.*.body = name;
         ast.*.ast_type = TeleAstType.attribute;
         ast.*.children = final_children;
-        ast.*.col = 0;
+        ast.*.col = current_col;
+        ast.*.line = ast_line;
 
         return ast;
     }
@@ -2666,6 +2825,8 @@ pub const Parser = struct {
     fn parseExportType(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         const name_node = try token_queue.pop();
         const name = name_node.*.body;
+        const current_col = name_node.*.col;
+        const ast_line = name_node.*.line;
         errdefer self.allocator.free(name);
         self.allocator.destroy(name_node);
 
@@ -2675,6 +2836,8 @@ pub const Parser = struct {
 
         // Pop off paren_start
         const paren_start = try token_queue.pop();
+        const paren_current_col = paren_start.*.col;
+        const paren_ast_line = paren_start.*.line;
         self.allocator.free(paren_start.*.body);
         self.allocator.destroy(paren_start);
 
@@ -2703,7 +2866,8 @@ pub const Parser = struct {
         wrapper.*.body = "";
         wrapper.*.ast_type = TeleAstType.list;
         wrapper.*.children = children;
-        wrapper.*.col = 0;
+        wrapper.*.col = paren_current_col;
+        wrapper.*.line = paren_ast_line;
 
         var final_children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.freeTeleAstList(final_children, self.allocator);
@@ -2714,7 +2878,8 @@ pub const Parser = struct {
         ast.*.body = name;
         ast.*.ast_type = TeleAstType.attribute;
         ast.*.children = final_children;
-        ast.*.col = 0;
+        ast.*.col = current_col;
+        ast.*.line = ast_line;
 
         return ast;
     }
@@ -2722,6 +2887,8 @@ pub const Parser = struct {
     fn parseImportElement(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         const element_name_node = try token_queue.pop();
         const element_name = element_name_node.*.body;
+        const current_col = element_name_node.*.col;
+        const ast_line = element_name_node.*.line;
         errdefer self.allocator.free(element_name);
         self.allocator.destroy(element_name_node);
 
@@ -2750,7 +2917,8 @@ pub const Parser = struct {
         et.*.body = buf;
         et.*.ast_type = TeleAstType.import_element;
         et.*.children = null;
-        et.*.col = 0;
+        et.*.col = current_col;
+        et.*.line = ast_line;
 
         return et;
     }
@@ -2762,7 +2930,7 @@ test "parse variable" {
     const parser = try Parser.init(token_queue, talloc);
     defer parser.deinit();
 
-    const result = try parser.parseVariable(try util.copyString("a", talloc), false);
+    const result = try parser.parseVariable(try util.copyString("a", talloc), false, 0, 0);
     const expected = try tele_ast.makeVariable(try util.copyString("a", talloc), talloc);
 
     try std.testing.expect(tele_ast.equal(result, expected));
@@ -2770,7 +2938,7 @@ test "parse variable" {
     tele_ast.freeTeleAst(result, talloc);
     tele_ast.freeTeleAst(expected, talloc);
 
-    const result2 = try parser.parseVariable(try util.copyString("point", talloc), true);
+    const result2 = try parser.parseVariable(try util.copyString("point", talloc), true, 0, 0);
     const expected2 = try tele_ast.makeValue(try util.copyString("point", talloc), TeleAstType.function_call, talloc);
 
     try std.testing.expect(tele_ast.equal(result2, expected2));
@@ -2778,7 +2946,7 @@ test "parse variable" {
     tele_ast.freeTeleAst(result2, talloc);
     tele_ast.freeTeleAst(expected2, talloc);
 
-    const result3 = try parser.parseVariable(try util.copyString("@stuff", talloc), true);
+    const result3 = try parser.parseVariable(try util.copyString("@stuff", talloc), true, 0, 0);
     const expected3 = try tele_ast.makeVariable(try util.copyString("@stuff", talloc), talloc);
 
     try std.testing.expect(tele_ast.equal(result3, expected3));
@@ -2786,7 +2954,7 @@ test "parse variable" {
     tele_ast.freeTeleAst(result3, talloc);
     tele_ast.freeTeleAst(expected3, talloc);
 
-    const result4 = try parser.parseVariable(try util.copyString("#point", talloc), true);
+    const result4 = try parser.parseVariable(try util.copyString("#point", talloc), true, 0, 0);
     const expected4 = try tele_ast.makeValue(try util.copyString("#point", talloc), TeleAstType.record, talloc);
 
     try std.testing.expect(tele_ast.equal(result4, expected4));

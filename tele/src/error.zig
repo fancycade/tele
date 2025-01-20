@@ -3,12 +3,15 @@ const std = @import("std");
 var error_message: []const u8 = "";
 var column: usize = 0;
 var line: usize = 0;
+var path: []const u8 = "";
 
 pub const ErrorType = enum { invalid_statement, missing_name, missing_signature, missing_body, unexpected_token, invalid_signature_param, invalid_guard_clause, invalid_definition, invalid_field, invalid_expression };
 
 pub fn printErrorMessage() !void {
     const stderr = std.io.getStdErr().writer();
-    try stderr.print("Line: {d} Column: {d}\n{s}\n", .{ line + 1, column + 1, error_message });
+    try stderr.print("{s} Line: {d} Column: {d}\n", .{ error_message, line + 1, column + 1 });
+    try stderr.print("In file: {s}\n", .{path});
+    try printFileMessage(stderr);
 }
 
 pub fn setErrorMessage(l: usize, c: usize, e: ErrorType) void {
@@ -16,6 +19,27 @@ pub fn setErrorMessage(l: usize, c: usize, e: ErrorType) void {
     column = c;
 
     handleErrorType(e);
+}
+
+pub fn setPath(p: []const u8) void {
+    path = p;
+}
+
+fn printFileMessage(writer: anytype) !void {
+    var f = try std.fs.cwd().openFile(path, .{ .mode = .read_only });
+    defer f.close();
+
+    const rdr = f.reader();
+    var buf: [1024]u8 = undefined;
+    var line_count: usize = 0;
+    while (try rdr.readUntilDelimiterOrEof(&buf, '\n')) |l| {
+        if (line_count == line) {
+            try writer.print("{s}\n\n", .{l});
+            break;
+        }
+
+        line_count += 1;
+    }
 }
 
 fn handleErrorType(e: ErrorType) void {

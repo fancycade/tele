@@ -164,6 +164,8 @@ fn formatFile(code_path: []const u8, allocator: std.mem.Allocator) !void {
     const ta2 = try parseTeleFile(code_path, allocator);
     errdefer tast.freeTeleAstList(ta2, allocator);
 
+    tele_error.setPath(code_path);
+
     if (ta2.items.len == 0) {
         return ExecutionError.Empty;
     }
@@ -185,6 +187,8 @@ fn formatFile(code_path: []const u8, allocator: std.mem.Allocator) !void {
 fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.mem.Allocator) !void {
     const erlang_path = try erlangName(code_path, output_path, allocator);
     errdefer allocator.free(erlang_path);
+
+    tele_error.setPath(code_path);
 
     const ta2 = try parseTeleFile(code_path, allocator);
     errdefer tast.freeTeleAstList(ta2, allocator);

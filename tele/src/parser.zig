@@ -135,6 +135,7 @@ pub const Parser = struct {
                     const ast = try self.parseCustomAttribute(self.token_queue);
                     try statements.append(ast);
                 } else {
+                    tele_error.setErrorMessage(pn.*.line, pn.*.col, tele_error.ErrorType.invalid_statement);
                     return ParserError.InvalidStatement;
                 }
             } else {
@@ -142,7 +143,6 @@ pub const Parser = struct {
                     const ast = try self.parseExp(self.token_queue);
                     try statements.append(ast);
                 } else {
-                    // TODO: Expected Statement Error
                     tele_error.setErrorMessage(pn.*.line, pn.*.col, tele_error.ErrorType.invalid_statement);
                     return ParserError.ExpectedStatement;
                 }
@@ -159,9 +159,9 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         };
         if (!isFunKeyword(n.*.body) and !isFunpKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.invalid_statement);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
-            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.invalid_statement);
             return ParserError.ParsingFailure;
         }
         const current_col = n.*.col;
@@ -211,6 +211,7 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         };
         if (!isDefineKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.invalid_statement);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -225,9 +226,12 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         };
         const buf = node3.*.body;
+        const name_l = node3.*.line;
+        const name_c = node3.*.col;
         self.allocator.destroy(node3);
         errdefer self.allocator.free(buf);
         if (buf.len == 0) {
+            tele_error.setErrorMessage(name_l, name_c, tele_error.ErrorType.missing_name);
             return ParserError.ParsingFailure;
         }
 
@@ -235,6 +239,8 @@ pub const Parser = struct {
         errdefer tele_ast.freeTeleAstList(children, self.allocator);
 
         const pn = try token_queue.peek();
+        const pn_l = pn.*.line;
+        const pn_c = pn.*.col;
         if (isColon(pn.*.body)) {
             // Pop off colon
             const t = try token_queue.pop();
@@ -274,6 +280,7 @@ pub const Parser = struct {
                 self.allocator.destroy(node2);
             }
             if (token_queue2.empty()) {
+                tele_error.setErrorMessage(pn_l, pn_c, tele_error.ErrorType.missing_signature);
                 return ParserError.ParsingFailure;
             }
 
@@ -284,6 +291,7 @@ pub const Parser = struct {
             var token_queue3 = try TokenQueue.init(self.allocator);
             errdefer token_queue3.deinit();
             if (token_queue.empty()) {
+                tele_error.setErrorMessage(pn_l, pn_c, tele_error.ErrorType.missing_body);
                 return ParserError.ParsingFailure;
             }
 
@@ -303,6 +311,7 @@ pub const Parser = struct {
             }
 
             if (token_queue3.empty()) {
+                tele_error.setErrorMessage(pn_l, pn_c, tele_error.ErrorType.missing_body);
                 return ParserError.ParsingFailure;
             }
 
@@ -311,6 +320,7 @@ pub const Parser = struct {
             };
             errdefer tele_ast.freeTeleAstList(alist, self.allocator);
             if (alist.items.len == 0) {
+                tele_error.setErrorMessage(node3.*.line, node3.*.col, tele_error.ErrorType.missing_body);
                 return ParserError.ParsingFailure;
             }
 
@@ -321,9 +331,11 @@ pub const Parser = struct {
             token_queue3.deinit();
             token_queue2.deinit();
         } else {
+            tele_error.setErrorMessage(pn_l, pn_c, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
         if (children.items.len == 0) {
+            tele_error.setErrorMessage(pn_l, pn_c, tele_error.ErrorType.missing_body);
             return ParserError.ParsingFailure;
         }
 
@@ -341,6 +353,7 @@ pub const Parser = struct {
     fn parseFunctionSignature(self: *Self, token_queue: *TokenQueue, type_exp: bool) !*TeleAst {
         const ini = try token_queue.pop();
         if (!isParenStart(ini.*.body)) {
+            tele_error.setErrorMessage(ini.*.line, ini.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(ini.*.body);
             self.allocator.destroy(ini);
             return ParserError.ParsingFailure;
@@ -354,7 +367,8 @@ pub const Parser = struct {
         errdefer freeNullChildren(children, self.allocator);
 
         const pn2 = try token_queue.peek();
-
+        const pn_l = pn2.*.line;
+        const pn_c = pn2.*.col;
         if (!isParenEnd(pn2.*.body)) {
             children = std.ArrayList(*TeleAst).init(self.allocator);
 
@@ -367,6 +381,7 @@ pub const Parser = struct {
                 }
             }
             if (children.?.items.len == 0) {
+                tele_error.setErrorMessage(pn_l, pn_c, tele_error.ErrorType.invalid_signature_param);
                 return ParserError.ParsingFailure;
             }
         } else {
@@ -380,6 +395,7 @@ pub const Parser = struct {
         if (!token_queue.empty()) {
             // Can't have guard clauses if no params
             if (children == null) {
+                tele_error.setErrorMessage(pn_l, pn_c, tele_error.ErrorType.invalid_guard_clause);
                 return ParserError.ParsingFailure;
             }
             const pn = try token_queue.peek();
@@ -390,6 +406,7 @@ pub const Parser = struct {
                 }
                 al.deinit();
             } else {
+                tele_error.setErrorMessage(pn.*.line, pn.*.col, tele_error.ErrorType.unexpected_token);
                 return ParserError.ParsingFailure;
             }
         }
@@ -454,6 +471,7 @@ pub const Parser = struct {
         // Pop off when keyword
         const n = try token_queue.pop();
         if (!isWhenKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -482,16 +500,19 @@ pub const Parser = struct {
         }
 
         if (clauses.items.len == 0) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.invalid_guard_clause);
             return ParserError.ParsingFailure;
         }
 
         return clauses;
     }
 
+    // TODO: Add line and col as params
     fn parseGuardClause(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         const alist = try self.parseBody(token_queue);
         if (alist.items.len == 0) {
             tele_ast.freeTeleAstList(alist, self.allocator);
+            // TODO: Set error message
             return ParserError.ParsingFailure;
         }
 
@@ -509,6 +530,7 @@ pub const Parser = struct {
         // Pop off spec keyword
         const n = try token_queue.pop();
         if (!isSpecKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -530,6 +552,7 @@ pub const Parser = struct {
         const children = try self.parseFunctionSigAndBody(token_queue, true, current_col);
         if (children.items.len < 2) {
             tele_ast.freeTeleAstList(children, self.allocator);
+            tele_error.setErrorMessage(current_col, ast_line, tele_error.ErrorType.invalid_definition);
             return ParserError.ParsingFailure;
         }
 
@@ -548,6 +571,7 @@ pub const Parser = struct {
         // Pop off callback keyword
         const n = try token_queue.pop();
         if (!isCallbackKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -607,6 +631,7 @@ pub const Parser = struct {
         var token_queue3 = try TokenQueue.init(self.allocator);
         errdefer token_queue3.deinit();
         if (token_queue.empty()) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.missing_body);
             return ParserError.ParsingFailure;
         }
 
@@ -625,6 +650,7 @@ pub const Parser = struct {
         }
 
         if (token_queue3.empty()) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.missing_body);
             return ParserError.ParsingFailure;
         }
 
@@ -633,6 +659,8 @@ pub const Parser = struct {
         };
         try children.append(ast);
         if (!token_queue3.empty()) {
+            const peek_n = try token_queue3.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
 
@@ -656,6 +684,7 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         };
         if (!isTypeKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -703,6 +732,7 @@ pub const Parser = struct {
         };
 
         if (!isColon(cn.*.body)) {
+            tele_error.setErrorMessage(cn.*.line, cn.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(cn.*.body);
             self.allocator.destroy(cn);
             return ParserError.ParsingFailure;
@@ -714,6 +744,7 @@ pub const Parser = struct {
         var token_queue3 = try TokenQueue.init(self.allocator);
         errdefer token_queue3.deinit();
         if (token_queue.empty()) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.missing_body);
             return ParserError.ParsingFailure;
         }
 
@@ -732,12 +763,15 @@ pub const Parser = struct {
         }
 
         if (token_queue3.empty()) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.missing_body);
             return ParserError.ParsingFailure;
         }
 
         const ast = try self.parseTypeExp(token_queue3);
         try children.append(ast);
         if (!token_queue3.empty()) {
+            const peek_n = try token_queue3.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
 
@@ -761,8 +795,10 @@ pub const Parser = struct {
     fn parseRecordDefinition(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         const n = try token_queue.pop();
         if (!isRecordKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
         }
         const current_col = n.*.col;
         const ast_line = n.*.line;
@@ -781,6 +817,7 @@ pub const Parser = struct {
         // Skip colon
         const cn = try token_queue.pop();
         if (!isColon(cn.*.body)) {
+            tele_error.setErrorMessage(cn.*.line, cn.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(cn.*.body);
             self.allocator.destroy(cn);
             return ParserError.ParsingFailure;
@@ -792,6 +829,7 @@ pub const Parser = struct {
         var token_queue3 = try TokenQueue.init(self.allocator);
         errdefer token_queue3.deinit();
         if (token_queue.empty()) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.missing_body);
             return ParserError.ParsingFailure;
         }
 
@@ -810,12 +848,14 @@ pub const Parser = struct {
         }
 
         if (token_queue3.empty()) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.missing_body);
             return ParserError.ParsingFailure;
         }
 
         // Skip tuple start
         const cn2 = try token_queue3.pop();
         if (!isTupleStart(cn2.*.body)) {
+            tele_error.setErrorMessage(cn2.*.line, cn2.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(cn2.*.body);
             self.allocator.destroy(cn2);
             return ParserError.ParsingFailure;
@@ -844,6 +884,8 @@ pub const Parser = struct {
         }
 
         if (!token_queue3.empty()) {
+            const peek_n = try token_queue3.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
 
@@ -860,6 +902,7 @@ pub const Parser = struct {
         return t;
     }
 
+    // Pass in line and column
     fn parseRecordField(self: *Self, token_queue: *TokenQueue, type_exp: bool, found_end: *bool) !*TeleAst {
         var buffer_token_queue = try TokenQueue.init(self.allocator);
         defer buffer_token_queue.deinit();
@@ -890,6 +933,7 @@ pub const Parser = struct {
         }
 
         if (buffer_token_queue.empty()) {
+            // TODO: setErrorMessage
             return ParserError.ParsingFailure;
         }
 
@@ -916,6 +960,7 @@ pub const Parser = struct {
                 const ast = try self.parseRecordFieldType(buffer_token_queue);
                 try children.?.append(ast);
             } else {
+                tele_error.setErrorMessage(op.*.line, op.*.col, tele_error.ErrorType.unexpected_token);
                 self.allocator.free(op.*.body);
                 self.allocator.destroy(op);
                 return ParserError.ParsingFailure;
@@ -925,6 +970,7 @@ pub const Parser = struct {
         // Check if buffer_token_queue is not empty second time for type expressions explicitly
         if (!buffer_token_queue.empty() and type_exp) {
             if (children == null) {
+                tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.invalid_field);
                 return ParserError.ParsingFailure;
             }
 
@@ -938,6 +984,7 @@ pub const Parser = struct {
                 const ast = try self.parseRecordFieldType(buffer_token_queue);
                 try children.?.append(ast);
             } else {
+                tele_error.setErrorMessage(op.*.line, op.*.col, tele_error.ErrorType.unexpected_token);
                 return ParserError.ParsingFailure;
             }
         }
@@ -1249,6 +1296,7 @@ pub const Parser = struct {
         const name = try token_queue.pop();
         const div = try token_queue.pop();
         if (div.*.body[0] != '/') {
+            tele_error.setErrorMessage(div.*.line, div.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(name.*.body);
             self.allocator.destroy(name);
             self.allocator.free(div.*.body);
@@ -1290,6 +1338,7 @@ pub const Parser = struct {
 
         // TODO: Allow for negative numbers
         if (type_exp and !isPipeOperator(node.*.body)) {
+            tele_error.setErrorMessage(node.*.line, node.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(node.*.body);
             return ParserError.ParsingFailure;
         }
@@ -1332,6 +1381,12 @@ pub const Parser = struct {
         const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
+        if (!isParenStart(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
         const col = n.*.col;
         const line = n.*.line;
         self.allocator.free(n.*.body);
@@ -1439,6 +1494,7 @@ pub const Parser = struct {
         if (!isTupleStart(n.*.body)) {
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
         self.allocator.free(n.*.body);
@@ -1495,6 +1551,7 @@ pub const Parser = struct {
         }
 
         if (count != 0) {
+            // TODO: setErrorMessage
             return ParserError.ParsingFailure;
         }
 
@@ -1515,8 +1572,10 @@ pub const Parser = struct {
         const current_col = n.*.col;
         const ast_line = n.*.line;
         if (!isListStart(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
         }
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
@@ -1573,12 +1632,15 @@ pub const Parser = struct {
                 }
 
                 if (!token_queue2.empty()) {
+                    const peek_n = try token_queue2.peek();
+                    tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
                     return ParserError.ParsingFailure;
                 }
                 try children.append(ast);
             }
 
             if (count != 0) {
+                // TODO: setErrorMessage
                 return ParserError.ParsingFailure;
             }
 
@@ -1602,8 +1664,10 @@ pub const Parser = struct {
         const current_col = n.*.col;
         const ast_line = n.*.line;
         if (!isMapStart(n.*.body)) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
         }
         self.allocator.free(n.*.body);
         self.allocator.destroy(n);
@@ -1677,6 +1741,8 @@ pub const Parser = struct {
                     }
                 }
                 if (!token_queue2.empty()) {
+                    const peek_n = try token_queue2.peek();
+                    tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
                     return ParserError.ParsingFailure;
                 }
                 if (map_update) {
@@ -1687,6 +1753,7 @@ pub const Parser = struct {
             }
 
             if (count != 0) {
+                // TODO: setErrorMessage
                 return ParserError.ParsingFailure;
             }
 
@@ -1747,6 +1814,7 @@ pub const Parser = struct {
         }
 
         if (buffer_token_queue.empty()) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.missing_body);
             return ParserError.ParsingFailure;
         }
 
@@ -1771,6 +1839,8 @@ pub const Parser = struct {
         }
 
         if (!buffer_token_queue.empty()) {
+            const peek_n = try buffer_token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
 
@@ -1789,6 +1859,7 @@ pub const Parser = struct {
         return t;
     }
 
+    // TODO: Pass in line and col
     fn parseBody(self: *Self, token_queue: *TokenQueue) !std.ArrayList(*TeleAst) {
         var alist = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.freeTeleAstList(alist, self.allocator);
@@ -1799,6 +1870,7 @@ pub const Parser = struct {
         }
 
         if (alist.items.len == 0) {
+            // TODO: setErrorMessage
             return ParserError.ParsingFailure;
         }
         return alist;
@@ -1810,6 +1882,7 @@ pub const Parser = struct {
         const current_col = temp.*.col;
         const ast_line = temp.*.line;
         if (!isFunKeyword(temp.*.body)) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(temp.*.body);
             self.allocator.destroy(temp);
             return ParserError.ParsingFailure;
@@ -1908,6 +1981,7 @@ pub const Parser = struct {
                 }
 
                 if (token_queue3.empty()) {
+                    // TODO: tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.missing_body);
                     return ParserError.ParsingFailure;
                 }
 
@@ -2085,6 +2159,7 @@ pub const Parser = struct {
         // Pop off case keyword
         const n = try token_queue.pop();
         if (!isCaseKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -2126,6 +2201,8 @@ pub const Parser = struct {
         var body = try self.parseCaseBody(buffer_token_queue);
         errdefer tele_ast.freeTeleAstList(body, self.allocator);
         if (!buffer_token_queue.empty()) {
+            const peek_n = try buffer_token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
         buffer_token_queue.deinit();
@@ -2135,6 +2212,7 @@ pub const Parser = struct {
         }
         body.deinit();
         if (children.items.len == 0) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.missing_body);
             return ParserError.ParsingFailure;
         }
 
@@ -2148,6 +2226,7 @@ pub const Parser = struct {
         return final_ast;
     }
 
+    // TODO: Pass in line and col
     fn parseCaseSignature(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         var buffer_token_queue = try TokenQueue.init(self.allocator);
         errdefer buffer_token_queue.deinit();
@@ -2168,17 +2247,21 @@ pub const Parser = struct {
         }
 
         if (buffer_token_queue.empty()) {
+            // setErrorMessage
             return ParserError.ParsingFailure;
         }
 
         const ast = try self.parseExp(buffer_token_queue);
         if (!buffer_token_queue.empty()) {
+            const peek_n = try buffer_token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
         buffer_token_queue.deinit();
         return ast;
     }
 
+    // TODO: Pass in line and col
     fn parseCaseBody(self: *Self, token_queue: *TokenQueue) !std.ArrayList(*TeleAst) {
         var current_col: usize = 0;
         var ast_line: usize = 0;
@@ -2195,6 +2278,7 @@ pub const Parser = struct {
             if (alist2.items.len == 2) {
                 const ast = alist.pop();
                 if (ast.ast_type != TeleAstType.guard_clause) {
+                    tele_error.setErrorMessage(ast.*.line, ast.*.col, tele_error.ErrorType.invalid_guard_clause);
                     tele_ast.freeTeleAst(ast, self.allocator);
                     return ParserError.ParsingFailure;
                 }
@@ -2209,6 +2293,7 @@ pub const Parser = struct {
                 ast_line = ast.*.line;
                 try children.append(ast);
             } else {
+                // TODO: setErrorMessage
                 tele_ast.freeTeleAstList(alist2, self.allocator);
                 return ParserError.ParsingFailure;
             }
@@ -2241,6 +2326,7 @@ pub const Parser = struct {
         const current_col = n.*.col;
         const ast_line = n.*.line;
         if (!isReceiveKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -2251,6 +2337,7 @@ pub const Parser = struct {
         // Pop off colon
         const nc = try token_queue.pop();
         if (!isColon(nc.*.body)) {
+            tele_error.setErrorMessage(nc.*.line, nc.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(nc.*.body);
             self.allocator.destroy(nc);
             return ParserError.ParsingFailure;
@@ -2284,6 +2371,8 @@ pub const Parser = struct {
         const body = try self.parseCaseBody(buffer_token_queue);
         errdefer tele_ast.freeTeleAstList(body, self.allocator);
         if (!buffer_token_queue.empty()) {
+            const peek_n = try buffer_token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
         buffer_token_queue.deinit();
@@ -2304,6 +2393,7 @@ pub const Parser = struct {
         const current_col = n.*.col;
         const ast_line = n.*.line;
         if (!isTryKeyword(n.*.body)) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -2344,6 +2434,8 @@ pub const Parser = struct {
         var body = try self.parseCaseBody(buffer_token_queue);
         errdefer tele_ast.freeTeleAstList(body, self.allocator);
         if (!buffer_token_queue.empty()) {
+            const peek_n = try buffer_token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
 
@@ -2366,6 +2458,7 @@ pub const Parser = struct {
         const current_col_catch = n_catch.*.col;
         const ast_line_catch = n_catch.*.line;
         if (!isCatchKeyword(n_catch.*.body)) {
+            tele_error.setErrorMessage(n_catch.*.line, n_catch.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
         self.allocator.free(n_catch.*.body);
@@ -2376,6 +2469,7 @@ pub const Parser = struct {
         errdefer self.allocator.free(n_colon.*.body);
         errdefer self.allocator.destroy(n_colon);
         if (!isColon(n_colon.*.body)) {
+            tele_error.setErrorMessage(n_colon.*.line, n_colon.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
         self.allocator.free(n_colon.*.body);
@@ -2408,6 +2502,8 @@ pub const Parser = struct {
         var body2 = try self.parseCaseBody(buffer_token_queue);
         errdefer tele_ast.freeTeleAstList(body2, self.allocator);
         if (!buffer_token_queue.empty()) {
+            const peek_n = try buffer_token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
 
@@ -2457,6 +2553,7 @@ pub const Parser = struct {
             }
 
             if (isColon(node.*.body)) {
+                tele_error.setErrorMessage(node.*.line, node.*.col, tele_error.ErrorType.unexpected_token);
                 self.allocator.free(node.*.body);
                 self.allocator.destroy(node);
                 break;
@@ -2480,6 +2577,7 @@ pub const Parser = struct {
                 }
                 gc_ast_list.deinit();
             } else {
+                tele_error.setErrorMessage(pn.*.line, pn.*.col, tele_error.ErrorType.unexpected_token);
                 return ParserError.ParsingFailure;
             }
         }
@@ -2511,6 +2609,8 @@ pub const Parser = struct {
         errdefer tele_ast.freeTeleAstList(alist, self.allocator);
 
         if (!buffer_token_queue.empty()) {
+            const peek_n = try buffer_token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
 
@@ -2525,6 +2625,7 @@ pub const Parser = struct {
         const current_col = pn.*.col;
         const ast_line = pn.*.line;
         if (!isParenStart(pn.*.body)) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(pn.*.body);
             self.allocator.destroy(pn);
             return ParserError.ParsingFailure;
@@ -2602,6 +2703,8 @@ pub const Parser = struct {
             ast = try self.parseExp(buffer_token_queue);
         }
         if (!buffer_token_queue.empty()) {
+            const peek_n = try buffer_token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             tele_ast.freeTeleAst(ast, self.allocator);
             return ParserError.ParsingFailure;
         }
@@ -2636,6 +2739,7 @@ pub const Parser = struct {
         const current_col = a_node.*.col;
         const ast_line = a_node.*.line;
         if (!isAttrKeyword(a_node.*.body)) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(a_node.*.body);
             self.allocator.destroy(a_node);
             return ParserError.ParsingFailure;
@@ -2668,6 +2772,7 @@ pub const Parser = struct {
         const current_col = n.*.col;
         const ast_line = n.*.line;
         if (!isImportKeyword(n.*.body)) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -2682,6 +2787,8 @@ pub const Parser = struct {
         self.allocator.destroy(name_node);
 
         if (!try checkParenStartPeek(token_queue)) {
+            const peek_n = try token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
         // Pop off paren start
@@ -2727,6 +2834,7 @@ pub const Parser = struct {
         const ast_line = n.*.line;
         const name = n.*.body;
         if (!isOnLoadKeyword(name)) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(name);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -2735,12 +2843,15 @@ pub const Parser = struct {
         self.allocator.destroy(n);
 
         if (!try checkParenStartPeek(token_queue)) {
+            const peek_n = try token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
 
         // Pop off paren_start
         const paren_start = try token_queue.pop();
         if (!isParenStart(paren_start.*.body)) {
+            tele_error.setErrorMessage(paren_start.*.line, paren_start.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(paren_start.*.body);
             self.allocator.destroy(n);
             return ParserError.ParsingFailure;
@@ -2772,6 +2883,8 @@ pub const Parser = struct {
         self.allocator.destroy(name_node);
 
         if (!try checkParenStartPeek(token_queue)) {
+            const peek_n = try token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
 
@@ -2834,6 +2947,8 @@ pub const Parser = struct {
         self.allocator.destroy(name_node);
 
         if (!try checkParenStartPeek(token_queue)) {
+            const peek_n = try token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
             return ParserError.ParsingFailure;
         }
 
@@ -2897,6 +3012,7 @@ pub const Parser = struct {
 
         const div_node = try token_queue.pop();
         if (!std.mem.eql(u8, "/", div_node.*.body)) {
+            tele_error.setErrorMessage(div_node.*.line, div_node.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(div_node.*.body);
             self.allocator.destroy(div_node);
             return ParserError.ParsingFailure;
@@ -3295,6 +3411,7 @@ test "check operator peek" {
 
 fn parenExpToFunctionSignature(paren_exp: *TeleAst, allocator: std.mem.Allocator) !*TeleAst {
     if (paren_exp.*.ast_type != TeleAst.paren_exp) {
+        tele_error.setErrorMessage(paren_exp.*.line, paren_exp.*.col, tele_error.ErrorType.invalid_expression);
         return ParserError.ParsingFailure;
     }
     const t = try allocator.create(TeleAst);

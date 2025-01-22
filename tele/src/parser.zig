@@ -3652,7 +3652,7 @@ fn isAtom(buf: []const u8) bool {
     if (buf[0] == '\'') {
         return true;
     } else if (buf[0] == '#') {
-        if (buf[1] == '\'' and buf[buf.len - 1] == '\'') {
+        if (buf.len >= 2 and buf[1] == '\'' and buf[buf.len - 1] == '\'') {
             return true;
         }
     }

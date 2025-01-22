@@ -98,15 +98,17 @@ fn build(allocator: std.mem.Allocator) !void {
     try std.fs.cwd().makePath("_build/_tele");
 
     // Compile all tele files in src directory to _build/_tele
-    var src = try std.fs.cwd().openDir("src", .{ .iterate = true });
+    var src = try std.fs.cwd().openDir(".", .{ .iterate = true });
     var walker = try src.walk(allocator);
     defer walker.deinit();
 
     while (try walker.next()) |entry| {
         if (entry.kind == std.fs.File.Kind.file and isTeleFile(entry.basename)) {
-            const input_path = try std.fs.path.join(allocator, &[_][]const u8{ "src", entry.path });
+            // TODO: Filter out _build
+            const input_path = try std.fs.path.join(allocator, &[_][]const u8{ ".", entry.path });
             defer allocator.free(input_path);
 
+            // TODO: output files with test/ in input path to _build/_tele/test
             try compileFile(input_path, "_build/_tele/", allocator);
         }
     }

@@ -14,6 +14,7 @@ const parser = @import("parser.zig");
 const compiler = @import("compiler.zig");
 const tele_error = @import("error.zig");
 const test_allocator = std.testing.allocator;
+const util = @import("util.zig");
 
 const ExecutionError = error{Empty};
 
@@ -69,16 +70,24 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
             return e;
         };
     } else if (std.mem.eql(u8, "build", command)) {
-        build(allocator) catch |e| {
+        build(allocator, true) catch |e| {
             try tele_error.printErrorMessage();
             return e;
         };
     } else if (std.mem.eql(u8, "test", command)) {
+        build(allocator, false) catch |e| {
+            try tele_error.printErrorMessage();
+            return e;
+        };
         eunit(allocator) catch |e| {
             try tele_error.printErrorMessage();
             return e;
         };
     } else if (std.mem.eql(u8, "ct", command)) {
+        build(allocator, false) catch |e| {
+            try tele_error.printErrorMessage();
+            return e;
+        };
         commonTest(allocator) catch |e| {
             try tele_error.printErrorMessage();
             return e;
@@ -93,25 +102,14 @@ fn handleError() !void {
     tele_error.printErrorMessage();
 }
 
-fn build(allocator: std.mem.Allocator) !void {
+fn build(allocator: std.mem.Allocator, erlang_compile: bool) !void {
     // Make _build/_tele if not exists
     try std.fs.cwd().makePath("_build/_tele");
 
-    // Compile all tele files in src directory to _build/_tele
-    var src = try std.fs.cwd().openDir(".", .{ .iterate = true });
-    var walker = try src.walk(allocator);
-    defer walker.deinit();
+    // Only needed for tests but doesn't hurt to have it
+    try std.fs.cwd().makePath("_build/_test");
 
-    while (try walker.next()) |entry| {
-        if (entry.kind == std.fs.File.Kind.file and isTeleFile(entry.basename)) {
-            // TODO: Filter out _build
-            const input_path = try std.fs.path.join(allocator, &[_][]const u8{ ".", entry.path });
-            defer allocator.free(input_path);
-
-            // TODO: output files with test/ in input path to _build/_tele/test
-            try compileFile(input_path, "_build/_tele/", allocator);
-        }
-    }
+    try recursiveCompile(".", allocator);
 
     // Copy rebar.config to _build/_tele/
     const build_tele_dir = try std.fs.cwd().openDir("_build/_tele", .{});
@@ -125,15 +123,54 @@ fn build(allocator: std.mem.Allocator) !void {
     var w = file.writer();
     _ = try w.write("\n{src_dirs, [\"src\", \"_build/_tele\"]}.\n");
 
-    // Run rebar3 compile with modified rebar.config
-    const argv = [_][]const u8{ "rebar3", "compile" };
-    var em = try std.process.getEnvMap(allocator);
-    defer em.deinit();
-    try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
-    const result = try std.process.Child.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
-    std.debug.print("{s}", .{result.stdout});
+    if (erlang_compile) {
+        // Run rebar3 compile with modified rebar.config
+        const argv = [_][]const u8{ "rebar3", "compile" };
+        var em = try std.process.getEnvMap(allocator);
+        defer em.deinit();
+        try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
+        const result = try std.process.Child.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
+        defer allocator.free(result.stdout);
+        defer allocator.free(result.stderr);
+        std.debug.print("{s}", .{result.stdout});
+    }
+}
+
+fn recursiveCompile(path: []const u8, allocator: std.mem.Allocator) !void {
+    // Compile all tele files into cwd directory to _build/_tele
+    var src = try std.fs.cwd().openDir(path, .{ .iterate = true });
+    var walker = try src.walk(allocator);
+    defer walker.deinit();
+
+    while (try walker.next()) |entry| {
+        if (entry.kind == std.fs.File.Kind.file and isTeleFile(entry.basename)) {
+            const input_path = try std.fs.path.join(allocator, &[_][]const u8{ path, entry.path });
+            defer allocator.free(input_path);
+
+            if (!checkPathContains(input_path, "_build")) {
+                if (checkPathContains(input_path, "test")) {
+                    try compileFile(input_path, "_build/_test", allocator);
+                } else {
+                    try compileFile(input_path, "_build/_tele/", allocator);
+                }
+            }
+        }
+    }
+}
+
+fn checkPathContains(path: []const u8, match_str: []const u8) bool {
+    var it = std.mem.split(u8, path, "/");
+    while (it.next()) |x| {
+        if (std.mem.eql(u8, x, match_str)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+test "check path contains" {
+    try std.testing.expect(checkPathContains("./_build/src/", "_build"));
+    try std.testing.expect(!checkPathContains("foobar", "_build"));
 }
 
 fn eunit(allocator: std.mem.Allocator) !void {
@@ -149,8 +186,8 @@ fn eunit(allocator: std.mem.Allocator) !void {
 }
 
 fn commonTest(allocator: std.mem.Allocator) !void {
-    // Run rebar3 common test with modified rebar.config
-    const argv = [_][]const u8{ "rebar3", "ct" };
+    // Run rebar3 common test with modified rebar.config and _build/_test as dir param
+    const argv = [_][]const u8{ "rebar3", "ct", "--dir", "_build/_test" };
     var em = try std.process.getEnvMap(allocator);
     defer em.deinit();
     try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");

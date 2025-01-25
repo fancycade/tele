@@ -15,7 +15,10 @@ tasks:
   - stress: |
        cd tele/examples/stress
        source setup.sh
-       tele build
        tele test
+  - common_test: |
+       cd tele/examples/example_release
+       source setup.sh
+       tele ct
 sources:
-  - https://git.sr.ht/~fancycade/tele#dev
+  - https://git.sr.ht/~fancycade/tele

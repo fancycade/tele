@@ -143,14 +143,25 @@ fn recursiveCompile(path: []const u8, allocator: std.mem.Allocator) !void {
     defer walker.deinit();
 
     while (try walker.next()) |entry| {
-        if (entry.kind == std.fs.File.Kind.file and isTeleFile(entry.basename)) {
-            const input_path = try std.fs.path.join(allocator, &[_][]const u8{ path, entry.path });
-            defer allocator.free(input_path);
+        if (entry.kind == std.fs.File.Kind.file) {
+            if (isTeleFile(entry.basename)) {
+                const input_path = try std.fs.path.join(allocator, &[_][]const u8{ path, entry.path });
+                defer allocator.free(input_path);
 
-            if (!checkPathContains(input_path, "_build")) {
-                if (checkPathContains(input_path, "test")) {
-                    try compileFile(input_path, "_build/_test", allocator);
-                } else {
+                if (!checkPathContains(input_path, "_build")) {
+                    if (checkPathContains(input_path, "test")) {
+                        try compileFile(input_path, "_build/_test", allocator);
+                    } else {
+                        try compileFile(input_path, "_build/_tele/", allocator);
+                    }
+                }
+            } else if (isTeleHeaderFile(entry.basename)) {
+                const input_path = try std.fs.path.join(allocator, &[_][]const u8{ path, entry.path });
+                defer allocator.free(input_path);
+
+                if (!checkPathContains(input_path, "_build")) {
+                    // TODO: Put header files in a proper include path
+                    // TODO: Set compileFile flag for header files
                     try compileFile(input_path, "_build/_tele/", allocator);
                 }
             }
@@ -200,6 +211,23 @@ fn commonTest(allocator: std.mem.Allocator) !void {
 fn isTeleFile(path: []const u8) bool {
     const ext = std.fs.path.extension(path);
     return std.mem.eql(u8, ".tl", ext);
+}
+
+test "is tele file" {
+    try std.testing.expect(isTeleFile("foo.tl"));
+    try std.testing.expect(isTeleFile("./foo/bar/baz.tl"));
+    try std.testing.expect(!isTeleFile("baz.erl"));
+}
+
+fn isTeleHeaderFile(path: []const u8) bool {
+    const ext = std.fs.path.extension(path);
+    return std.mem.eql(u8, ".htl", ext);
+}
+
+test "is tele header file" {
+    try std.testing.expect(isTeleHeaderFile("foo.htl"));
+    try std.testing.expect(isTeleHeaderFile("./foo/bar/foo.htl"));
+    try std.testing.expect(!isTeleHeaderFile("baz.erl"));
 }
 
 fn parseTeleFile(code_path: []const u8, allocator: std.mem.Allocator) !std.ArrayList(*TeleAst) {

@@ -679,11 +679,11 @@ pub const Parser = struct {
     }
 
     fn parseTypeDefinition(self: *Self, token_queue: *TokenQueue, opaque_type: bool) !*TeleAst {
-        // Free type keyword
+        // Free type/opaque keyword
         const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
-        if (!isTypeKeyword(n.*.body)) {
+        if (!(isTypeKeyword(n.*.body) or isOpaqueKeyword(n.*.body))) {
             tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);

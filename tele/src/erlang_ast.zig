@@ -37,6 +37,7 @@ pub fn equal(a: *const Ast, b: *const Ast) bool {
     return true;
 }
 
+// TODO: Change to freeErlangAst
 pub fn destroy(a: *const Ast, allocator: std.mem.Allocator) void {
     if (!std.mem.eql(u8, "", a.*.body)) {
         allocator.free(a.*.body);
@@ -52,6 +53,7 @@ pub fn destroy(a: *const Ast, allocator: std.mem.Allocator) void {
     allocator.destroy(a);
 }
 
+// TODO: Change to freeErlangAstList
 pub fn free_erlang_ast_list(e: std.ArrayList(*const Ast), allocator: std.mem.Allocator) void {
     for (e.items) |c| {
         destroy(c, allocator);

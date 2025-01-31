@@ -210,4 +210,16 @@ stress_math_fibonacci_test() ->
     ?assertEqual(3, stress_math:fibonacci(4)),
     ?assertEqual(5, stress_math:fibonacci(5)).
 
+stress_types_simple_test() ->
+    ?assertEqual(42, stress_types:simple(1)),
+    ?assertEqual(<<"foobar">>, stress_types:simple(<<"bar">>)).
+
+stress_types_simple2_test() ->
+    ?assertEqual(43, stress_types:simple2(1)),
+    ?assertEqual(<<"foobar">>, stress_types:simple2(<<"foobar">>)).
+
+stress_types_simple3_test() ->
+    ?assertEqual(44, stress_types:simple3(1)),
+    ?assertEqual(<<"foobar">>, stress_types:simple3(<<"foobar">>)).
+
 -endif.

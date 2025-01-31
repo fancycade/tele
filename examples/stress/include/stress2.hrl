@@ -1,0 +1,1 @@
+-type another_type() :: integer() | binary().

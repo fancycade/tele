@@ -222,4 +222,8 @@ stress_types_simple3_test() ->
     ?assertEqual(44, stress_types:simple3(1)),
     ?assertEqual(<<"foobar">>, stress_types:simple3(<<"foobar">>)).
 
+stress_types_simple4_test() ->
+    ?assertEqual(45, stress_types:simple4(1)),
+    ?assertEqual(<<"foobar">>, stress_types:simple4(<<"foobar">>)).
+
 -endif.

@@ -1,1 +1,0 @@
--type foo_type() :: integer() | binary().

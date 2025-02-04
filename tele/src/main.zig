@@ -150,9 +150,23 @@ fn recursiveCompile(path: []const u8, allocator: std.mem.Allocator) !void {
 
                 if (!checkPathContains(input_path, "_build")) {
                     if (checkPathContains(input_path, "test")) {
-                        try compileFile(input_path, "_build/_test", allocator, false);
+                        const dir = std.fs.path.dirname(input_path);
+                        if (dir == null) {
+                            try compileFile(input_path, "_build/_test/", allocator, false);
+                        } else {
+                            const output_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_test/", dir.? });
+                            defer allocator.free(output_path);
+                            try compileFile(input_path, output_path, allocator, false);
+                        }
                     } else {
-                        try compileFile(input_path, "_build/_tele/", allocator, false);
+                        const dir = std.fs.path.dirname(input_path);
+                        if (dir == null) {
+                            try compileFile(input_path, "_build/_tele/", allocator, false);
+                        } else {
+                            const output_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_tele/", dir.? });
+                            defer allocator.free(output_path);
+                            try compileFile(input_path, output_path, allocator, false);
+                        }
                     }
                 }
             } else if (isTeleHeaderFile(entry.basename)) {
@@ -160,10 +174,27 @@ fn recursiveCompile(path: []const u8, allocator: std.mem.Allocator) !void {
                 defer allocator.free(input_path);
 
                 if (!checkPathContains(input_path, "_build")) {
-                    // TODO: Put header files in a proper include path
-                    // TODO: Set compileFile flag for header files
-                    try compileFile(input_path, "_build/_tele/", allocator, true);
+                    const dir = std.fs.path.dirname(input_path);
+                    if (dir == null) {
+                        try compileFile(input_path, "_build/_tele/", allocator, true);
+                    } else {
+                        if (checkPathContains(input_path, "include")) {
+                            try compileFile(input_path, dir.?, allocator, true);
+                        } else {
+                            const output_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_tele/", dir.? });
+                            defer allocator.free(output_path);
+
+                            try compileFile(input_path, output_path, allocator, true);
+                        }
+                    }
                 }
+            }
+        } else if (entry.kind == std.fs.File.Kind.directory) {
+            if (!checkPathContains(entry.path, "_build")) {
+                const input_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_tele/", entry.path });
+                defer allocator.free(input_path);
+
+                try std.fs.cwd().makePath(input_path);
             }
         }
     }

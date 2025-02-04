@@ -1,8 +1,12 @@
 
 include("include/stress.hrl")
 include_lib("stress/include/stress2.hrl")
-include("stress3.hrl")
+//include("stress3.hrl")
 include("stress4.hrl")
+include("nesting/stress_nested.hrl")
+include("nesting/stress_nested2.hrl")
+//include("_build/_tele/include/stress3.hrl")
+include_lib("stress/include/stress3.hrl")
 
 spec simple(some_type): some_type
 fun simple
@@ -29,5 +33,12 @@ spec simple4(tele_example_type): tele_example_type
 fun simple4
   (x) when is_integer(x):
     45
+  (x):
+    x
+
+spec simple5(another_type): another_type
+fun simple5
+  (x) when is_integer(x):
+    46
   (x):
     x

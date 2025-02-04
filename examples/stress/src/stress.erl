@@ -226,4 +226,11 @@ stress_types_simple4_test() ->
     ?assertEqual(45, stress_types:simple4(1)),
     ?assertEqual(<<"foobar">>, stress_types:simple4(<<"foobar">>)).
 
+stress_nested_hello_test() ->
+    ?assertEqual(42, stress_nested:hello()).
+
+stress_types_simple5_test() ->
+    ?assertEqual(46, stress_types:simple5(1)),
+    ?assertEqual(<<"foobar">>, stress_types:simple5(<<"foobar">>)).
+
 -endif.

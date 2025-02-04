@@ -1,12 +1,10 @@
 
-include("include/stress.hrl")
-include_lib("stress/include/stress2.hrl")
-//include("stress3.hrl")
-include("stress4.hrl")
-include("nesting/stress_nested.hrl")
-include("nesting/stress_nested2.hrl")
-//include("_build/_tele/include/stress3.hrl")
-include_lib("stress/include/stress3.hrl")
+include("include/stress.htl")
+include_lib("stress/include/stress2.htl")
+include("stress4.htl")
+include("nesting/stress_nested.htl")
+include("nesting/stress_nested2.htl")
+include("stress3.htl")
 
 spec simple(some_type): some_type
 fun simple

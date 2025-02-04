@@ -9,9 +9,11 @@ pub const ErrorType = enum { invalid_statement, missing_name, missing_signature,
 
 pub fn printErrorMessage() !void {
     const stderr = std.io.getStdErr().writer();
-    try stderr.print("{s} Line: {d} Column: {d}\n", .{ error_message, line + 1, column + 1 });
-    try stderr.print("In file: {s}\n", .{path});
-    try printFileMessage(stderr);
+    if (!std.mem.eql(u8, error_message, "") and !std.mem.eql(u8, path, "")) {
+        try stderr.print("{s} Line: {d} Column: {d}\n", .{ error_message, line + 1, column + 1 });
+        try stderr.print("In file: {s}\n", .{path});
+        try printFileMessage(stderr);
+    }
 }
 
 pub fn setErrorMessage(l: usize, c: usize, e: ErrorType) void {

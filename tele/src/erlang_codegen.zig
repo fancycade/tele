@@ -273,6 +273,48 @@ pub const Context = struct {
         _ = try w.write("]).\n");
     }
 
+    pub fn writeInclude(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.attribute) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (!(std.mem.eql(u8, "include", a.*.body) or std.mem.eql(u8, "include_lib", a.*.body))) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (a.*.children.?.items.len != 1) {
+            return CodegenError.WritingFailure;
+        }
+
+        const path = a.*.children.?.items[0];
+
+        if (path.*.ast_type != AstType.binary) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (path.*.body.len < 6) {
+            return CodegenError.WritingFailure;
+        }
+
+        try self.writePadding(w);
+        _ = try w.write("-");
+        _ = try w.write(a.*.body);
+        _ = try w.write("(");
+
+        if (std.mem.eql(u8, ".htl", std.fs.path.extension(path.*.body[1 .. path.*.body.len - 1]))) {
+            _ = try w.write(path.*.body[0 .. path.*.body.len - 4]);
+            _ = try w.write("hrl\"");
+        } else {
+            _ = try w.write(path.*.body);
+        }
+
+        _ = try w.write(").\n");
+    }
+
     pub fn writeAttribute(self: *Self, w: anytype, a: *const Ast) !void {
         if (a.*.ast_type != AstType.attribute) {
             return CodegenError.WritingFailure;
@@ -280,7 +322,7 @@ pub const Context = struct {
         try self.writePadding(w);
         self.attribute_mode = true;
         _ = try w.write("-");
-        _ = try w.write(a.body);
+        _ = try w.write(a.*.body);
         _ = try w.write("(");
 
         var i: usize = 0;
@@ -1074,9 +1116,15 @@ pub const Context = struct {
                 };
             },
             .attribute => {
-                self.writeAttribute(w, a) catch {
-                    return CodegenError.WritingFailure;
-                };
+                if (std.mem.eql(u8, a.*.body, "include") or std.mem.eql(u8, a.*.body, "include_lib")) {
+                    self.writeInclude(w, a) catch {
+                        return CodegenError.WritingFailure;
+                    };
+                } else {
+                    self.writeAttribute(w, a) catch {
+                        return CodegenError.WritingFailure;
+                    };
+                }
             },
             .custom_attribute => {
                 self.writeCustomAttribute(w, a) catch {

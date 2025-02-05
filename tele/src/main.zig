@@ -191,10 +191,17 @@ fn recursiveCompile(path: []const u8, allocator: std.mem.Allocator) !void {
             }
         } else if (entry.kind == std.fs.File.Kind.directory) {
             if (!checkPathContains(entry.path, "_build")) {
-                const input_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_tele/", entry.path });
-                defer allocator.free(input_path);
+                if (checkPathContains(entry.path, "test")) {
+                    const input_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_test/", entry.path });
+                    defer allocator.free(input_path);
 
-                try std.fs.cwd().makePath(input_path);
+                    try std.fs.cwd().makePath(input_path);
+                } else {
+                    const input_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_tele/", entry.path });
+                    defer allocator.free(input_path);
+
+                    try std.fs.cwd().makePath(input_path);
+                }
             }
         }
     }

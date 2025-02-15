@@ -804,12 +804,47 @@ pub const Context = struct {
             return CodegenError.WritingFailure;
         }
         _ = try w.write("test:\n");
-        try self.pushPadding(self.currentPadding() + 4);
+        try self.pushPadding(self.currentPadding() + 2);
 
         for (a.*.children.?.items) |c| {
             try self.writeAst(w, c);
         }
         try self.popPadding();
+        _ = try w.write("\n");
+    }
+
+    pub fn writeTestUnit(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.test_block) {
+            return CodegenError.WritingFailure;
+        }
+        if (std.mem.eql(u8, "", a.*.body)) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len == 0) {
+            return CodegenError.WritingFailure;
+        }
+
+        _ = try w.write("test ");
+        _ = try w.write(a.*.body);
+        _ = try w.write(":\n");
+        try self.pushPadding(self.currentPadding() + 2);
+
+        var i: usize = 0;
+        while (true) {
+            if (i >= a.children.?.items.len) {
+                break;
+            }
+
+            _ = try w.write("\n");
+            try self.writeAst(w, a.children.?.items[i]);
+
+            i = i + 1;
+        }
+        try self.popPadding();
+
         _ = try w.write("\n");
     }
 
@@ -1028,6 +1063,11 @@ pub const Context = struct {
             },
             .test_block => {
                 self.writeTestBlock(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .test_unit => {
+                self.writeTestUnit(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

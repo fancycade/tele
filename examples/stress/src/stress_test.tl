@@ -9,3 +9,5 @@ test:
     ?assertEqual(42, example_stuff())
     ?assertEqual(42, foo())
 
+test foo:
+  ?assertEqual(42, foo())

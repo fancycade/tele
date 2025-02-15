@@ -204,6 +204,11 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
+        .test_unit => {
+            return teleToErlangTestUnit(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
     }
 }
 
@@ -1612,4 +1617,13 @@ fn teleToErlangTestBlock(t: *const TeleAst, allocator: std.mem.Allocator) !*Erla
 
     const children = try compileChildren(t.*.children, allocator);
     return try erlang_ast.makeCollection(children, ErlangAstType.test_block, allocator);
+}
+
+fn teleToErlangTestUnit(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.test_unit) {
+        return CompilerError.CompilingFailure;
+    }
+
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeNamedCollection(try util.copyString(t.*.body, allocator), children, ErlangAstType.test_unit, allocator);
 }

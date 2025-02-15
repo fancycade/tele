@@ -1022,6 +1022,23 @@ pub const Context = struct {
         _ = try w.write("end");
     }
 
+    pub fn writeTestBlock(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.test_block) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len == 0) {
+            return CodegenError.WritingFailure;
+        }
+        _ = try w.write("-ifdef(TEST).\n");
+        for (a.*.children.?.items) |c| {
+            try self.writeAst(w, c, type_exp);
+        }
+        _ = try w.write("-endif.\n");
+    }
+
     pub fn pushMatch(self: *Self) void {
         self.*.match_count += 1;
     }
@@ -1248,6 +1265,11 @@ pub const Context = struct {
             },
             .import_element => {
                 self.writeValue(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .test_block => {
+                self.writeTestBlock(w, a, type_exp) catch {
                     return CodegenError.WritingFailure;
                 };
             },

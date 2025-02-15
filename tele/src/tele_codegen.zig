@@ -793,6 +793,26 @@ pub const Context = struct {
         try self.writeAst(w, a.*.children.?.items[0]);
     }
 
+    pub fn writeTestBlock(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.test_block) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len == 0) {
+            return CodegenError.WritingFailure;
+        }
+        _ = try w.write("test:\n");
+        try self.pushPadding(self.currentPadding() + 4);
+
+        for (a.*.children.?.items) |c| {
+            try self.writeAst(w, c);
+        }
+        try self.popPadding();
+        _ = try w.write("\n");
+    }
+
     pub fn pushPadding(self: *Self, padding: usize) !void {
         try self.*.padding_stack.append(padding);
     }
@@ -1003,6 +1023,11 @@ pub const Context = struct {
             },
             .import_element => {
                 self.writeValue(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .test_block => {
+                self.writeTestBlock(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

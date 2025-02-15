@@ -199,6 +199,11 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
+        .test_block => {
+            return teleToErlangTestBlock(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
     }
 }
 
@@ -1458,6 +1463,7 @@ fn teleToErlangCatchExp(t: *const TeleAst, allocator: std.mem.Allocator) !*Erlan
     if (t.*.ast_type != TeleAstType.catch_exp) {
         return CompilerError.CompilingFailure;
     }
+
     const children = try compileChildren(t.*.children, allocator);
     return try erlang_ast.makeCollection(children, ErlangAstType.catch_exp, allocator);
 }
@@ -1597,4 +1603,13 @@ test "tele to erlang custom attribute" {
     t_children.deinit();
     e_children.deinit();
     erlang_ast.destroy(result, test_allocator);
+}
+
+fn teleToErlangTestBlock(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.test_block) {
+        return CompilerError.CompilingFailure;
+    }
+
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeCollection(children, ErlangAstType.test_block, allocator);
 }

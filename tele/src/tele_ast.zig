@@ -2,7 +2,7 @@ const std = @import("std");
 const test_allocator = std.testing.allocator;
 const util = @import("util.zig");
 
-pub const AstType = enum { int, float, binary, atom, tuple, list, map, record, record_field, record_field_value, record_field_type, attribute, custom_attribute, function_def, function_defp, function_signature, anonymous_function, function_call, case, case_clause, guard_clause, op, variable, type_def, opaque_type_def, record_def, spec_def, callback_def, paren_exp, fun_val, try_catch, try_exp, catch_exp, macro_def, import_def, receive_exp, import_element };
+pub const AstType = enum { int, float, binary, atom, tuple, list, map, record, record_field, record_field_value, record_field_type, attribute, custom_attribute, function_def, function_defp, function_signature, anonymous_function, function_call, case, case_clause, guard_clause, op, variable, type_def, opaque_type_def, record_def, spec_def, callback_def, paren_exp, fun_val, try_catch, try_exp, catch_exp, macro_def, import_def, receive_exp, import_element, test_block };
 
 pub const Ast = struct { children: ?std.ArrayList(*Ast), body: []const u8, ast_type: AstType, line: usize, col: usize };
 

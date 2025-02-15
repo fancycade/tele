@@ -61,7 +61,7 @@ pub const Parser = struct {
     }
 
     pub fn parse(self: *Self) !std.ArrayList(*TeleAst) {
-        const ast_stack = try self.parseStatements(false);
+        const ast_stack = try self.parseStatements(self.token_queue, false);
 
         if (!self.token_queue.empty()) {
             return ParserError.ParsingFailure;
@@ -70,69 +70,72 @@ pub const Parser = struct {
         return ast_stack;
     }
 
-    pub fn parseStatements(self: *Self, allow_exps: bool) !std.ArrayList(*TeleAst) {
+    pub fn parseStatements(self: *Self, token_queue: *TokenQueue, allow_exps: bool) !std.ArrayList(*TeleAst) {
         var statements = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.freeTeleAstList(statements, self.allocator);
 
-        while (!self.token_queue.empty()) {
-            const pn = self.token_queue.peek() catch {
+        while (!token_queue.empty()) {
+            const pn = token_queue.peek() catch {
                 return ParserError.ParsingFailure;
             };
 
             if (isStatementKeyword(pn.*.body)) {
                 if (isTypeKeyword(pn.*.body)) {
-                    const ast = try self.parseTypeDefinition(self.token_queue, false);
+                    const ast = try self.parseTypeDefinition(token_queue, false);
                     try statements.append(ast);
                 } else if (isOpaqueKeyword(pn.*.body)) {
-                    const ast = try self.parseTypeDefinition(self.token_queue, true);
+                    const ast = try self.parseTypeDefinition(token_queue, true);
                     try statements.append(ast);
                 } else if (isSpecKeyword(pn.*.body)) {
-                    const ast = try self.parseSpecDefinition(self.token_queue);
+                    const ast = try self.parseSpecDefinition(token_queue);
                     try statements.append(ast);
                 } else if (isFunKeyword(pn.*.body)) {
-                    const ast = try self.parseFunctionDefinition(self.token_queue, false);
+                    const ast = try self.parseFunctionDefinition(token_queue, false);
                     try statements.append(ast);
                 } else if (isFunpKeyword(pn.*.body)) {
-                    const ast = try self.parseFunctionDefinition(self.token_queue, true);
+                    const ast = try self.parseFunctionDefinition(token_queue, true);
                     try statements.append(ast);
                 } else if (isRecordKeyword(pn.*.body)) {
-                    const ast = try self.parseRecordDefinition(self.token_queue);
+                    const ast = try self.parseRecordDefinition(token_queue);
                     try statements.append(ast);
                 } else if (isBehaviourKeyword(pn.*.body)) {
-                    const ast = try self.parseBehaviour(self.token_queue);
+                    const ast = try self.parseBehaviour(token_queue);
                     try statements.append(ast);
                 } else if (isIncludeKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(self.token_queue);
+                    const ast = try self.parseAttribute(token_queue);
                     try statements.append(ast);
                 } else if (isIncludeLibKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(self.token_queue);
+                    const ast = try self.parseAttribute(token_queue);
                     try statements.append(ast);
                 } else if (isNifsKeyword(pn.*.body)) {
-                    const ast = try self.parseNifs(self.token_queue);
+                    const ast = try self.parseNifs(token_queue);
                     try statements.append(ast);
                 } else if (isExportTypeKeyword(pn.*.body)) {
-                    const ast = try self.parseExportType(self.token_queue);
+                    const ast = try self.parseExportType(token_queue);
                     try statements.append(ast);
                 } else if (isDocKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(self.token_queue);
+                    const ast = try self.parseAttribute(token_queue);
                     try statements.append(ast);
                 } else if (isModuledocKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(self.token_queue);
+                    const ast = try self.parseAttribute(token_queue);
                     try statements.append(ast);
                 } else if (isOnLoadKeyword(pn.*.body)) {
-                    const ast = try self.parseOnLoad(self.token_queue);
+                    const ast = try self.parseOnLoad(token_queue);
                     try statements.append(ast);
                 } else if (isCallbackKeyword(pn.*.body)) {
-                    const ast = try self.parseCallbackDefinition(self.token_queue);
+                    const ast = try self.parseCallbackDefinition(token_queue);
                     try statements.append(ast);
                 } else if (isImportKeyword(pn.*.body)) {
-                    const ast = try self.parseImport(self.token_queue);
+                    const ast = try self.parseImport(token_queue);
                     try statements.append(ast);
                 } else if (isDefineKeyword(pn.*.body)) {
-                    const ast = try self.parseMacroDefinition(self.token_queue);
+                    const ast = try self.parseMacroDefinition(token_queue);
                     try statements.append(ast);
                 } else if (isAttrKeyword(pn.*.body)) {
-                    const ast = try self.parseCustomAttribute(self.token_queue);
+                    const ast = try self.parseCustomAttribute(token_queue);
+                    try statements.append(ast);
+                } else if (isTestKeyword(pn.*.body)) {
+                    const ast = try self.parseTestBlock(token_queue);
                     try statements.append(ast);
                 } else {
                     tele_error.setErrorMessage(pn.*.line, pn.*.col, tele_error.ErrorType.invalid_statement);
@@ -140,7 +143,7 @@ pub const Parser = struct {
                 }
             } else {
                 if (allow_exps) {
-                    const ast = try self.parseExp(self.token_queue);
+                    const ast = try self.parseExp(token_queue);
                     try statements.append(ast);
                 } else {
                     tele_error.setErrorMessage(pn.*.line, pn.*.col, tele_error.ErrorType.invalid_statement);
@@ -565,6 +568,78 @@ pub const Parser = struct {
         t.*.line = ast_line;
 
         return t;
+    }
+
+    fn parseTestBlock(self: *Self, token_queue: *TokenQueue) ParserError!*TeleAst {
+        // Pop off test keyword
+        const n = token_queue.pop() catch {
+            return ParserError.ParsingFailure;
+        };
+        if (!isTestKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
+        const current_col = n.*.col;
+        const ast_line = n.*.line;
+        self.allocator.free(n.*.body);
+        self.allocator.destroy(n);
+
+        // Pop off colon
+        const cn = token_queue.pop() catch {
+            return ParserError.ParsingFailure;
+        };
+        if (!isColon(cn.*.body)) {
+            tele_error.setErrorMessage(cn.*.line, cn.*.col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(cn.*.body);
+            self.allocator.destroy(cn);
+            return ParserError.ParsingFailure;
+        }
+        self.allocator.free(cn.*.body);
+        self.allocator.destroy(cn);
+
+        var buffer_token_queue = TokenQueue.init(self.allocator) catch {
+            return ParserError.ParsingFailure;
+        };
+        errdefer buffer_token_queue.deinit();
+
+        while (!token_queue.empty()) {
+            const pnode = token_queue.peek() catch {
+                return ParserError.InvalidStatement;
+            };
+
+            if (pnode.*.col <= current_col) {
+                break;
+            } else {
+                const node = token_queue.pop() catch {
+                    return ParserError.ParsingFailure;
+                };
+                errdefer self.allocator.free(node.*.body);
+                errdefer self.allocator.destroy(node);
+
+                buffer_token_queue.push(node.*.body, node.*.line, node.*.col) catch {
+                    return ParserError.ParsingFailure;
+                };
+
+                self.allocator.destroy(node);
+            }
+        }
+
+        const children = self.parseStatements(buffer_token_queue, false) catch {
+            return ParserError.ParsingFailure;
+        };
+        buffer_token_queue.deinit();
+        const final_ast = self.allocator.create(TeleAst) catch {
+            return ParserError.ParsingFailure;
+        };
+        final_ast.*.body = "";
+        final_ast.*.ast_type = TeleAstType.test_block;
+        final_ast.*.children = children;
+        final_ast.*.col = current_col;
+        final_ast.*.line = ast_line;
+
+        return final_ast;
     }
 
     fn parseCallbackDefinition(self: *Self, token_queue: *TokenQueue) !*TeleAst {
@@ -3451,7 +3526,7 @@ fn isStatementKeyword(buf: []const u8) bool {
     }
 
     if (buf[0] == 't') {
-        return isTypeKeyword(buf);
+        return isTypeKeyword(buf) or isTestKeyword(buf);
     }
 
     if (buf[0] == 'r') {
@@ -3506,6 +3581,7 @@ test "is statement keyword" {
     try std.testing.expect(isStatementKeyword("define"));
     try std.testing.expect(isStatementKeyword("opaque"));
     try std.testing.expect(isStatementKeyword("export_type"));
+    try std.testing.expect(isStatementKeyword("test"));
 
     try std.testing.expect(!isStatementKeyword("["));
     try std.testing.expect(!isStatementKeyword("]"));
@@ -3592,6 +3668,10 @@ fn isWhenKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "when");
 }
 
+fn isTestKeyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "test");
+}
+
 test "is keywords" {
     try std.testing.expect(isTypeKeyword("type"));
     try std.testing.expect(isSpecKeyword("spec"));
@@ -3612,6 +3692,7 @@ test "is keywords" {
     try std.testing.expect(isOpaqueKeyword("opaque"));
     try std.testing.expect(isExportTypeKeyword("export_type"));
     try std.testing.expect(isWhenKeyword("when"));
+    try std.testing.expect(isTestKeyword("test"));
 }
 
 fn isFloat(buf: []const u8) bool {

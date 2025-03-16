@@ -209,6 +209,26 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
+        .string => {
+            return teleToErlangString(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .binary_element => {
+            return teleToErlangBinaryElement(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .binary_element_size => {
+            return teleToErlangBinaryElementSize(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .binary_element_type => {
+            return teleToErlangBinaryElementType(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
     }
 }
 
@@ -292,7 +312,8 @@ fn teleToErlangBinary(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangA
     if (t.*.ast_type != TeleAstType.binary) {
         return CompilerError.CompilingFailure;
     }
-    return try erlang_ast.makeValue(try util.copyString(t.*.body, allocator), ErlangAstType.binary, allocator);
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeCollection(children, ErlangAstType.binary, allocator);
 }
 
 test "tele to erlang binary" {
@@ -1626,4 +1647,36 @@ fn teleToErlangTestUnit(t: *const TeleAst, allocator: std.mem.Allocator) !*Erlan
 
     const children = try compileChildren(t.*.children, allocator);
     return try erlang_ast.makeNamedCollection(try util.copyString(t.*.body, allocator), children, ErlangAstType.test_unit, allocator);
+}
+
+fn teleToErlangString(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.string) {
+        return CompilerError.CompilingFailure;
+    }
+
+    return try erlang_ast.makeValue(try util.copyString(t.*.body, allocator), ErlangAstType.string, allocator);
+}
+
+fn teleToErlangBinaryElement(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.binary_element) {
+        return CompilerError.CompilingFailure;
+    }
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeCollection(children, ErlangAstType.binary_element, allocator);
+}
+
+fn teleToErlangBinaryElementSize(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.binary_element_size) {
+        return CompilerError.CompilingFailure;
+    }
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeCollection(children, ErlangAstType.binary_element_size, allocator);
+}
+
+fn teleToErlangBinaryElementType(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.binary_element_type) {
+        return CompilerError.CompilingFailure;
+    }
+
+    return try erlang_ast.makeValue(try util.copyString(t.*.body, allocator), ErlangAstType.binary_element_type, allocator);
 }

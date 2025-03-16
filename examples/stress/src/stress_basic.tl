@@ -157,3 +157,22 @@ fun hello_guard
     binary_to_atom(x)
   (x):
     x
+
+fun hello_string():
+  "hello, world"
+
+fun hello_binary():
+  <<"hello, world"/utf8>>
+
+fun hello_binary_type():
+  <<a/binary>> = <<"foo">>
+  a
+
+fun hello_binary_size():
+  <<x:8, y:8, z:8>> = <<"foo">>
+  [x, y, z]
+  
+fun hello_binary_map():
+  m = {"foo": "bar"}
+  {"foo": <<x:8, y:8, z:8>>} = m
+  [x, y, z]

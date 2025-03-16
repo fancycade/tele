@@ -70,28 +70,13 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
             return e;
         };
     } else if (std.mem.eql(u8, "build", command)) {
-        build(allocator, true) catch |e| {
-            try tele_error.printErrorMessage();
-            return e;
-        };
+        try build(allocator, true);
     } else if (std.mem.eql(u8, "test", command)) {
-        build(allocator, false) catch |e| {
-            try tele_error.printErrorMessage();
-            return e;
-        };
-        eunit(allocator) catch |e| {
-            try tele_error.printErrorMessage();
-            return e;
-        };
+        try build(allocator, false);
+        try eunit(allocator);
     } else if (std.mem.eql(u8, "ct", command)) {
-        build(allocator, false) catch |e| {
-            try tele_error.printErrorMessage();
-            return e;
-        };
-        commonTest(allocator) catch |e| {
-            try tele_error.printErrorMessage();
-            return e;
-        };
+        try build(allocator, false);
+        try commonTest(allocator);
     } else {
         // TODO: Better error message
         return error.InvalidArgs;
@@ -152,20 +137,32 @@ fn recursiveCompile(path: []const u8, allocator: std.mem.Allocator) !void {
                     if (checkPathContains(input_path, "test")) {
                         const dir = std.fs.path.dirname(input_path);
                         if (dir == null) {
-                            try compileFile(input_path, "_build/_test/", allocator, false);
+                            compileFile(input_path, "_build/_test/", allocator, false) catch |e| {
+                                try tele_error.printErrorMessage();
+                                return e;
+                            };
                         } else {
                             const output_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_test/", dir.? });
                             defer allocator.free(output_path);
-                            try compileFile(input_path, output_path, allocator, false);
+                            compileFile(input_path, output_path, allocator, false) catch |e| {
+                                try tele_error.printErrorMessage();
+                                return e;
+                            };
                         }
                     } else {
                         const dir = std.fs.path.dirname(input_path);
                         if (dir == null) {
-                            try compileFile(input_path, "_build/_tele/", allocator, false);
+                            compileFile(input_path, "_build/_tele/", allocator, false) catch |e| {
+                                try tele_error.printErrorMessage();
+                                return e;
+                            };
                         } else {
                             const output_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_tele/", dir.? });
                             defer allocator.free(output_path);
-                            try compileFile(input_path, output_path, allocator, false);
+                            compileFile(input_path, output_path, allocator, false) catch |e| {
+                                try tele_error.printErrorMessage();
+                                return e;
+                            };
                         }
                     }
                 }
@@ -176,15 +173,24 @@ fn recursiveCompile(path: []const u8, allocator: std.mem.Allocator) !void {
                 if (!checkPathContains(input_path, "_build")) {
                     const dir = std.fs.path.dirname(input_path);
                     if (dir == null) {
-                        try compileFile(input_path, "_build/_tele/", allocator, true);
+                        compileFile(input_path, "_build/_tele/", allocator, true) catch |e| {
+                            try tele_error.printErrorMessage();
+                            return e;
+                        };
                     } else {
                         if (checkPathContains(input_path, "include")) {
-                            try compileFile(input_path, dir.?, allocator, true);
+                            compileFile(input_path, dir.?, allocator, true) catch |e| {
+                                try tele_error.printErrorMessage();
+                                return e;
+                            };
                         } else {
                             const output_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_tele/", dir.? });
                             defer allocator.free(output_path);
 
-                            try compileFile(input_path, output_path, allocator, true);
+                            compileFile(input_path, output_path, allocator, true) catch |e| {
+                                try tele_error.printErrorMessage();
+                                return e;
+                            };
                         }
                     }
                 }

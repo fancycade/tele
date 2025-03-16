@@ -160,6 +160,21 @@ stress_basic_hello_guard_test() ->
     ?assertEqual(hello, stress_basic:hello_guard(<<"hello">>)),
     ?assertEqual([], stress_basic:hello_guard([])).
 
+stress_basic_hello_string_test() ->
+    ?assertEqual(<<"hello, world"/utf8>>, stress_basic:hello_string()).
+
+stress_basic_hello_binary_test() ->
+    ?assertEqual(<<"hello, world">>, stress_basic:hello_binary()).
+
+stress_basic_hello_binary_type_test() ->
+    ?assertEqual(<<"foo">>, stress_basic:hello_binary_type()).
+
+stress_basic_hello_binary_size_test() ->
+    ?assertEqual(<<"foo">>, list_to_binary(stress_basic:hello_binary_size())).
+
+stress_basic_hello_binary_map_test() ->
+    ?assertEqual(<<"bar">>, list_to_binary(stress_basic:hello_binary_map())).
+
 stress_statements_add2_test() ->
     ?assertEqual(6, stress_statements:add2_example()).
 

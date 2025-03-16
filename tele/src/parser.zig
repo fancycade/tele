@@ -266,9 +266,9 @@ pub const Parser = struct {
                 errdefer self.allocator.free(node2.*.body);
                 errdefer self.allocator.destroy(node2);
 
-                if (isMapStart(node2.*.body)) {
+                if (isMapStart(node2.*.body) or isBitStringStart(node2.*.body)) {
                     map_count += 1;
-                } else if (isMapEnd(node2.*.body)) {
+                } else if (isMapEnd(node2.*.body) or isBitStringEnd(node2.*.body)) {
                     map_count -= 1;
                 }
 
@@ -450,9 +450,9 @@ pub const Parser = struct {
                 break;
             }
 
-            if (isTupleStart(n2.*.body) or isListStart(n2.*.body) or isMapStart(n2.*.body) or isRecordStart(n2.*.body) or isParenStart(n2.*.body)) {
+            if (isTupleStart(n2.*.body) or isListStart(n2.*.body) or isMapStart(n2.*.body) or isRecordStart(n2.*.body) or isParenStart(n2.*.body) or isBitStringStart(n2.*.body)) {
                 n_count += 1;
-            } else if (isParenEnd(n2.*.body) or isListEnd(n2.*.body) or isMapEnd(n2.*.body)) {
+            } else if (isParenEnd(n2.*.body) or isListEnd(n2.*.body) or isMapEnd(n2.*.body) or isBitStringEnd(n2.*.body)) {
                 n_count -= 1;
             }
 
@@ -716,9 +716,9 @@ pub const Parser = struct {
             errdefer self.allocator.free(node2.*.body);
             errdefer self.allocator.destroy(node2);
 
-            if (isMapStart(node2.*.body)) {
+            if (isMapStart(node2.*.body) or isBitStringStart(node2.*.body)) {
                 map_count += 1;
-            } else if (isMapEnd(node2.*.body)) {
+            } else if (isMapEnd(node2.*.body) or isBitStringEnd(node2.*.body)) {
                 map_count -= 1;
             }
 
@@ -1034,9 +1034,9 @@ pub const Parser = struct {
                 break;
             }
 
-            if (isParenStart(n.*.body) or isRecordStart(n.*.body) or isMapStart(n.*.body) or isTupleStart(n.*.body) or isListStart(n.*.body)) {
+            if (isParenStart(n.*.body) or isRecordStart(n.*.body) or isMapStart(n.*.body) or isTupleStart(n.*.body) or isListStart(n.*.body) or isBitStringStart(n.*.body)) {
                 n_count += 1;
-            } else if (isParenEnd(n.*.body) or isMapEnd(n.*.body) or isListEnd(n.*.body)) {
+            } else if (isParenEnd(n.*.body) or isMapEnd(n.*.body) or isListEnd(n.*.body) or isBitStringEnd(n.*.body)) {
                 n_count -= 1;
             }
 
@@ -1155,6 +1155,10 @@ pub const Parser = struct {
             };
         } else if (isAtom(pn.*.body)) {
             ast = self.parseAtom(token_queue) catch {
+                return ParserError.ParsingFailure;
+            };
+        } else if (isString(pn.*.body)) {
+            ast = self.parseString(token_queue) catch {
                 return ParserError.ParsingFailure;
             };
         } else if (isBinary(pn.*.body)) {
@@ -1364,7 +1368,138 @@ pub const Parser = struct {
     }
 
     fn parseBinary(self: *Self, token_queue: *TokenQueue) !*TeleAst {
-        return try self.parseValue(token_queue, TeleAstType.binary);
+        // Pop off bit string start
+        const sn = try token_queue.pop();
+        const col = sn.*.col;
+        const line = sn.*.line;
+        self.allocator.free(sn.*.body);
+        self.allocator.destroy(sn);
+
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
+        while (!token_queue.empty()) {
+            const n2 = try token_queue.pop();
+            errdefer self.allocator.free(n2.*.body);
+            errdefer self.allocator.destroy(n2);
+
+            if (isBitStringEnd(n2.*.body)) {
+                self.allocator.free(n2.*.body);
+                self.allocator.destroy(n2);
+                break;
+            } else {
+                try buffer_token_queue.push(n2.*.body, n2.*.col, n2.*.line);
+                self.allocator.destroy(n2);
+            }
+        }
+
+        var buffer_token_queue2 = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue2.deinit();
+
+        // Parse bit string pieces
+        var children = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.freeTeleAstList(children, self.allocator);
+        while (!buffer_token_queue.empty()) {
+            const n2 = try buffer_token_queue.pop();
+            if (isComma(n2.*.body)) {
+                self.allocator.free(n2.*.body);
+                self.allocator.destroy(n2);
+                const ast = try self.parseBinaryElement(buffer_token_queue2);
+                try children.append(ast);
+            } else {
+                try buffer_token_queue2.push(n2.*.body, n2.*.col, n2.*.line);
+                self.allocator.destroy(n2);
+            }
+        }
+
+        if (!buffer_token_queue2.empty()) {
+            const ast = try self.parseBinaryElement(buffer_token_queue2);
+            try children.append(ast);
+        }
+
+        buffer_token_queue.deinit();
+        buffer_token_queue2.deinit();
+
+        const bast = try self.allocator.create(TeleAst);
+        bast.*.body = "";
+        bast.*.ast_type = TeleAstType.binary;
+        bast.*.children = children;
+        bast.*.col = col;
+        bast.*.line = line;
+        return bast;
+    }
+
+    fn parseString(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        return try self.parseValue(token_queue, TeleAstType.string);
+    }
+
+    fn parseBinaryElement(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
+
+        var size: bool = false;
+
+        var children = std.ArrayList(*TeleAst).init(self.allocator);
+
+        // support X:4/little-signed-integer-unit:8 syntax for types
+        while (!token_queue.empty()) {
+            const n = try token_queue.pop();
+            if (isSlash(n.*.body)) {
+                self.allocator.free(n.*.body);
+                self.allocator.destroy(n);
+
+                const c = try self.parseExp(buffer_token_queue);
+                try children.append(c);
+
+                const n2 = try token_queue.pop();
+                const tast = try self.allocator.create(TeleAst);
+                tast.*.body = n2.*.body;
+                tast.*.ast_type = TeleAstType.binary_element_type;
+                tast.*.children = null;
+                tast.*.col = n2.*.col;
+                tast.*.line = n2.*.line;
+                self.allocator.destroy(n2);
+
+                try children.append(tast);
+            } else if (isColon(n.*.body)) {
+                self.allocator.free(n.*.body);
+                self.allocator.destroy(n);
+                if (!buffer_token_queue.empty()) {
+                    const c = try self.parseExp(buffer_token_queue);
+                    try children.append(c);
+                }
+                size = true;
+            } else {
+                try buffer_token_queue.push(n.*.body, n.*.col, n.*.line);
+                self.allocator.destroy(n);
+            }
+        }
+
+        if (!buffer_token_queue.empty()) {
+            const child = try self.parseExp(buffer_token_queue);
+            if (size) {
+                var children2 = std.ArrayList(*TeleAst).init(self.allocator);
+                try children2.append(child);
+                const sast = try self.allocator.create(TeleAst);
+                sast.*.body = "";
+                sast.*.ast_type = TeleAstType.binary_element_size;
+                sast.*.children = children2;
+                sast.*.col = child.*.col;
+                sast.*.line = child.*.line;
+                try children.append(sast);
+            } else {
+                try children.append(child);
+            }
+        }
+
+        buffer_token_queue.deinit();
+
+        const ast = try self.allocator.create(TeleAst);
+        ast.*.body = "";
+        ast.*.ast_type = TeleAstType.binary_element;
+        ast.*.children = children;
+        ast.*.col = children.items[0].*.col;
+        ast.*.line = children.items[0].*.line;
+        return ast;
     }
 
     fn parseVariable(self: *Self, buf: []const u8, type_exp: bool, line: usize, col: usize) !*TeleAst {
@@ -1581,9 +1716,9 @@ pub const Parser = struct {
                 }
             }
 
-            if (isParenStart(n2.*.body) or isTupleStart(n2.*.body) or isListStart(n2.*.body) or isMapStart(n2.*.body) or isRecordStart(n2.*.body)) {
+            if (isParenStart(n2.*.body) or isTupleStart(n2.*.body) or isListStart(n2.*.body) or isMapStart(n2.*.body) or isRecordStart(n2.*.body) or isBitStringStart(n2.*.body)) {
                 n_count += 1;
-            } else if (isParenEnd(n2.*.body) or isListEnd(n2.*.body) or isMapEnd(n2.*.body)) {
+            } else if (isParenEnd(n2.*.body) or isListEnd(n2.*.body) or isMapEnd(n2.*.body) or isBitStringEnd(n2.*.body)) {
                 n_count -= 1;
             }
 
@@ -1626,9 +1761,9 @@ pub const Parser = struct {
                 const node2 = try token_queue.pop();
                 errdefer self.allocator.destroy(node2);
 
-                if (isListStart(node2.*.body) or isTupleStart(node2.*.body) or isMapStart(node2.*.body) or isRecordStart(node2.*.body) or isParenStart(node2.*.body)) {
+                if (isListStart(node2.*.body) or isTupleStart(node2.*.body) or isMapStart(node2.*.body) or isRecordStart(node2.*.body) or isParenStart(node2.*.body) or isBitStringStart(node2.*.body)) {
                     count += 1;
-                } else if (isParenEnd(node2.*.body) or isListEnd(node2.*.body) or isMapEnd(node2.*.body)) {
+                } else if (isParenEnd(node2.*.body) or isListEnd(node2.*.body) or isMapEnd(node2.*.body) or isBitStringEnd(node2.*.body)) {
                     count -= 1;
                     if (count == 0) {
                         // Free paren end body
@@ -1713,9 +1848,9 @@ pub const Parser = struct {
                     const node2 = try token_queue.pop();
                     errdefer self.allocator.destroy(node2);
 
-                    if (isListStart(node2.*.body) or isTupleStart(node2.*.body) or isMapStart(node2.*.body) or isRecordStart(node2.*.body) or isParenStart(node2.*.body)) {
+                    if (isListStart(node2.*.body) or isTupleStart(node2.*.body) or isMapStart(node2.*.body) or isRecordStart(node2.*.body) or isParenStart(node2.*.body) or isBitStringStart(node2.*.body)) {
                         count += 1;
-                    } else if (isListEnd(node2.*.body) or isParenEnd(node2.*.body) or isMapEnd(node2.*.body)) {
+                    } else if (isListEnd(node2.*.body) or isParenEnd(node2.*.body) or isMapEnd(node2.*.body) or isBitStringEnd(node2.*.body)) {
                         count -= 1;
                         if (count == 0) {
                             self.allocator.free(node2.*.body);
@@ -1812,9 +1947,9 @@ pub const Parser = struct {
                     errdefer self.allocator.free(node2.*.body);
                     errdefer self.allocator.destroy(node2);
 
-                    if (isMapStart(node2.*.body) or isListStart(node2.*.body) or isTupleStart(node2.*.body) or isRecordStart(node2.*.body) or isParenStart(node2.*.body)) {
+                    if (isMapStart(node2.*.body) or isListStart(node2.*.body) or isTupleStart(node2.*.body) or isRecordStart(node2.*.body) or isParenStart(node2.*.body) or isBitStringStart(node2.*.body)) {
                         count += 1;
-                    } else if (isMapEnd(node2.*.body) or isParenEnd(node2.*.body) or isListEnd(node2.*.body)) {
+                    } else if (isMapEnd(node2.*.body) or isParenEnd(node2.*.body) or isListEnd(node2.*.body) or isBitStringEnd(node2.*.body)) {
                         count -= 1;
                         if (count == 0) {
                             self.allocator.free(node2.*.body);
@@ -1915,9 +2050,9 @@ pub const Parser = struct {
                 break;
             }
 
-            if (isTupleStart(node2.*.body) or isParenStart(node2.*.body) or isRecordStart(node2.*.body) or isListStart(node2.*.body) or isMapStart(node2.*.body)) {
+            if (isTupleStart(node2.*.body) or isParenStart(node2.*.body) or isRecordStart(node2.*.body) or isListStart(node2.*.body) or isMapStart(node2.*.body) or isBitStringStart(node2.*.body)) {
                 count += 1;
-            } else if (isParenEnd(node2.*.body) or isListEnd(node2.*.body) or isMapEnd(node2.*.body)) {
+            } else if (isParenEnd(node2.*.body) or isListEnd(node2.*.body) or isMapEnd(node2.*.body) or isBitStringEnd(node2.*.body)) {
                 count -= 1;
             }
             try buffer_token_queue.push(node2.*.body, node2.*.line, node2.*.col);
@@ -2037,7 +2172,7 @@ pub const Parser = struct {
             var token_queue2 = TokenQueue.init(self.allocator) catch {
                 return ParserError.ParsingFailure;
             };
-            errdefer token_queue2.deinit();
+            //errdefer token_queue2.deinit();
             // Gather tokens for function signature
 
             var map_count: usize = 0;
@@ -2046,9 +2181,9 @@ pub const Parser = struct {
                 errdefer self.allocator.free(node2.*.body);
                 errdefer self.allocator.destroy(node2);
 
-                if (isMapStart(node2.*.body)) {
+                if (isMapStart(node2.*.body) or isBitStringStart(node2.*.body)) {
                     map_count += 1;
-                } else if (isMapEnd(node2.*.body)) {
+                } else if (isMapEnd(node2.*.body) or isBitStringEnd(node2.*.body)) {
                     map_count -= 1;
                 }
 
@@ -2064,7 +2199,6 @@ pub const Parser = struct {
             }
 
             const ast = try self.parseFunctionSignature(token_queue2, type_exp);
-            errdefer tele_ast.freeTeleAst(ast, self.allocator);
             token_queue2.deinit();
 
             try children.append(ast);
@@ -2798,9 +2932,9 @@ pub const Parser = struct {
                 }
             }
 
-            if (isParenStart(n2.*.body) or isTupleStart(n2.*.body) or isListStart(n2.*.body) or isMapStart(n2.*.body) or isRecordStart(n2.*.body)) {
+            if (isParenStart(n2.*.body) or isTupleStart(n2.*.body) or isListStart(n2.*.body) or isMapStart(n2.*.body) or isRecordStart(n2.*.body) or isBitStringStart(n2.*.body)) {
                 n_count += 1;
-            } else if (isParenEnd(n2.*.body) or isListEnd(n2.*.body) or isMapEnd(n2.*.body)) {
+            } else if (isParenEnd(n2.*.body) or isListEnd(n2.*.body) or isMapEnd(n2.*.body) or isBitStringEnd(n2.*.body)) {
                 n_count -= 1;
             }
 
@@ -3784,28 +3918,64 @@ test "is atom" {
     try std.testing.expect(!isAtom("#'foo bar"));
 }
 
-fn isBinary(buf: []const u8) bool {
-    if (buf[0] == '"') {
-        return true;
+fn isString(buf: []const u8) bool {
+    if (buf.len < 2) {
+        return false;
     }
 
-    if (buf[0] == '<') {
-        if (buf.len > 1) {
-            if (buf[1] == '<') {
-                return true;
-            }
-        }
+    return buf[0] == '\"';
+}
+
+test "is string" {
+    try std.testing.expect(isString("\"foo\""));
+    try std.testing.expect(isString("foo"));
+    try std.testing.expect(isString("<<\"foo\">>"));
+}
+
+fn isBinary(buf: []const u8) bool {
+    if (buf.len >= 2) {
+        return isBitStringStart(buf[0..2]);
     }
 
     return false;
 }
 
 test "is binary" {
-    try std.testing.expect(isBinary("\"foo\""));
+    try std.testing.expect(isBinary(!"\"foo\""));
     try std.testing.expect(isBinary("<<\"foo\">>"));
     try std.testing.expect(!isBinary("foo"));
 
     // TODO: More test cases
+}
+
+fn isBitStringStart(buf: []const u8) bool {
+    if (buf.len != 2) {
+        return false;
+    }
+
+    return buf[0] == '<' and buf[1] == '<';
+}
+
+test "is bit string start" {
+    try std.testing.expect(isBitStringStart("<<"));
+    try std.testing.expect(!isBitStringStart("<"));
+    try std.testing.expect(!isBitStringStart(">>"));
+    try std.testing.expect(!isBitStringStart("123"));
+}
+
+fn isBitStringEnd(buf: []const u8) bool {
+    if (buf.len != 2) {
+        return false;
+    }
+
+    return buf[0] == '>' and buf[1] == '>';
+}
+
+test "is bit string end" {
+    try std.testing.expect(isBitStringEnd(">>"));
+    try std.testing.expect(!isBitStringEnd("<<"));
+    try std.testing.expect(!isBitStringEnd("<"));
+    try std.testing.expect(!isBitStringEnd("123"));
 }
 
 fn isTupleStart(buf: []const u8) bool {
@@ -4001,6 +4171,8 @@ test "is operator" {
     try std.testing.expect(!isOperator("+="));
     try std.testing.expect(!isOperator("+-"));
     try std.testing.expect(!isOperator("foobar"));
+    try std.testing.expect(!isOperator("<<"));
+    try std.testing.expect(!isOperator(">>"));
 }
 
 fn isPipeOperator(buf: []const u8) bool {
@@ -4120,6 +4292,15 @@ fn isEqual(buf: []const u8) bool {
 test "is equal" {
     try std.testing.expect(isEqual("="));
     try std.testing.expect(!isEqual("-"));
+}
+
+fn isSlash(buf: []const u8) bool {
+    return buf[0] == '/';
+}
+
+test "is slash" {
+    try std.testing.expect(isSlash("/"));
+    try std.testing.expect(!isSlash("'"));
 }
 
 fn containsParenStart(buf: []const u8) bool {

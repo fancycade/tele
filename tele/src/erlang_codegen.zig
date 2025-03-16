@@ -26,6 +26,28 @@ pub const Context = struct {
         _ = try w.write(a.body);
     }
 
+    pub fn writeString(self: *Self, w: anytype, a: *const Ast, override: bool) !void {
+        if (a.*.ast_type != AstType.string) {
+            return CodegenError.WritingFailure;
+        }
+
+        try self.writePadding(w);
+
+        if (!self.attribute_mode) {
+            if (override) {
+                _ = try w.write("<<");
+            }
+        }
+
+        _ = try w.write(a.*.body);
+
+        if (!self.attribute_mode) {
+            if (override) {
+                _ = try w.write("/utf8>>");
+            }
+        }
+    }
+
     pub fn writeBinary(self: *Self, w: anytype, a: *const Ast) !void {
         if (a.*.ast_type != AstType.binary) {
             return CodegenError.WritingFailure;
@@ -33,17 +55,86 @@ pub const Context = struct {
 
         try self.writePadding(w);
 
-        if (self.*.attribute_mode) {
-            _ = try w.write(a.body);
+        _ = try w.write("<<");
+        var i: usize = 0;
+        try self.pushPadding(0);
+        for (a.children.?.items) |c| {
+            try self.writeBinaryElement(w, c);
+
+            if (i + 1 < a.children.?.items.len) {
+                _ = try w.write(", ");
+            }
+
+            i = i + 1;
+        }
+        try self.popPadding();
+        _ = try w.write(">>");
+    }
+
+    pub fn writeBinaryElement(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.binary_element) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (a.*.children.?.items.len == 0 or a.*.children.?.items.len > 3) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (a.*.children.?.items[0].ast_type == AstType.string) {
+            try self.writeString(w, a.*.children.?.items[0], false);
         } else {
-            if (a.body[0] == '<') {
-                _ = try w.write(a.body);
+            try self.writeAst(w, a.*.children.?.items[0], false);
+        }
+
+        if (a.*.children.?.items.len == 2) {
+            if (a.*.children.?.items[1].ast_type == AstType.binary_element_size) {
+                try self.writeBinaryElementSize(w, a.*.children.?.items[1]);
+            } else if (a.*.children.?.items[1].ast_type == AstType.binary_element_type) {
+                if (a.*.children.?.items.len > 2) {
+                    return CodegenError.WritingFailure;
+                }
+                try self.writeBinaryElementType(w, a.*.children.?.items[1]);
             } else {
-                _ = try w.write("<<");
-                _ = try w.write(a.body);
-                _ = try w.write("/utf8>>");
+                return CodegenError.WritingFailure;
             }
         }
+
+        if (a.*.children.?.items.len == 3) {
+            try self.writeBinaryElementType(w, a.*.children.?.items[2]);
+        }
+
+        try self.writePadding(w);
+    }
+
+    pub fn writeBinaryElementSize(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.binary_element_size) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (a.*.children.?.items.len != 1) {
+            return CodegenError.WritingFailure;
+        }
+
+        _ = try w.write(":");
+        try self.writeAst(w, a.*.children.?.items[0], false);
+    }
+
+    pub fn writeBinaryElementType(self: *Self, w: anytype, a: *const Ast) !void {
+        _ = self;
+        if (a.*.ast_type != AstType.binary_element_type) {
+            return CodegenError.WritingFailure;
+        }
+
+        _ = try w.write("/");
+        _ = try w.write(a.*.body);
     }
 
     pub fn writeTuple(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
@@ -292,7 +383,7 @@ pub const Context = struct {
 
         const path = a.*.children.?.items[0];
 
-        if (path.*.ast_type != AstType.binary) {
+        if (path.*.ast_type != AstType.string) {
             return CodegenError.WritingFailure;
         }
 
@@ -1129,6 +1220,26 @@ pub const Context = struct {
             },
             .binary => {
                 self.writeBinary(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .binary_element => {
+                self.writeBinaryElement(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .binary_element_size => {
+                self.writeBinaryElementSize(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .binary_element_type => {
+                self.writeBinaryElementType(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .string => {
+                self.writeString(w, a, true) catch {
                     return CodegenError.WritingFailure;
                 };
             },

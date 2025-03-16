@@ -886,6 +886,26 @@ pub const Context = struct {
                     return CodegenError.WritingFailure;
                 };
             },
+            .string => {
+                self.writeValue(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .binary_element => {
+                self.writeValue(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .binary_element_size => {
+                self.writeValue(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .binary_element_type => {
+                self.writeValue(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
             .binary => {
                 self.writeValue(w, a) catch {
                     return CodegenError.WritingFailure;

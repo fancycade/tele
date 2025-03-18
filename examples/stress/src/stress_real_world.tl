@@ -11,3 +11,14 @@ fun example2(msg, state):
   case msg:
     _: 'ok
   #('noreply, state)
+
+fun example3(n):
+  case example_helper(n):
+    #('ok, v):
+      v
+    #('error, _err) = e:
+      e
+
+funp example_helper
+  ('true): #('ok, 42)
+  ('false): #('error, 'not_found)

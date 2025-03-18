@@ -1579,8 +1579,8 @@ pub const Parser = struct {
         const node = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
-        const current_col = node.*.col;
-        const ast_line = node.*.line;
+        var current_col = node.*.col;
+        var ast_line = node.*.line;
         errdefer self.allocator.destroy(node);
 
         // TODO: Allow for negative numbers
@@ -1607,6 +1607,8 @@ pub const Parser = struct {
         var children = std.ArrayList(*TeleAst).init(self.allocator);
         errdefer tele_ast.freeTeleAstList(children, self.allocator);
         if (arg != null) {
+            current_col = arg.?.*.col;
+            ast_line = arg.?.line;
             try children.append(arg.?);
         }
         try children.append(ast.?);
@@ -2799,7 +2801,6 @@ pub const Parser = struct {
             }
 
             if (isColon(node.*.body)) {
-                tele_error.setErrorMessage(node.*.line, node.*.col, tele_error.ErrorType.unexpected_token);
                 self.allocator.free(node.*.body);
                 self.allocator.destroy(node);
                 break;

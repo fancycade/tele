@@ -207,6 +207,10 @@ stress_real_world_example1_test() ->
 stress_real_world_example2_test() ->
     ?assertEqual({noreply, []}, stress_real_world:example2(ok, [])).
 
+stress_real_world_example3_test() ->
+    ?assertEqual(42, stress_real_world:example3(true)),
+    ?assertEqual({error, not_found}, stress_real_world:example3(false)).
+
 stress_math_test() ->
     ?assertEqual(2, stress_math:add(1, 1)),
     ?assertEqual(1, stress_math:sub(2, 1)),

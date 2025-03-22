@@ -1182,7 +1182,10 @@ pub const Parser = struct {
                 return ParserError.ParsingFailure;
             };
         } else if (isRecordStart(pn.*.body)) {
-            ast = self.parseRecord(token_queue, false, "", false) catch {
+            const buf = util.copyString("", self.allocator) catch {
+                return ParserError.ParsingFailure;
+            };
+            ast = self.parseRecord(token_queue, false, buf, false) catch {
                 return ParserError.ParsingFailure;
             };
         } else if (isListStart(pn.*.body)) {
@@ -1209,9 +1212,8 @@ pub const Parser = struct {
             const n = token_queue.pop() catch {
                 return ParserError.ParsingFailure;
             };
-            errdefer self.allocator.free(n.*.body);
             errdefer self.allocator.destroy(n);
-            defer self.allocator.destroy(n);
+            errdefer self.allocator.free(n.*.body);
 
             if (!token_queue.empty()) {
                 // Check if next token is a paren_start
@@ -1219,25 +1221,37 @@ pub const Parser = struct {
                     return ParserError.ParsingFailure;
                 };
                 if (res) {
+                    const buf = util.copyString(n.*.body, self.allocator) catch {
+                        return ParserError.ParsingFailure;
+                    };
                     if (util.containsHash(n.*.body)) {
-                        ast = self.parseRecord(token_queue, true, n.*.body, false) catch { // Is a record variable
+                        ast = self.parseRecord(token_queue, true, buf, false) catch { // Is a record variable
                             return ParserError.ParsingFailure;
                         };
                     } else { // Is a function call
-                        ast = self.parseFunctionCall(token_queue, n.*.body, false) catch {
+                        ast = self.parseFunctionCall(token_queue, buf, false) catch {
                             return ParserError.ParsingFailure;
                         };
                     }
                 } else {
-                    ast = self.parseVariable(n.*.body, false, n.*.line, n.*.col) catch {
+                    const buf = util.copyString(n.*.body, self.allocator) catch {
+                        return ParserError.ParsingFailure;
+                    };
+                    ast = self.parseVariable(buf, false, n.*.line, n.*.col) catch {
                         return ParserError.ParsingFailure;
                     };
                 }
             } else {
-                ast = self.parseVariable(n.*.body, false, n.*.line, n.*.col) catch {
+                const buf = util.copyString(n.*.body, self.allocator) catch {
+                    return ParserError.ParsingFailure;
+                };
+                ast = self.parseVariable(buf, false, n.*.line, n.*.col) catch {
                     return ParserError.ParsingFailure;
                 };
             }
+
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
         }
 
         if (!token_queue.empty()) {
@@ -1294,7 +1308,10 @@ pub const Parser = struct {
                 return ParserError.ParsingFailure;
             };
         } else if (isRecordStart(pn.*.body)) {
-            ast = self.parseRecord(token_queue, false, "", true) catch {
+            const buf = util.copyString("", self.allocator) catch {
+                return ParserError.ParsingFailure;
+            };
+            ast = self.parseRecord(token_queue, false, buf, true) catch {
                 return ParserError.ParsingFailure;
             };
         } else if (isListStart(pn.*.body)) {
@@ -1314,6 +1331,7 @@ pub const Parser = struct {
                 return ParserError.ParsingFailure;
             };
             defer self.allocator.destroy(n);
+            defer self.allocator.free(n.*.body);
 
             if (!token_queue.empty()) {
                 // Check if next token is a paren_start
@@ -1325,17 +1343,26 @@ pub const Parser = struct {
                         // Record literal syntax not allowed in type expression
                         return ParserError.ParsingFailure;
                     } else { // Is a function call
-                        ast = self.parseFunctionCall(token_queue, n.*.body, true) catch {
+                        const buf = util.copyString(n.*.body, self.allocator) catch {
+                            return ParserError.ParsingFailure;
+                        };
+                        ast = self.parseFunctionCall(token_queue, buf, true) catch {
                             return ParserError.ParsingFailure;
                         };
                     }
                 } else {
-                    ast = self.parseVariable(n.*.body, true, n.*.line, n.*.col) catch {
+                    const buf = util.copyString(n.*.body, self.allocator) catch {
+                        return ParserError.ParsingFailure;
+                    };
+                    ast = self.parseVariable(buf, true, n.*.line, n.*.col) catch {
                         return ParserError.ParsingFailure;
                     };
                 }
             } else {
-                ast = self.parseVariable(n.*.body, true, n.*.line, n.*.col) catch {
+                const buf = util.copyString(n.*.body, self.allocator) catch {
+                    return ParserError.ParsingFailure;
+                };
+                ast = self.parseVariable(buf, true, n.*.line, n.*.col) catch {
                     return ParserError.ParsingFailure;
                 };
             }
@@ -1577,6 +1604,9 @@ pub const Parser = struct {
     fn parseOperator(self: *Self, token_queue: *TokenQueue, type_exp: bool, arg: ?*TeleAst) !*TeleAst {
         // Pop off operator
         const node = token_queue.pop() catch {
+            if (arg != null) {
+                tele_ast.freeTeleAst(arg.?, self.allocator);
+            }
             return ParserError.ParsingFailure;
         };
         var current_col = node.*.col;
@@ -1585,6 +1615,9 @@ pub const Parser = struct {
 
         // TODO: Allow for negative numbers
         if (type_exp and !isPipeOperator(node.*.body)) {
+            if (arg != null) {
+                tele_ast.freeTeleAst(arg.?, self.allocator);
+            }
             tele_error.setErrorMessage(node.*.line, node.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(node.*.body);
             return ParserError.ParsingFailure;
@@ -1593,11 +1626,17 @@ pub const Parser = struct {
         var ast: ?*TeleAst = null;
         if (type_exp) {
             ast = self.parseTypeExp(token_queue) catch {
+                if (arg != null) {
+                    tele_ast.freeTeleAst(arg.?, self.allocator);
+                }
                 self.allocator.free(node.*.body);
                 return ParserError.ParsingFailure;
             };
         } else {
             ast = self.parseExp(token_queue) catch {
+                if (arg != null) {
+                    tele_ast.freeTeleAst(arg.?, self.allocator);
+                }
                 self.allocator.free(node.*.body);
                 return ParserError.ParsingFailure;
             };
@@ -2002,6 +2041,7 @@ pub const Parser = struct {
             }
 
             if (count != 0) {
+                tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.invalid_expression);
                 // TODO: setErrorMessage
                 return ParserError.ParsingFailure;
             }
@@ -2174,7 +2214,7 @@ pub const Parser = struct {
             var token_queue2 = TokenQueue.init(self.allocator) catch {
                 return ParserError.ParsingFailure;
             };
-            //errdefer token_queue2.deinit();
+            errdefer token_queue2.deinit();
             // Gather tokens for function signature
 
             var map_count: usize = 0;
@@ -2391,8 +2431,10 @@ pub const Parser = struct {
             }
 
             if ((isFun(peek_node.*.body) and paren_count == 0) or isCaseKeyword(peek_node.*.body) or isTryKeyword(peek_node.*.body) or isCatchKeyword(peek_node.*.body) or isReceiveKeyword(peek_node.*.body)) {
+                if (!nested_body) {
+                    nested_body_col = peek_node.*.col;
+                }
                 nested_body = true;
-                nested_body_col = peek_node.*.col;
             }
 
             const n = try token_queue.pop();
@@ -2479,12 +2521,19 @@ pub const Parser = struct {
         var buffer_token_queue = try TokenQueue.init(self.allocator);
         errdefer buffer_token_queue.deinit();
         // Parse Match Signature
+        var map_count: usize = 0;
         while (!token_queue.empty()) {
             const node = try token_queue.pop();
             errdefer self.allocator.free(node.*.body);
             errdefer self.allocator.destroy(node);
 
-            if (isColon(node.*.body)) {
+            if (isMapStart(node.*.body) or isBitStringStart(node.*.body)) {
+                map_count += 1;
+            } else if (isMapEnd(node.*.body) or isBitStringEnd(node.*.body)) {
+                map_count -= 1;
+            }
+
+            if (map_count == 0 and isColon(node.*.body)) {
                 self.allocator.free(node.*.body);
                 self.allocator.destroy(node);
                 break;
@@ -2500,6 +2549,7 @@ pub const Parser = struct {
         }
 
         const ast = try self.parseExp(buffer_token_queue);
+        errdefer tele_ast.freeTeleAst(ast, self.allocator);
         if (!buffer_token_queue.empty()) {
             const peek_n = try buffer_token_queue.peek();
             tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
@@ -2528,6 +2578,7 @@ pub const Parser = struct {
                 if (ast.ast_type != TeleAstType.guard_clause) {
                     tele_error.setErrorMessage(ast.*.line, ast.*.col, tele_error.ErrorType.invalid_guard_clause);
                     tele_ast.freeTeleAst(ast, self.allocator);
+                    tele_ast.freeTeleAstList(alist2, self.allocator);
                     return ParserError.ParsingFailure;
                 }
                 const ast2 = alist2.pop();
@@ -2867,6 +2918,7 @@ pub const Parser = struct {
     }
 
     fn parseFunctionCall(self: *Self, token_queue: *TokenQueue, buf: []const u8, type_exp: bool) !*TeleAst {
+        errdefer self.allocator.free(buf);
         // Remove paren start
         const pn = try token_queue.pop();
         const current_col = pn.*.col;
@@ -4124,6 +4176,12 @@ fn isOperator(buf: []const u8) bool {
                 } else {
                     return false;
                 }
+            } else if (buf.len == 3) {
+                if (buf[1] == '/' and buf[2] == '=') {
+                    return true;
+                } else {
+                    return false;
+                }
             }
         },
         'a' => {
@@ -4166,6 +4224,7 @@ test "is operator" {
     try std.testing.expect(isOperator("orelse"));
     try std.testing.expect(isOperator("not"));
     try std.testing.expect(isOperator("::"));
+    try std.testing.expect(isOperator("=/="));
 
     try std.testing.expect(!isOperator("==="));
     try std.testing.expect(!isOperator("+++"));

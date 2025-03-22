@@ -326,8 +326,13 @@ fn readToken(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext, tokenizer: *
                         return false;
                     }
                 } else if (whitespace(pb)) {
-                    ctx.*.next_col_number += 1;
-                    ctx.*.col_number += 1;
+                    if (pb == '\t') {
+                        ctx.*.next_col_number += 4;
+                        ctx.*.col_number += 4;
+                    } else {
+                        ctx.*.next_col_number += 1;
+                        ctx.*.col_number += 1;
+                    }
                     _ = try tokenizer.nextChar(r);
                 } else if (newline(pb)) {
                     ctx.*.line_number += 1;

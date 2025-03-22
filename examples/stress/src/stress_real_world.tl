@@ -22,3 +22,13 @@ fun example3(n):
 funp example_helper
   ('true): #('ok, 42)
   ('false): #('error, 'not_found)
+
+fun example4():
+  case example4_helper({'token: "foo"}):
+    #('ok, v): #('ok, v + 2)
+    #('error, _err) = e: e
+
+funp example4_helper
+  ({'token: _token}): #('ok, 0)
+  (_): #('error, 'invalid_input)
+  

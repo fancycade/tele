@@ -52,11 +52,13 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
             return error.InvalidArgs;
         };
 
-        const output_path = arg_it.next() orelse {
-            return error.InvalidArgs;
-        };
+        var output_path: ?[:0]const u8 = arg_it.next();
 
-        compileFile(code_path, output_path, allocator, isTeleHeaderFile(code_path)) catch |e| {
+        if (output_path == null) {
+            output_path = ".";
+        }
+
+        compileFile(code_path, output_path.?, allocator, isTeleHeaderFile(code_path)) catch |e| {
             try tele_error.printErrorMessage();
             return e;
         };

@@ -1462,7 +1462,7 @@ test "write binary" {
     var context = Context.init(test_allocator);
     defer context.deinit();
 
-    try context.writeBinary(list.writer(), &Ast{ .body = "\"foobar\"", .ast_type = AstType.binary, .children = null });
+    try context.writeString(list.writer(), &Ast{ .body = "\"foobar\"", .ast_type = AstType.string, .children = null }, true);
 
     try std.testing.expect(std.mem.eql(u8, list.items, "<<\"foobar\"/utf8>>"));
 }
@@ -1495,7 +1495,7 @@ test "write list" {
     try children.append(&Ast{ .body = "1", .ast_type = AstType.int, .children = null });
     try children.append(&Ast{ .body = "foo", .ast_type = AstType.atom, .children = null });
     try children.append(&Ast{ .body = "42.42", .ast_type = AstType.float, .children = null });
-    try children.append(&Ast{ .body = "\"foobar\"", .ast_type = AstType.binary, .children = null });
+    try children.append(&Ast{ .body = "\"foobar\"", .ast_type = AstType.string, .children = null });
 
     var context = Context.init(test_allocator);
     defer context.deinit();
@@ -1537,7 +1537,7 @@ test "write record" {
 
     var fv1_children = std.ArrayList(*const Ast).init(test_allocator);
     defer fv1_children.deinit();
-    try fv1_children.append(&Ast{ .body = "\"Joe\"", .ast_type = AstType.binary, .children = null });
+    try fv1_children.append(&Ast{ .body = "\"Joe\"", .ast_type = AstType.string, .children = null });
 
     try field1_children.append(&Ast{ .body = "", .ast_type = AstType.record_field_value, .children = fv1_children });
 

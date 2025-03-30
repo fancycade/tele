@@ -3981,8 +3981,8 @@ fn isString(buf: []const u8) bool {
 
 test "is string" {
     try std.testing.expect(isString("\"foo\""));
-    try std.testing.expect(isString("foo"));
-    try std.testing.expect(isString("<<\"foo\">>"));
+    try std.testing.expect(!isString("foo"));
+    try std.testing.expect(!isString("<<\"foo\">>"));
 }
 
 fn isBinary(buf: []const u8) bool {
@@ -3994,7 +3994,7 @@ fn isBinary(buf: []const u8) bool {
 }
 
 test "is binary" {
-    try std.testing.expect(isBinary(!"\"foo\""));
+    try std.testing.expect(!isBinary("\"foo\""));
     try std.testing.expect(isBinary("<<\"foo\">>"));
     try std.testing.expect(!isBinary("foo"));
 

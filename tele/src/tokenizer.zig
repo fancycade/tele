@@ -135,8 +135,9 @@ test "token queue" {
 }
 
 test "empty token queue" {
+    // Test that normal run doesn't result in memory leak
     const queue = try TokenQueue.init(test_allocator);
-    errdefer queue.deinit();
+    queue.deinit();
 }
 
 const Tokenizer = struct {

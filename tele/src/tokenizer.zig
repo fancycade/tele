@@ -26,15 +26,13 @@ pub const TokenQueue = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        var cur = self.head;
-
-        while (cur != null) {
-            const next = cur.?.next;
-            self.allocator.free(cur.?.body);
-            self.allocator.destroy(cur.?);
-            cur = next;
+        while (!self.empty()) {
+            const n = self.pop() catch {
+                return;
+            };
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
         }
-
         self.allocator.destroy(self);
     }
 
@@ -80,13 +78,19 @@ pub const TokenQueue = struct {
 
         if (self.head == null) {
             return TokenQueueError.MissingHead;
-        } else {
-            const node = self.head;
-            self.head = self.head.?.next;
-            node.?.next = null;
-            return node.?;
         }
+
+        const node = self.head;
         self.len -= 1;
+
+        if (node.?.next == null) {
+            self.head = null;
+            self.tail = null;
+        } else {
+            self.head = node.?.next;
+        }
+
+        return node.?;
     }
 
     pub fn peek(self: *Self) !*TokenQueueNode {
@@ -98,7 +102,7 @@ pub const TokenQueue = struct {
     }
 
     pub fn empty(self: *Self) bool {
-        return self.head == null;
+        return self.count() == 0;
     }
 
     pub fn count(self: *Self) usize {
@@ -128,6 +132,11 @@ test "token queue" {
 
     test_allocator.free(node.*.body);
     test_allocator.destroy(node);
+}
+
+test "empty token queue" {
+    const queue = try TokenQueue.init(test_allocator);
+    errdefer queue.deinit();
 }
 
 const Tokenizer = struct {

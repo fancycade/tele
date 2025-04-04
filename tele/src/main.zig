@@ -16,7 +16,7 @@ const tele_error = @import("error.zig");
 const test_allocator = std.testing.allocator;
 const util = @import("util.zig");
 
-const ExecutionError = error{Empty};
+const ExecutionError = error{ Empty, MissingAppSrc };
 
 const FunctionMetadata = struct { name: []const u8, args: usize };
 
@@ -85,16 +85,18 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
     }
 }
 
-fn handleError() !void {
-    tele_error.printErrorMessage();
-}
-
 fn build(allocator: std.mem.Allocator, erlang_compile: bool) !void {
     // Make _build/_tele if not exists
     try std.fs.cwd().makePath("_build/_tele");
 
     // Only needed for tests but doesn't hurt to have it
     try std.fs.cwd().makePath("_build/_test");
+
+    // Find app src
+    const app_src_path = try findAppSrc(".", allocator);
+    errdefer allocator.free(app_src_path);
+    const build_tele_path = try createBuildTelePath(app_src_path, allocator);
+    errdefer allocator.free(build_tele_path);
 
     try recursiveCompile(".", allocator);
 
@@ -108,7 +110,9 @@ fn build(allocator: std.mem.Allocator, erlang_compile: bool) !void {
     try file.seekTo(stat.size);
 
     var w = file.writer();
-    _ = try w.write("\n{src_dirs, [\"src\", \"_build/_tele\"]}.\n");
+    _ = try w.write("\n{src_dirs, [\"src\", \"");
+    _ = try w.write(build_tele_path);
+    _ = try w.write("\"]}.\n");
 
     if (erlang_compile) {
         // Run rebar3 compile with modified rebar.config
@@ -121,6 +125,8 @@ fn build(allocator: std.mem.Allocator, erlang_compile: bool) !void {
         defer allocator.free(result.stderr);
         std.debug.print("{s}", .{result.stdout});
     }
+    allocator.free(app_src_path);
+    allocator.free(build_tele_path);
 }
 
 fn recursiveCompile(path: []const u8, allocator: std.mem.Allocator) !void {
@@ -215,6 +221,44 @@ fn recursiveCompile(path: []const u8, allocator: std.mem.Allocator) !void {
     }
 }
 
+fn findAppSrc(path: []const u8, allocator: std.mem.Allocator) ![]const u8 {
+    var src = try std.fs.cwd().openDir(path, .{ .iterate = true });
+    var walker = try src.walk(allocator);
+    defer walker.deinit();
+
+    while (try walker.next()) |entry| {
+        if (entry.kind == std.fs.File.Kind.file and !checkPathContains(entry.path, "_build") and isAppSrcFile(entry.basename)) {
+            return util.copyString(entry.path, allocator);
+        }
+    }
+
+    return ExecutionError.MissingAppSrc;
+}
+
+fn createBuildTelePath(app_src_path: []const u8, allocator: std.mem.Allocator) ![]const u8 {
+    var count: usize = 0;
+    var dir = std.fs.path.dirname(app_src_path);
+    while (dir != null) {
+        dir = std.fs.path.dirname(dir.?);
+        count += 1;
+    }
+
+    if (count > 0) {
+        count -= 1;
+    }
+
+    var path_list = std.ArrayList([]const u8).init(allocator);
+    defer path_list.deinit();
+
+    while (count > 0) {
+        try path_list.append("../");
+        count -= 1;
+    }
+    try path_list.append("_build/_tele");
+
+    return try std.fs.path.join(allocator, path_list.items);
+}
+
 fn checkPathContains(path: []const u8, match_str: []const u8) bool {
     var it = std.mem.split(u8, path, "/");
     while (it.next()) |x| {
@@ -274,6 +318,12 @@ test "is tele header file" {
     try std.testing.expect(isTeleHeaderFile("foo.htl"));
     try std.testing.expect(isTeleHeaderFile("./foo/bar/foo.htl"));
     try std.testing.expect(!isTeleHeaderFile("baz.erl"));
+}
+
+fn isAppSrcFile(path: []const u8) bool {
+    const ext = std.fs.path.extension(path);
+    // TODO: Check for app.src not just .src
+    return std.mem.eql(u8, ".src", ext);
 }
 
 fn parseTeleFile(code_path: []const u8, allocator: std.mem.Allocator) !std.ArrayList(*TeleAst) {

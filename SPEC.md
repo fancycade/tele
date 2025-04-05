@@ -60,17 +60,21 @@ tele's atom syntax is similar to LISP. They are prefixed with a '. Here is an ex
 
     'hello
 
-EXPERIMENTAL:
+Erlang has an optional single quote syntax for atom's that tele support's:
 
-Erlang supports atom's with special characters such as spaces.
+    'hello'
 
-    'hello world'
-
-Single quotes are an alternate syntax for atom's. Tele's apostrophe syntax cannot support the case of an atom with spaces.
-Instead tele also has an alternate syntax for atom's. Prefixing single quote atom's with a # means we want a single quote delimited
-atom. The above Erlang example would look like this in Tele:
+Due to tele's syntax rules, atom's with spaces become an edge case. Tele supports a special atom syntax:
 
     #'hello world'
+
+Tele supports lower and upper case characters for atom's:
+
+    'Hello
+
+    OR
+
+    'Hello'
 
 ### Bit Strings
 

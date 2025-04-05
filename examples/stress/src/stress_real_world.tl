@@ -32,3 +32,6 @@ funp example4_helper
   ({'token: _token}): #('ok, 0)
   (_): #('error, 'invalid_input)
   
+fun example5(): #('GET, 'GET', #'GET')
+
+fun example6(): <<>>

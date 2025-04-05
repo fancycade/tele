@@ -214,6 +214,15 @@ stress_real_world_example3_test() ->
 stress_real_world_example4_test() ->
     ?assertEqual({ok, 2}, stress_real_world:example4()).
 
+stress_real_world_example5_test() ->
+    {A, B, C} = stress_real_world:example5(),
+    ?assertEqual('GET', A),
+    ?assertEqual('GET', B),
+    ?assertEqual('GET', C).
+
+stress_real_world_example6_test() ->
+    ?assertEqual(<<>>, stress_real_world:example6()).
+
 stress_math_test() ->
     ?assertEqual(2, stress_math:add(1, 1)),
     ?assertEqual(1, stress_math:sub(2, 1)),

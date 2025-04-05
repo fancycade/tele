@@ -239,6 +239,16 @@ pub const Context = struct {
         try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .line = a.*.line, .col = a.*.col });
     }
 
+    pub fn writeBehaviour(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.behaviour) {
+            return CodegenError.WritingFailure;
+        }
+        try self.writePadding(w);
+        _ = try w.write("behaviour(");
+        _ = try w.write(a.*.body);
+        _ = try w.write(")\n");
+    }
+
     pub fn writeAttribute(self: *Self, w: anytype, a: *const Ast) !void {
         if (a.*.ast_type != AstType.attribute) {
             return CodegenError.WritingFailure;
@@ -1088,6 +1098,11 @@ pub const Context = struct {
             },
             .test_unit => {
                 self.writeTestUnit(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .behaviour => {
+                self.writeBehaviour(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

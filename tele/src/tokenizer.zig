@@ -374,7 +374,8 @@ fn readToken(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext, tokenizer: *
                     return false;
                 } else if (whitespace(pb)) {
                     return false;
-                } else if (specialChar(pb)) {
+                    // TODO: Be more selective of which special char to end with
+                } else if (specialChar(pb) and pb != '\'') {
                     return false;
                 }
                 try l.append(try tokenizer.nextChar(r));
@@ -1076,6 +1077,14 @@ test "read token" {
     try expect(ctx.col_number == 7);
     try expect(ctx.next_line_number == 33);
     try expect(ctx.next_col_number == 8);
+    list.clearAndFree();
+
+    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, "'foo'"));
+    try expect(ctx.line_number == 34);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 34);
+    try expect(ctx.next_col_number == 5);
     list.clearAndFree();
 
     const eof = try readToken(file.reader(), &list, &ctx, tokenizer);

@@ -32,3 +32,4 @@ a#person(x=2)
 #'basic.ok'()
 'ok,
 #point):
+'foo'

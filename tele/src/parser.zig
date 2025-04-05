@@ -3102,13 +3102,53 @@ pub const Parser = struct {
     }
 
     fn parseBehaviour(self: *Self, token_queue: *TokenQueue) !*TeleAst {
-        // TODO: Check for behabiour keyword
-        const bast = try self.parseAttribute(token_queue);
+        const n = try token_queue.pop();
+        const current_col = n.*.col;
+        const ast_line = n.*.line;
 
-        bast.*.children.?.items[0].ast_type = TeleAstType.atom;
-        bast.*.ast_type = TeleAstType.attribute;
+        if (!isBehaviourKeyword(n.*.body)) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
+        self.allocator.free(n.*.body);
+        self.allocator.destroy(n);
 
-        return bast;
+        const pstart = try token_queue.pop();
+        if (!isParenStart(pstart.*.body)) {
+            tele_error.setErrorMessage(pstart.*.line, pstart.*.col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(pstart.*.body);
+            self.allocator.destroy(pstart);
+            return ParserError.ParsingFailure;
+        }
+        self.allocator.free(pstart.*.body);
+        self.allocator.destroy(pstart);
+
+        const name_node = try token_queue.pop();
+
+        const pend = try token_queue.pop();
+        if (!isParenEnd(pend.*.body)) {
+            tele_error.setErrorMessage(pend.*.line, pend.*.col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(pend.*.body);
+            self.allocator.destroy(pend);
+            self.allocator.free(name_node.*.body);
+            self.allocator.destroy(name_node);
+        }
+        self.allocator.free(pend.*.body);
+        self.allocator.destroy(pend);
+
+        const buf = name_node.*.body;
+        self.allocator.destroy(name_node);
+
+        const ast = try self.allocator.create(TeleAst);
+        ast.*.body = buf;
+        ast.*.ast_type = TeleAstType.behaviour;
+        ast.*.children = null;
+        ast.*.col = current_col;
+        ast.*.line = ast_line;
+
+        return ast;
     }
 
     fn parseImport(self: *Self, token_queue: *TokenQueue) !*TeleAst {

@@ -260,6 +260,29 @@ Case expressions are very similar to Erlang:
         ok = 'ok
         #(ok, 'failure)
 
+#### Guard Sequences
+
+A guard sequence is a sequence of guards. A guard is a sequence of guard expressions.
+
+A basic guard is prefixed with the when keyword:
+
+    when x > 2: x
+
+A guard can have multiple expressions in it. The guard uses block syntax anchored to the when prefix.
+
+   when 
+     x > 2
+     y < 3:
+
+A guard sequence separates out multiple guards with multiple uses of the when keyword. The guard expression used block syntax rules to determine
+which expressions fall under that guard.
+
+    when 
+      x > 2
+    when
+      x > 3
+      y > 2:
+
 #### Receive Expressions
 
 Erlang has a builtin keyword receive that is meant to be used for handling messages sent to a process. In Tele,

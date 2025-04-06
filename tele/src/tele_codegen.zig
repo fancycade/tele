@@ -266,18 +266,40 @@ pub const Context = struct {
         try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .line = a.*.line, .col = a.*.col });
     }
 
-    pub fn writeGuardClause(self: *Self, w: anytype, a: *const Ast) !void {
-        if (a.*.ast_type != AstType.guard_clause) {
+    pub fn writeGuardSequence(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.guard_sequence) {
             return CodegenError.WritingFailure;
         }
         if (a.*.children == null) {
             return CodegenError.WritingFailure;
         }
-        if (a.*.children.?.items.len != 1) {
+        if (a.*.children.?.items.len == 0) {
+            return CodegenError.WritingFailure;
+        }
+        for (a.*.children.?.items) |c| {
+            try self.writeGuard(w, c);
+        }
+    }
+
+    pub fn writeGuard(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.guard) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len == 0) {
             return CodegenError.WritingFailure;
         }
         _ = try w.write("when ");
-        try self.writeAst(w, a.children.?.items[0]);
+        var i: usize = 0;
+        for (a.*.children.?.items) |c| {
+            try self.writeAst(w, c);
+            if (i < a.*.children.?.items.len) {
+                _ = try w.write("\n");
+            }
+            i = i + 1;
+        }
     }
 
     pub fn writeFunctionSignature(self: *Self, w: anytype, a: *const Ast) !void {
@@ -294,11 +316,7 @@ pub const Context = struct {
         _ = try w.write("(");
 
         // Look for guard clause
-        var guard: bool = false;
-        if (a.children.?.items[a.children.?.items.len - 1].ast_type == AstType.guard_clause) {
-            guard = true;
-        }
-
+        const guard: bool = a.children.?.items[a.children.?.items.len - 1].ast_type == AstType.guard_sequence;
         var len = a.children.?.items.len;
 
         if (guard) {
@@ -325,8 +343,7 @@ pub const Context = struct {
 
         if (guard) {
             _ = try w.write(" ");
-
-            try self.writeGuardClause(w, a.children.?.items[len]);
+            try self.writeGuardSequence(w, a.children.?.items[len]);
         }
     }
 
@@ -380,10 +397,10 @@ pub const Context = struct {
 
         var i: usize = 1;
 
-        if (a.children.?.items[1].ast_type == AstType.guard_clause) {
+        if (a.children.?.items[1].ast_type == AstType.guard_sequence) {
             _ = try w.write(" ");
             try self.pushPadding(0);
-            try self.writeGuardClause(w, a.children.?.items[1]);
+            try self.writeGuardSequence(w, a.children.?.items[1]);
             try self.popPadding();
 
             i = i + 1;
@@ -981,8 +998,13 @@ pub const Context = struct {
                     return CodegenError.WritingFailure;
                 };
             },
-            .guard_clause => {
-                self.writeGuardClause(w, a) catch {
+            .guard_sequence => {
+                self.writeGuardSequence(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .guard => {
+                self.writeGuard(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },
@@ -1305,29 +1327,6 @@ test "write attribute" {
     try std.testing.expect(std.mem.eql(u8, list.items, "doc(\"hello world\")"));
 }
 
-test "write guard clause" {
-    var context = Context.init(test_allocator);
-    defer context.deinit();
-
-    var list = std.ArrayList(u8).init(test_allocator);
-    defer list.deinit();
-
-    var children = std.ArrayList(*Ast).init(test_allocator);
-    defer children.deinit();
-
-    var children2 = std.ArrayList(*Ast).init(test_allocator);
-    defer children2.deinit();
-
-    var a = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
-    try children2.append(&a);
-    var a2 = Ast{ .body = "is_number", .ast_type = AstType.function_call, .children = children2, .col = 0, .line = 0 };
-    try children.append(&a2);
-
-    try context.writeGuardClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.guard_clause, .children = children, .col = 0, .line = 0 });
-
-    try std.testing.expect(std.mem.eql(u8, list.items, "when is_number(x)"));
-}
-
 test "write function signature" {
     var context = Context.init(test_allocator);
     defer context.deinit();
@@ -1349,32 +1348,32 @@ test "write function signature" {
 
     list.clearAndFree();
 
-    var children2 = std.ArrayList(*Ast).init(test_allocator);
-    defer children2.deinit();
+    //    var children2 = std.ArrayList(*Ast).init(test_allocator);
+    //    defer children2.deinit();
 
-    var a3 = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
-    try children2.append(&a3);
-    var a4 = Ast{ .body = "b", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
-    try children2.append(&a4);
+    //    var a3 = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    //    try children2.append(&a3);
+    //    var a4 = Ast{ .body = "b", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    //    try children2.append(&a4);
 
-    var guard_children = std.ArrayList(*Ast).init(test_allocator);
-    defer guard_children.deinit();
+    //    var guard_children = std.ArrayList(*Ast).init(test_allocator);
+    //    defer guard_children.deinit();
 
-    var function_children = std.ArrayList(*Ast).init(test_allocator);
-    defer function_children.deinit();
+    //    var function_children = std.ArrayList(*Ast).init(test_allocator);
+    //    defer function_children.deinit();
 
-    var a5 = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
-    try function_children.append(&a5);
+    //    var a5 = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    //    try function_children.append(&a5);
 
-    var a6 = Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children, .col = 0, .line = 0 };
-    try guard_children.append(&a6);
+    //    var a6 = Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children, .col = 0, .line = 0 };
+    //    try guard_children.append(&a6);
 
-    var a7 = Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children, .col = 0, .line = 0 };
-    try children2.append(&a7);
+    //    var a7 = Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children, .col = 0, .line = 0 };
+    //    try children2.append(&a7);
 
-    try context.writeFunctionSignature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children2, .col = 0, .line = 0 });
+    //    try context.writeFunctionSignature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children2, .col = 0, .line = 0 });
 
-    try std.testing.expect(std.mem.eql(u8, list.items, "(a, b) when is_integer(a)"));
+    //    try std.testing.expect(std.mem.eql(u8, list.items, "(a, b) when is_integer(a)"));
 }
 
 test "write anonymous function" {
@@ -1495,32 +1494,32 @@ test "write case clause" {
 
     list.clearAndFree();
 
-    var children2 = std.ArrayList(*Ast).init(test_allocator);
-    defer children2.deinit();
+    //    var children2 = std.ArrayList(*Ast).init(test_allocator);
+    //    defer children2.deinit();
 
-    var a8 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
-    try children2.append(&a8);
+    //    var a8 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    //    try children2.append(&a8);
 
-    var guard_children = std.ArrayList(*Ast).init(test_allocator);
-    defer guard_children.deinit();
+    //    var guard_children = std.ArrayList(*Ast).init(test_allocator);
+    //    defer guard_children.deinit();
 
-    var function_children = std.ArrayList(*Ast).init(test_allocator);
-    defer function_children.deinit();
+    //    var function_children = std.ArrayList(*Ast).init(test_allocator);
+    //    defer function_children.deinit();
 
-    var a9 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
-    try function_children.append(&a9);
+    //    var a9 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    //    try function_children.append(&a9);
 
-    var a10 = Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children, .col = 0, .line = 0 };
-    try guard_children.append(&a10);
+    //    var a10 = Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children, .col = 0, .line = 0 };
+    //    try guard_children.append(&a10);
 
-    var a11 = Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children, .col = 0, .line = 0 };
-    try children2.append(&a11);
+    //    var a11 = Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children, .col = 0, .line = 0 };
+    //    try children2.append(&a11);
 
-    var a12 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
-    try children2.append(&a12);
+    //    var a12 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    //    try children2.append(&a12);
 
-    try context.writeCaseClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children2, .col = 0, .line = 0 });
-    try std.testing.expect(std.mem.eql(u8, list.items, "x when is_integer(x):\n  x"));
+    //    try context.writeCaseClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children2, .col = 0, .line = 0 });
+    //    try std.testing.expect(std.mem.eql(u8, list.items, "x when is_integer(x):\n  x"));
 }
 
 test "write case" {

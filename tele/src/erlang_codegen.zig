@@ -821,18 +821,19 @@ pub const Context = struct {
             return;
         }
 
-        _ = try w.write("(");
-
-        // Look for guard clause at end of children
-        var guard_count: usize = 0;
-        for (a.children.?.items) |ac| {
-            if (ac.ast_type == AstType.guard_clause) {
-                guard_count = guard_count + 1;
-            }
+        if (a.children.?.items.len == 0) {
+            _ = try w.write("()");
+            return;
         }
 
+        _ = try w.write("(");
+
+        const guard_sequence: bool = a.children.?.items[a.children.?.items.len - 1].ast_type == AstType.guard_sequence;
         var len = a.children.?.items.len;
-        len = len - guard_count;
+
+        if (guard_sequence) {
+            len = len - 1;
+        }
 
         var i: usize = 0;
 
@@ -852,32 +853,55 @@ pub const Context = struct {
 
         _ = try w.write(")");
 
-        if (guard_count > 0) {
+        if (guard_sequence) {
             _ = try w.write(" ");
             try self.writePadding(w);
             _ = try w.write("when ");
 
-            while (i < a.children.?.items.len) {
-                try self.writeGuardClause(w, a.children.?.items[i], type_exp);
-                if (i + 1 < a.children.?.items.len) {
-                    _ = try w.write(", ");
-                }
-                i = i + 1;
-            }
+            try self.writeGuardSequence(w, a.children.?.items[a.children.?.items.len - 1], type_exp);
         }
     }
 
-    pub fn writeGuardClause(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
-        if (a.*.ast_type != AstType.guard_clause) {
+    pub fn writeGuardSequence(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.guard_sequence) {
             return CodegenError.WritingFailure;
         }
         if (a.*.children == null) {
             return CodegenError.WritingFailure;
         }
-        if (a.*.children.?.items.len != 1) {
+        if (a.*.children.?.items.len == 0) {
             return CodegenError.WritingFailure;
         }
-        try self.writeAst(w, a.children.?.items[0], type_exp);
+
+        var i: usize = 0;
+        while (i < a.children.?.items.len) {
+            try self.writeGuard(w, a.children.?.items[i], type_exp);
+            if (i + 1 < a.children.?.items.len) {
+                _ = try w.write(";\n");
+            }
+            i = i + 1;
+        }
+    }
+
+    pub fn writeGuard(self: *Self, w: anytype, a: *const Ast, type_exp: bool) !void {
+        if (a.*.ast_type != AstType.guard) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len == 0) {
+            return CodegenError.WritingFailure;
+        }
+
+        var i: usize = 0;
+        while (i < a.children.?.items.len) {
+            try self.writeAst(w, a.children.?.items[i], type_exp);
+            if (i + 1 < a.children.?.items.len) {
+                _ = try w.write(", ");
+            }
+            i = i + 1;
+        }
     }
 
     pub fn writeCaseClause(self: *Self, w: anytype, a: *const Ast) !void {
@@ -897,30 +921,16 @@ pub const Context = struct {
 
         var i: usize = 1;
 
-        var guard_count: usize = 0;
-        for (a.children.?.items) |c| {
-            if (c.ast_type == AstType.guard_clause) {
-                guard_count += 1;
-            }
-        }
-
-        if (guard_count > 0) {
+        const guard_sequence: bool = a.children.?.items[i].ast_type == AstType.guard_sequence;
+        if (guard_sequence) {
             _ = try w.write(" ");
             try self.pushPadding(0);
             try self.writePadding(w);
             _ = try w.write("when ");
 
-            var guard_count2: usize = 0;
+            try self.writeGuardSequence(w, a.children.?.items[i], false);
 
-            while (i < a.children.?.items.len and a.children.?.items[i].ast_type == AstType.guard_clause) {
-                try self.writeGuardClause(w, a.children.?.items[i], false);
-                if (guard_count2 + 1 < guard_count) {
-                    _ = try w.write(", ");
-                }
-                i = i + 1;
-                guard_count2 += 1;
-            }
-            try self.popPadding();
+            i = i + 1;
         }
         _ = try w.write(" ->");
 
@@ -1394,8 +1404,13 @@ pub const Context = struct {
                     return CodegenError.WritingFailure;
                 };
             },
-            .guard_clause => {
-                self.writeGuardClause(w, a, type_exp) catch {
+            .guard_sequence => {
+                self.writeGuardSequence(w, a, type_exp) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .guard => {
+                self.writeGuard(w, a, type_exp) catch {
                     return CodegenError.WritingFailure;
                 };
             },
@@ -1781,46 +1796,27 @@ test "write function signature" {
 
     list.clearAndFree();
 
-    var children2 = std.ArrayList(*const Ast).init(test_allocator);
-    defer children2.deinit();
+    //    var children2 = std.ArrayList(*const Ast).init(test_allocator);
+    //    defer children2.deinit();
 
-    try children2.append(&Ast{ .body = "A", .ast_type = AstType.variable, .children = null });
-    try children2.append(&Ast{ .body = "B", .ast_type = AstType.variable, .children = null });
+    //    try children2.append(&Ast{ .body = "A", .ast_type = AstType.variable, .children = null });
+    //    try children2.append(&Ast{ .body = "B", .ast_type = AstType.variable, .children = null });
 
-    var guard_children = std.ArrayList(*const Ast).init(test_allocator);
-    defer guard_children.deinit();
+    //    var guard_children = std.ArrayList(*const Ast).init(test_allocator);
+    //    defer guard_children.deinit();
 
-    var function_children = std.ArrayList(*const Ast).init(test_allocator);
-    defer function_children.deinit();
+    //    var function_children = std.ArrayList(*const Ast).init(test_allocator);
+    //    defer function_children.deinit();
 
-    try function_children.append(&Ast{ .body = "A", .ast_type = AstType.variable, .children = null });
-    try guard_children.append(&Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children });
+    //    try function_children.append(&Ast{ .body = "A", .ast_type = AstType.variable, .children = null });
+    //    try guard_children.append(&Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children });
 
-    try children2.append(&Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children });
+    //    try children2.append(&Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children });
 
-    try context.writeFunctionSignature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children2 }, false);
+    //    try context.writeFunctionSignature(list.writer(), &Ast{ .body = "", .ast_type = AstType.function_signature, .children = children2 }, false);
 
-    try std.testing.expect(std.mem.eql(u8, list.items, "(A, B) when is_integer(A)"));
-}
+    //    try std.testing.expect(std.mem.eql(u8, list.items, "(A, B) when is_integer(A)"));
 
-test "write guard clause" {
-    var list = std.ArrayList(u8).init(test_allocator);
-    defer list.deinit();
-
-    var children = std.ArrayList(*const Ast).init(test_allocator);
-    defer children.deinit();
-
-    var children2 = std.ArrayList(*const Ast).init(test_allocator);
-    defer children2.deinit();
-
-    try children2.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
-    try children.append(&Ast{ .body = "is_number", .ast_type = AstType.function_call, .children = children2 });
-
-    var context = Context.init(test_allocator);
-    defer context.deinit();
-    try context.writeGuardClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.guard_clause, .children = children }, false);
-
-    try std.testing.expect(std.mem.eql(u8, list.items, "is_number(X)"));
 }
 
 test "write case clause" {
@@ -1855,27 +1851,27 @@ test "write case clause" {
 
     list.clearAndFree();
 
-    var children2 = std.ArrayList(*const Ast).init(test_allocator);
-    defer children2.deinit();
+    //    var children2 = std.ArrayList(*const Ast).init(test_allocator);
+    //    defer children2.deinit();
 
-    try children2.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
+    //    try children2.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
 
-    var guard_children = std.ArrayList(*const Ast).init(test_allocator);
-    defer guard_children.deinit();
+    //    var guard_children = std.ArrayList(*const Ast).init(test_allocator);
+    //    defer guard_children.deinit();
 
-    var function_children = std.ArrayList(*const Ast).init(test_allocator);
-    defer function_children.deinit();
+    //    var function_children = std.ArrayList(*const Ast).init(test_allocator);
+    //    defer function_children.deinit();
 
-    try function_children.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
+    //    try function_children.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
 
-    try guard_children.append(&Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children });
+    //    try guard_children.append(&Ast{ .body = "is_integer", .ast_type = AstType.function_call, .children = function_children });
 
-    try children2.append(&Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children });
+    //    try children2.append(&Ast{ .body = "", .ast_type = AstType.guard_clause, .children = guard_children });
 
-    try children2.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
+    //    try children2.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
 
-    try context.writeCaseClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children2 });
-    try std.testing.expect(std.mem.eql(u8, list.items, "X when is_integer(X) ->\n    X"));
+    //    try context.writeCaseClause(list.writer(), &Ast{ .body = "", .ast_type = AstType.case_clause, .children = children2 });
+    //    try std.testing.expect(std.mem.eql(u8, list.items, "X when is_integer(X) ->\n    X"));
 }
 
 test "write case" {

@@ -521,7 +521,7 @@ fn scanFunctionMetadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Allocato
                 } else {
                     var count: usize = 0;
                     for (c.*.children.?.items) |ch| {
-                        if (ch.ast_type != TeleAstType.guard_clause) {
+                        if (ch.ast_type != TeleAstType.guard_sequence) {
                             count += 1;
                         }
                     }

@@ -406,11 +406,8 @@ pub const Parser = struct {
             }
             const pn = try token_queue.peek();
             if (isWhenKeyword(pn.*.body)) {
-                const al = try self.parseGuardClauses(token_queue);
-                for (al.items) |a| {
-                    try children.?.append(a);
-                }
-                al.deinit();
+                const gseq = try self.parseGuardSequence(token_queue);
+                try children.?.append(gseq);
             } else {
                 tele_error.setErrorMessage(pn.*.line, pn.*.col, tele_error.ErrorType.unexpected_token);
                 return ParserError.ParsingFailure;
@@ -473,9 +470,9 @@ pub const Parser = struct {
         }
     }
 
-    fn parseGuardClauses(self: *Self, token_queue: *TokenQueue) !std.ArrayList(*TeleAst) {
-        var clauses = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.freeTeleAstList(clauses, self.allocator);
+    fn parseGuardSequence(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        var guards = std.ArrayList(*TeleAst).init(self.allocator);
+        errdefer tele_ast.freeTeleAstList(guards, self.allocator);
 
         // Pop off when keyword
         const n = try token_queue.pop();
@@ -497,7 +494,7 @@ pub const Parser = struct {
         while (!token_queue.empty()) {
             while (!token_queue.empty()) {
                 const n2 = try token_queue.pop();
-                if (isComma(n2.*.body)) {
+                if (isWhenKeyword(n2.*.body)) {
                     self.allocator.free(n2.*.body);
                     self.allocator.destroy(n2);
                     break;
@@ -506,34 +503,27 @@ pub const Parser = struct {
                 self.allocator.destroy(n2);
             }
 
-            const ast = try self.parseGuardClause(buffer_token_queue, ast_line, current_col);
-            try clauses.append(ast);
+            const alist = try self.parseBody(buffer_token_queue);
+            const g = try self.allocator.create(TeleAst);
+            g.*.body = "";
+            g.*.ast_type = TeleAstType.guard;
+            g.*.children = alist;
+            g.*.col = current_col;
+            g.*.line = ast_line;
+            try guards.append(g);
         }
 
-        if (clauses.items.len == 0) {
+        if (guards.items.len == 0) {
             tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.invalid_guard_clause);
-            return ParserError.ParsingFailure;
-        }
-
-        return clauses;
-    }
-
-    // TODO: Add line and col as params
-    fn parseGuardClause(self: *Self, token_queue: *TokenQueue, line: usize, col: usize) !*TeleAst {
-        const alist = try self.parseBody(token_queue);
-        if (alist.items.len == 0) {
-            tele_ast.freeTeleAstList(alist, self.allocator);
-            tele_error.setErrorMessage(line, col, tele_error.ErrorType.invalid_guard_clause);
             return ParserError.ParsingFailure;
         }
 
         const t = try self.allocator.create(TeleAst);
         t.*.body = "";
-        t.*.ast_type = TeleAstType.guard_clause;
-        t.*.children = alist;
-        t.*.col = alist.items[0].*.col;
-        t.*.line = alist.items[0].*.line;
-
+        t.*.ast_type = TeleAstType.guard_sequence;
+        t.*.children = guards;
+        t.*.col = current_col;
+        t.*.line = ast_line;
         return t;
     }
 
@@ -1837,21 +1827,14 @@ pub const Parser = struct {
             }
 
             var ast: *TeleAst = undefined;
-            var ast_set: bool = false;
-            if (type_exp) {
-                ast = try self.parseTypeExp(token_queue2);
-                ast_set = true;
-            } else {
-                ast = try self.parseExp(token_queue2);
-                ast_set = true;
-            }
             if (!token_queue2.empty()) {
-                if (ast_set) {
-                    tele_ast.freeTeleAst(ast, self.allocator);
+                if (type_exp) {
+                    ast = try self.parseTypeExp(token_queue2);
+                } else {
+                    ast = try self.parseExp(token_queue2);
                 }
-                return ParserError.ParsingFailure;
+                try children.append(ast);
             }
-            try children.append(ast);
         }
 
         if (count != 0) {
@@ -2386,7 +2369,6 @@ pub const Parser = struct {
 
         var paren_count: usize = 0;
         var end_of_signature = false;
-        var signature_ready = false;
 
         while (!end_of_signature and !token_queue.empty()) {
             const peek_node = try token_queue.peek();
@@ -2395,15 +2377,9 @@ pub const Parser = struct {
                 paren_count += 1;
             } else if (isParenEnd(peek_node.*.body)) {
                 paren_count -= 1;
-                if (paren_count == 0) {
-                    signature_ready = true;
-                }
-            } else if (signature_ready and isColon(peek_node.*.body)) {
+            } else if (paren_count == 0 and isColon(peek_node.*.body)) {
                 end_of_signature = true;
-            } else if (signature_ready) {
-                signature_ready = false;
             }
-
             const n = try token_queue.pop();
             try buffer_token_queue.push(n.*.body, n.*.line, n.*.col);
             self.allocator.destroy(n);
@@ -2621,7 +2597,7 @@ pub const Parser = struct {
             var alist2 = try self.parseCaseClauseSignature(token_queue, &clause_col);
             if (alist2.items.len == 2) {
                 const ast = alist.pop();
-                if (ast.ast_type != TeleAstType.guard_clause) {
+                if (ast.ast_type != TeleAstType.guard_sequence) {
                     tele_error.setErrorMessage(ast.*.line, ast.*.col, tele_error.ErrorType.invalid_guard_clause);
                     tele_ast.freeTeleAst(ast, self.allocator);
                     tele_ast.freeTeleAstList(alist2, self.allocator);
@@ -2638,6 +2614,7 @@ pub const Parser = struct {
                 ast_line = ast.*.line;
                 try children.append(ast);
             } else {
+                std.debug.print("{d}\n", .{alist2.items.len});
                 // TODO: setErrorMessage
                 tele_ast.freeTeleAstList(alist2, self.allocator);
                 return ParserError.ParsingFailure;
@@ -2915,11 +2892,8 @@ pub const Parser = struct {
         if (!buffer_token_queue.empty()) {
             const pn = try buffer_token_queue.peek();
             if (isWhenKeyword(pn.*.body)) {
-                const gc_ast_list = try self.parseGuardClauses(buffer_token_queue);
-                for (gc_ast_list.items) |a| {
-                    try alist.append(a);
-                }
-                gc_ast_list.deinit();
+                const gc_seq = try self.parseGuardSequence(buffer_token_queue);
+                try alist.append(gc_seq);
             } else {
                 tele_error.setErrorMessage(pn.*.line, pn.*.col, tele_error.ErrorType.unexpected_token);
                 return ParserError.ParsingFailure;
@@ -4264,6 +4238,8 @@ fn isOperator(buf: []const u8) bool {
                 }
             } else if (buf.len == 3) {
                 if (buf[1] == '/' and buf[2] == '=') {
+                    return true;
+                } else if (buf[1] == ':' and buf[2] == '=') {
                     return true;
                 } else {
                     return false;

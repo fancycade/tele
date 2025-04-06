@@ -35,3 +35,15 @@ funp example4_helper
 fun example5(): #('GET, 'GET', #'GET')
 
 fun example6(): <<>>
+
+fun example7
+  (x) when x =:= 'foo
+      when x =:= 'bar:
+    42
+  (_): 43
+
+fun example8():
+  a = [#('mods, [#()])]
+  b = [#('mods, [#('simple_app, [])])]
+  #(a, b)                
+

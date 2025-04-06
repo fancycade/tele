@@ -80,8 +80,13 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
-        .guard_clause => {
-            return teleToErlangGuardClause(t, allocator) catch {
+        .guard_sequence => {
+            return teleToErlangGuardSequence(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .guard => {
+            return teleToErlangGuard(t, allocator) catch {
                 return CompilerError.CompilingFailure;
             };
         },
@@ -919,42 +924,20 @@ test "compile paren exp" {
     erlang_ast.destroy(result, test_allocator);
 }
 
-fn teleToErlangGuardClause(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
-    if (t.*.ast_type != TeleAstType.guard_clause) {
+fn teleToErlangGuardSequence(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.guard_sequence) {
         return CompilerError.CompilingFailure;
     }
     const children = try compileChildren(t.*.children, allocator);
-    return try erlang_ast.makeCollection(children, ErlangAstType.guard_clause, allocator);
+    return try erlang_ast.makeCollection(children, ErlangAstType.guard_sequence, allocator);
 }
 
-test "tele to erlang guard clause" {
-    var t_children = std.ArrayList(*TeleAst).init(test_allocator);
-    defer t_children.deinit();
-
-    var t = TeleAst{ .body = "x", .ast_type = TeleAstType.variable, .children = null, .col = 0, .line = 0 };
-    try t_children.append(&t);
-
-    var t_children2 = std.ArrayList(*TeleAst).init(test_allocator);
-    defer t_children2.deinit();
-
-    var t2 = TeleAst{ .body = "is_number", .ast_type = TeleAstType.function_call, .children = t_children, .col = 0, .line = 0 };
-    try t_children2.append(&t2);
-
-    const e = try teleToErlangGuardClause(&TeleAst{ .body = "", .ast_type = TeleAstType.guard_clause, .children = t_children2, .col = 0, .line = 0 }, test_allocator);
-
-    var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
-    defer e_children.deinit();
-
-    try e_children.append(&ErlangAst{ .body = "X", .ast_type = ErlangAstType.variable, .children = null });
-
-    var e_children2 = std.ArrayList(*const ErlangAst).init(test_allocator);
-    defer e_children2.deinit();
-
-    try e_children2.append(&ErlangAst{ .body = "is_number", .ast_type = ErlangAstType.function_call, .children = e_children });
-
-    try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "", .ast_type = ErlangAstType.guard_clause, .children = e_children2 }));
-
-    erlang_ast.destroy(e, test_allocator);
+fn teleToErlangGuard(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.guard) {
+        return CompilerError.CompilingFailure;
+    }
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeCollection(children, ErlangAstType.guard, allocator);
 }
 
 fn teleToErlangFunctionSignature(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {

@@ -223,6 +223,16 @@ stress_real_world_example5_test() ->
 stress_real_world_example6_test() ->
     ?assertEqual(<<>>, stress_real_world:example6()).
 
+stress_real_world_example7_test() ->
+    ?assertEqual(42, stress_real_world:example7(foo)),
+    ?assertEqual(42, stress_real_world:example7(bar)),
+    ?assertEqual(43, stress_real_world:example7(ok)).
+
+stress_real_world_example8_test() ->
+    {A, B} = stress_real_world:example8(),
+    ?assertEqual([{mods, [{}]}], A),
+    ?assertEqual([{mods, [{simple_app, []}]}], B).
+
 stress_math_test() ->
     ?assertEqual(2, stress_math:add(1, 1)),
     ?assertEqual(1, stress_math:sub(2, 1)),

@@ -176,3 +176,8 @@ fun hello_binary_map():
   m = {"foo": "bar"}
   {"foo": <<x:8, y:8, z:8>>} = m
   [x, y, z]
+
+fun hello_guard2(x):
+  case x:
+    x when x > 2: x + 1
+    _: 42

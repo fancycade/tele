@@ -175,6 +175,10 @@ stress_basic_hello_binary_size_test() ->
 stress_basic_hello_binary_map_test() ->
     ?assertEqual(<<"bar">>, list_to_binary(stress_basic:hello_binary_map())).
 
+stress_basic_hello_guard2_test() ->
+    ?assertEqual(5, stress_basic:hello_guard2(4)),
+    ?assertEqual(42, stress_basic:hello_guard2(2)).
+
 stress_statements_add2_test() ->
     ?assertEqual(6, stress_statements:add2_example()).
 

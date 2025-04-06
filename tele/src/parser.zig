@@ -2596,7 +2596,7 @@ pub const Parser = struct {
 
             var alist2 = try self.parseCaseClauseSignature(token_queue, &clause_col);
             if (alist2.items.len == 2) {
-                const ast = alist.pop();
+                const ast = alist2.pop();
                 if (ast.ast_type != TeleAstType.guard_sequence) {
                     tele_error.setErrorMessage(ast.*.line, ast.*.col, tele_error.ErrorType.invalid_guard_clause);
                     tele_ast.freeTeleAst(ast, self.allocator);

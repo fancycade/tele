@@ -1147,7 +1147,7 @@ pub const Context = struct {
         for (a.*.children.?.items) |c| {
             try self.writeAst(w, c, type_exp);
         }
-        _ = try w.write("-endif.\n");
+        _ = try w.write("-endif.\n\n");
     }
 
     pub fn writeTestUnit(self: *Self, w: anytype, a: *const Ast) !void {
@@ -1182,7 +1182,7 @@ pub const Context = struct {
             i = i + 1;
         }
         try self.popPadding();
-        _ = try w.write(".\n\n-endif.");
+        _ = try w.write(".\n\n-endif.\n\n");
     }
 
     pub fn pushMatch(self: *Self) void {

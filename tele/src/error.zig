@@ -13,6 +13,8 @@ pub fn printErrorMessage() !void {
         try stderr.print("{s} Line: {d} Column: {d}\n", .{ error_message, line + 1, column + 1 });
         try stderr.print("In file: {s}\n", .{path});
         try printFileMessage(stderr);
+    } else if (!std.mem.eql(u8, path, "")) {
+        try stderr.print("In file: {s}\n", .{path});
     }
 }
 

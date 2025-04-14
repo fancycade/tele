@@ -3539,7 +3539,7 @@ test "parse body multi" {
     const parser = try fileToParser("snippets/body_multi.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parseBody(parser.*.token_queue);
+    const result = try parser.parseBody(parser.*.token_queue, 0, 0);
     try std.testing.expect(result.items.len == 2);
 
     const ast1 = result.items[0];
@@ -3601,7 +3601,7 @@ test "parse case body single clause" {
     const parser = try fileToParser("snippets/match_body.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parseCaseBody(parser.*.token_queue);
+    const result = try parser.parseCaseBody(parser.*.token_queue, 0, 0);
     try std.testing.expect(result.items.len == 1);
     try std.testing.expect(result.items[0].ast_type == TeleAstType.case_clause);
     try std.testing.expect(std.mem.eql(u8, result.items[0].body, ""));
@@ -3623,7 +3623,7 @@ test "parse case body multi clause" {
     const parser = try fileToParser("snippets/match_body_multi.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parseCaseBody(parser.*.token_queue);
+    const result = try parser.parseCaseBody(parser.*.token_queue, 0, 0);
     try std.testing.expect(result.items.len == 2);
     try std.testing.expect(result.items[0].ast_type == TeleAstType.case_clause);
     try std.testing.expect(std.mem.eql(u8, result.items[0].body, ""));
@@ -3656,7 +3656,7 @@ test "parse case signature" {
     const parser = try fileToParser("snippets/match_signature.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parseCaseSignature(parser.*.token_queue);
+    const result = try parser.parseCaseSignature(parser.*.token_queue, 0, 0);
 
     const expected = try tele_ast.makeInt(try util.copyString("1", talloc), talloc);
     try std.testing.expect(tele_ast.equal(result, expected));
@@ -3683,7 +3683,7 @@ test "parse case clause body single line" {
     const parser = try fileToParser("snippets/case_clause_body_single.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parseCaseClauseBody(parser.token_queue, 0);
+    const result = try parser.parseCaseClauseBody(parser.token_queue, 0, 0);
     try std.testing.expect(result.items.len == 1);
 
     const expected = try tele_ast.makeInt(try util.copyString("42", talloc), talloc);
@@ -3697,7 +3697,7 @@ test "parse case clause body multi line" {
     const parser = try fileToParser("snippets/case_clause_body_multi.tl", talloc);
     defer parser.deinit();
 
-    const result = try parser.parseCaseClauseBody(parser.*.token_queue, 0);
+    const result = try parser.parseCaseClauseBody(parser.*.token_queue, 0, 0);
     try std.testing.expect(result.items.len == 3);
     try std.testing.expect(std.mem.eql(u8, result.items[0].body, "42"));
     try std.testing.expect(result.items[0].ast_type == TeleAstType.int);

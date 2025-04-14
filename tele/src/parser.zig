@@ -3219,12 +3219,21 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         }
         self.allocator.free(paren_start.*.body);
-        self.allocator.destroy(n);
+        self.allocator.destroy(paren_start);
 
         var children = std.ArrayList(*TeleAst).init(self.allocator);
 
         const ast = try self.parseImportElement(token_queue);
         try children.append(ast);
+
+        const paren_end = try token_queue.pop();
+        if (!isParenEnd(paren_end.*.body)) {
+            tele_error.setErrorMessage(paren_end.*.line, paren_end.*.col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(paren_end.*.body);
+            self.allocator.destroy(paren_end);
+        }
+        self.allocator.free(paren_end.*.body);
+        self.allocator.destroy(paren_end);
 
         const onload = try self.allocator.create(TeleAst);
         onload.*.body = name;
@@ -3869,6 +3878,7 @@ test "is statement keyword" {
     try std.testing.expect(isStatementKeyword("opaque"));
     try std.testing.expect(isStatementKeyword("export_type"));
     try std.testing.expect(isStatementKeyword("test"));
+    try std.testing.expect(isStatementKeyword("on_load"));
 
     try std.testing.expect(!isStatementKeyword("["));
     try std.testing.expect(!isStatementKeyword("]"));

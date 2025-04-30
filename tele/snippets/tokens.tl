@@ -33,3 +33,4 @@ a#person(x=2)
 'ok,
 #point):
 'foo'
+"foo\"bar\""

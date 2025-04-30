@@ -446,7 +446,10 @@ fn readToken(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext, tokenizer: *
                 try l.append(try tokenizer.nextChar(r));
                 ctx.*.next_col_number += 1;
                 if (pb == '"') {
-                    return false;
+                    // TODO: Make sure this doesnt buffer underflow
+                    if (l.items[l.items.len - 2] != '\\') {
+                        return false;
+                    }
                 }
             },
         }
@@ -1085,6 +1088,14 @@ test "read token" {
     try expect(ctx.col_number == 0);
     try expect(ctx.next_line_number == 34);
     try expect(ctx.next_col_number == 5);
+    list.clearAndFree();
+
+    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, "\"foo\\\"bar\\\"\""));
+    try expect(ctx.line_number == 35);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 35);
+    try expect(ctx.next_col_number == 12);
     list.clearAndFree();
 
     const eof = try readToken(file.reader(), &list, &ctx, tokenizer);

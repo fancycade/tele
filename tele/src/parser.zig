@@ -2328,7 +2328,6 @@ pub const Parser = struct {
                     try children.append(a);
                 } else {
                     var alist = self.parseBody(token_queue3, ast.*.line, ast.*.col) catch {
-                        tele_error.setErrorMessage(ast.*.line, ast.*.col, tele_error.ErrorType.invalid_expression);
                         return ParserError.ParsingFailure;
                     };
                     errdefer tele_ast.freeTeleAstList(alist, self.allocator);

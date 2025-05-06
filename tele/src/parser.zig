@@ -2008,6 +2008,7 @@ pub const Parser = struct {
             var count: usize = 1;
             var end_of_map: bool = false;
             var map_update: bool = false;
+            var key_state: bool = true;
 
             while (!token_queue.empty() and !end_of_map) {
                 while (!token_queue.empty()) {
@@ -2016,8 +2017,8 @@ pub const Parser = struct {
                         tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.invalid_expression);
                         return ParserError.ParsingFailure;
                     };
-                    errdefer self.allocator.free(node2.*.body);
                     errdefer self.allocator.destroy(node2);
+                    errdefer self.allocator.free(node2.*.body);
 
                     if (isMapStart(node2.*.body) or isListStart(node2.*.body) or isTupleStart(node2.*.body) or isRecordStart(node2.*.body) or isParenStart(node2.*.body) or isBitStringStart(node2.*.body)) {
                         count += 1;
@@ -2032,10 +2033,23 @@ pub const Parser = struct {
                     }
 
                     if (count == 1 and (isComma(node2.*.body) or isColon(node2.*.body))) {
+                        if ((key_state and !isColon(node2.*.body)) or (!key_state and !isComma(node2.*.body))) {
+                            tele_error.setErrorMessage(node2.*.line, node2.*.col, tele_error.ErrorType.unexpected_token);
+                            token_queue2.deinit();
+                            return ParserError.ParsingFailure;
+                        }
+
+                        key_state = !key_state;
+
                         self.allocator.free(node2.*.body);
                         self.allocator.destroy(node2);
                         break;
                     } else if (count == 1 and isPipeOperator(node2.*.body)) {
+                        if (!key_state) {
+                            tele_error.setErrorMessage(node2.*.line, node2.*.col, tele_error.ErrorType.unexpected_token);
+                            token_queue2.deinit();
+                            return ParserError.ParsingFailure;
+                        }
                         self.allocator.free(node2.*.body);
                         self.allocator.destroy(node2);
                         map_update = true;

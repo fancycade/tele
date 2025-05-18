@@ -240,6 +240,11 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
+        .exception => {
+            return teleToErlangException(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
     }
 }
 
@@ -374,7 +379,7 @@ fn teleToErlangVariable(t: *const TeleAst, allocator: std.mem.Allocator) !*Erlan
     if (t.*.ast_type != TeleAstType.variable) {
         return CompilerError.CompilingFailure;
     }
-    const idx = findDot(t.*.body);
+    const idx = util.findDot(t.*.body);
 
     if (idx > 0 and util.containsHash(t.*.body)) {
         const buf = try allocator.alloc(u8, t.*.body.len);
@@ -694,7 +699,7 @@ fn teleToErlangFunctionCall(t: *const TeleAst, allocator: std.mem.Allocator) !*E
     const e = try allocator.create(ErlangAst);
     e.*.ast_type = ErlangAstType.function_call;
 
-    const idx = findDot(t.*.body);
+    const idx = util.findDot(t.*.body);
     if (idx > 0) {
         const module_buf = try copyFunctionCallSection(t.*.body[0..idx], allocator);
         const function_buf = try copyFunctionCallSection(t.*.body[idx + 1 ..], allocator);
@@ -767,25 +772,6 @@ test "compile function call" {
     erlang_ast.destroy(result3, test_allocator);
     erlang_ast.destroy(result4, test_allocator);
     erlang_ast.destroy(result5, test_allocator);
-}
-
-fn findDot(buf: []const u8) usize {
-    var i: usize = 0;
-    while (i < buf.len) {
-        if (buf[i] == '.') {
-            return i;
-        }
-        i += 1;
-    }
-    return 0;
-}
-
-test "find dot" {
-    const result = findDot("foo.bar");
-    try std.testing.expect(result == 3);
-
-    const result2 = findDot("foo");
-    try std.testing.expect(result2 == 0);
 }
 
 fn copyFunctionCallSection(buf: []const u8, allocator: std.mem.Allocator) ![]const u8 {
@@ -1703,4 +1689,55 @@ fn teleToErlangBinaryElementType(t: *const TeleAst, allocator: std.mem.Allocator
     }
 
     return try erlang_ast.makeValue(try util.copyString(t.*.body, allocator), ErlangAstType.binary_element_type, allocator);
+}
+
+fn teleToErlangException(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.exception) {
+        return CompilerError.CompilingFailure;
+    }
+
+    const idx = util.findDot(t.*.body);
+    var buf: []u8 = undefined;
+
+    if (idx > 0 and t.*.body[0] == '@' and t.*.body[idx + 1] == '@') {
+        buf = try allocator.alloc(u8, t.*.body.len - 2);
+        std.mem.copyForwards(u8, buf, t.*.body[1..idx]);
+        buf[idx - 1] = ':';
+        std.mem.copyForwards(u8, buf[idx..], t.*.body[idx + 2 ..]);
+        buf[idx] = std.ascii.toUpper(buf[idx]);
+        buf[0] = std.ascii.toUpper(buf[0]);
+    } else if (idx > 0 and t.*.body[0] == '@') {
+        buf = try allocator.alloc(u8, t.*.body.len - 1);
+        std.mem.copyForwards(u8, buf, t.*.body[1..]);
+        buf[0] = std.ascii.toUpper(buf[0]);
+        buf[idx - 1] = ':';
+    } else if (idx > 0 and t.*.body[idx + 1] == '@') {
+        buf = try allocator.alloc(u8, t.*.body.len - 1);
+        std.mem.copyForwards(u8, buf, t.*.body[0..idx]);
+        buf[idx] = ':';
+        std.mem.copyForwards(u8, buf[idx + 1 ..], t.*.body[idx + 2 ..]);
+        buf[idx + 1] = std.ascii.toUpper(buf[idx + 1]);
+    } else if (idx > 0) {
+        buf = try allocator.alloc(u8, t.*.body.len);
+        std.mem.copyForwards(u8, buf, t.*.body);
+        buf[idx] = ':';
+    } else if (t.*.body[0] == '@') {
+        buf = try allocator.alloc(u8, t.*.body.len - 1);
+        std.mem.copyForwards(u8, buf, t.*.body[1..]);
+        buf[0] = std.ascii.toUpper(buf[0]);
+    } else {
+        buf = try allocator.alloc(u8, t.*.body.len);
+        std.mem.copyForwards(u8, buf, t.*.body);
+        buf[0] = std.ascii.toUpper(buf[0]);
+    }
+
+    var i: usize = 0;
+    for (buf) |c| {
+        if (c == '_' and i + 1 < buf.len) {
+            buf[i + 1] = std.ascii.toUpper(buf[i + 1]);
+        }
+        i = i + 1;
+    }
+
+    return try erlang_ast.makeValue(buf, ErlangAstType.exception, allocator);
 }

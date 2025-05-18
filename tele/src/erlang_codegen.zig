@@ -1454,6 +1454,11 @@ pub const Context = struct {
                     return CodegenError.WritingFailure;
                 };
             },
+            .exception => {
+                self.writeValue(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
         }
     }
 };

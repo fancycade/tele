@@ -1609,6 +1609,11 @@ pub const Parser = struct {
                     tele_error.setErrorMessage(line, col, tele_error.ErrorType.invalid_name);
                     return ParserError.ParsingFailure;
                 }
+            } else if (util.findHash(buf) > 0) {
+                if (!util.validateRecordVariableName(buf)) {
+                    tele_error.setErrorMessage(line, col, tele_error.ErrorType.invalid_name);
+                    return ParserError.ParsingFailure;
+                }
             } else if (!util.validateVariableName(buf)) {
                 tele_error.setErrorMessage(line, col, tele_error.ErrorType.invalid_name);
                 return ParserError.ParsingFailure;
@@ -2198,10 +2203,13 @@ pub const Parser = struct {
         var ast_line = line;
         if (!variable) {
             const node = try token_queue.pop();
-            if (!util.validateFunctionName(node.*.body[1..])) {
+            // TODO: Make a validateRecordName
+            // Trim off # at beginning and paren start at end
+            if (!util.validateFunctionName(node.*.body[1 .. node.*.body.len - 1])) {
                 tele_error.setErrorMessage(node.*.line, node.*.col, tele_error.ErrorType.invalid_name);
                 self.allocator.free(node.*.body);
                 self.allocator.destroy(node);
+                return ParserError.ParsingFailure;
             }
             buf2 = node.*.body;
             current_col = node.*.col;
@@ -2232,6 +2240,7 @@ pub const Parser = struct {
             self.allocator.free(node.*.body);
             self.allocator.destroy(node);
         }
+        errdefer self.allocator.free(buf2);
 
         var buffer_token_queue = try TokenQueue.init(self.allocator);
         errdefer buffer_token_queue.deinit();
@@ -2432,7 +2441,6 @@ pub const Parser = struct {
 
                 if (type_exp) {
                     const a = self.parseTypeExp(token_queue3) catch {
-                        tele_error.setErrorMessage(ast.*.line, ast.*.col, tele_error.ErrorType.invalid_expression);
                         return ParserError.ParsingFailure;
                     };
                     try children.append(a);

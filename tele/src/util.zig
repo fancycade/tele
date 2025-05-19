@@ -147,3 +147,62 @@ test "find dot" {
     const result2 = findDot("foo");
     try std.testing.expect(result2 == 0);
 }
+
+pub fn findHash(buf: []const u8) usize {
+    var i: usize = 0;
+    while (i < buf.len) {
+        if (buf[i] == '#') {
+            return i;
+        }
+        i += 1;
+    }
+    return 0;
+}
+
+test "find hash" {
+    const result = findHash("foo#bar");
+    try std.testing.expect(result == 3);
+
+    const result2 = findHash("foo");
+    try std.testing.expect(result2 == 0);
+}
+
+pub fn validateRecordVariableName(buf: []const u8) bool {
+    const hash_idx = findHash(buf);
+    if (hash_idx == 0) {
+        return false;
+    }
+
+    if (!validateName(buf[0..hash_idx])) {
+        return false;
+    }
+
+    const point1_idx = findDot(buf);
+
+    if (point1_idx == 0) {
+        return false;
+    }
+
+    if (!validateName(buf[hash_idx + 1 .. point1_idx])) {
+        return false;
+    }
+
+    if (!validateName(buf[point1_idx + 1 ..])) {
+        return false;
+    }
+
+    return true;
+}
+
+test "validate record variable name" {
+    try std.testing.expect(!validateRecordVariableName("123"));
+    try std.testing.expect(!validateRecordVariableName("123foo"));
+    try std.testing.expect(!validateRecordVariableName("^foo"));
+    try std.testing.expect(!validateRecordVariableName("_foo"));
+    try std.testing.expect(!validateRecordVariableName("foo^bar"));
+    try std.testing.expect(!validateRecordVariableName("foo.bar"));
+    try std.testing.expect(!validateRecordVariableName("#foo"));
+    try std.testing.expect(!validateRecordVariableName("#foo("));
+    try std.testing.expect(!validateRecordVariableName("p#point"));
+    try std.testing.expect(validateRecordVariableName("p#point.x"));
+}

@@ -2560,7 +2560,7 @@ pub const Parser = struct {
 
                 // Checking paren count in reverse
                 while (buffer_list.items.len > 0) {
-                    const node = buffer_list.pop();
+                    const node = buffer_list.pop().?;
                     if (isParenEnd(node.*.body)) {
                         signature_paren_count += 1;
                     } else if (isParenStart(node.*.body) or isTupleStart(node.*.body) or isRecordStart(node.*.body) or containsParenStart(node.*.body)) {
@@ -2576,7 +2576,7 @@ pub const Parser = struct {
 
                 // Push remaining tokens back into buffer_token_queue
                 while (buffer_list.items.len > 0) {
-                    const n = buffer_list.pop();
+                    const n = buffer_list.pop().?;
                     try buffer_token_queue.pushHead(n.*.body, n.*.line, n.*.col);
                     self.allocator.destroy(n);
                 }
@@ -2728,20 +2728,20 @@ pub const Parser = struct {
 
             var alist2 = try self.parseCaseClauseSignature(token_queue, &clause_col);
             if (alist2.items.len == 2) {
-                const ast = alist2.pop();
-                if (ast.ast_type != TeleAstType.guard_sequence) {
+                const ast = alist2.pop().?;
+                if (ast.*.ast_type != TeleAstType.guard_sequence) {
                     tele_error.setErrorMessage(ast.*.line, ast.*.col, tele_error.ErrorType.invalid_guard_clause);
                     tele_ast.freeTeleAst(ast, self.allocator);
                     tele_ast.freeTeleAstList(alist2, self.allocator);
                     return ParserError.ParsingFailure;
                 }
-                const ast2 = alist2.pop();
+                const ast2 = alist2.pop().?;
                 current_col = ast2.*.col;
                 ast_line = ast2.*.line;
                 try children.append(ast2);
                 try children.append(ast);
             } else if (alist2.items.len == 1) {
-                const ast = alist2.pop();
+                const ast = alist2.pop().?;
                 clause_col = ast.*.col;
                 ast_line = ast.*.line;
                 try children.append(ast);

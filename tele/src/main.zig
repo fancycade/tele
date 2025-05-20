@@ -260,7 +260,7 @@ fn createBuildTelePath(app_src_path: []const u8, allocator: std.mem.Allocator) !
 }
 
 fn checkPathContains(path: []const u8, match_str: []const u8) bool {
-    var it = std.mem.split(u8, path, "/");
+    var it = std.mem.splitSequence(u8, path, "/");
     while (it.next()) |x| {
         if (std.mem.eql(u8, x, match_str)) {
             return true;

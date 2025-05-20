@@ -1439,6 +1439,11 @@ pub const Parser = struct {
     }
 
     fn parseInt(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        const n = try token_queue.peek();
+        if (!util.validateInteger(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.invalid_integer);
+            return ParserError.ParsingFailure;
+        }
         return try self.parseValue(token_queue, TeleAstType.int);
     }
 

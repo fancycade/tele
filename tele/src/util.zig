@@ -206,3 +206,61 @@ test "validate record variable name" {
     try std.testing.expect(!validateRecordVariableName("p#point"));
     try std.testing.expect(validateRecordVariableName("p#point.x"));
 }
+
+pub fn validateInteger(buf: []const u8) bool {
+    if (buf[0] == '_') {
+        return false;
+    }
+
+    if (buf.len > 1) {
+        const hash_idx = findHash(buf);
+
+        if (hash_idx > 0) {
+            return validateBasicNumber(buf[0..hash_idx]) and validateLetterNumber(buf[hash_idx + 1 ..]);
+        }
+
+        if (buf[0] == '$') {
+            return std.ascii.isAlphanumeric(buf[1]) or isAllowedChar(buf[1]);
+        }
+    }
+
+    return validateBasicNumber(buf);
+}
+
+pub fn isAllowedChar(buf: u8) bool {
+    return switch (buf) {
+        '~', '`', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '+', '=', '{', '}', '[', ']', '\\', '|', ':', ';', '"', '\'', '<', ',', '>', '.', '?', '/', '\n', '\t', '\r' => true,
+        else => false,
+    };
+}
+
+pub fn validateBasicNumber(buf: []const u8) bool {
+    for (buf) |c| {
+        if (!(std.ascii.isDigit(c) or c == '_')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+pub fn validateLetterNumber(buf: []const u8) bool {
+    for (buf) |c| {
+        if (!(std.ascii.isAlphanumeric(c) or c == '_')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+test "validate integer" {
+    try std.testing.expect(!validateInteger("abc"));
+    try std.testing.expect(!validateInteger("1abc"));
+    try std.testing.expect(!validateInteger("_12"));
+    try std.testing.expect(validateInteger("1"));
+    try std.testing.expect(validateInteger("1234"));
+    try std.testing.expect(validateInteger("$c"));
+    try std.testing.expect(validateInteger("$\n"));
+    try std.testing.expect(validateInteger("12#10"));
+    try std.testing.expect(validateInteger("36#helloworld"));
+    try std.testing.expect(validateInteger("1_000_000"));
+}

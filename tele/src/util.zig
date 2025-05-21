@@ -264,3 +264,58 @@ test "validate integer" {
     try std.testing.expect(validateInteger("36#helloworld"));
     try std.testing.expect(validateInteger("1_000_000"));
 }
+
+pub fn validateFloat(buf: []const u8) bool {
+    const idx = findDot(buf);
+    if (idx == 0) {
+        return false;
+    }
+
+    if (!validateBasicNumber(buf[0..idx])) {
+        return false;
+    }
+
+    var e_idx: usize = 0;
+    var i: usize = 0;
+    for (buf) |c| {
+        if (c == 'e') {
+            e_idx = i;
+            break;
+        }
+        i = i + 1;
+    }
+
+    if (e_idx == 0) {
+        if (!validateBasicNumber(buf[idx + 1 ..])) {
+            return false;
+        }
+    } else {
+        if (!validateBasicNumber(buf[idx + 1 .. e_idx])) {
+            return false;
+        }
+
+        if (buf[e_idx + 1] == '-') {
+            if (!validateBasicNumber(buf[e_idx + 2 ..])) {
+                return false;
+            }
+        } else {
+            if (!validateBasicNumber(buf[e_idx + 1 ..])) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+test "validate float" {
+    try std.testing.expect(!validateFloat("23"));
+    try std.testing.expect(!validateFloat("abc"));
+    try std.testing.expect(!validateFloat("2e.3"));
+    try std.testing.expect(!validateFloat("2..3"));
+    try std.testing.expect(!validateFloat(".3"));
+    try std.testing.expect(validateFloat("2.3"));
+    try std.testing.expect(validateFloat("2.3e3"));
+    try std.testing.expect(validateFloat("2.3e-3"));
+    try std.testing.expect(validateFloat("1_234.333_333"));
+}

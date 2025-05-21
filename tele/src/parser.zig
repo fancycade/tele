@@ -1435,6 +1435,11 @@ pub const Parser = struct {
     }
 
     fn parseFloat(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        const n = try token_queue.peek();
+        if (!util.validateFloat(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.invalid_float);
+            return ParserError.ParsingFailure;
+        }
         return try self.parseValue(token_queue, TeleAstType.float);
     }
 

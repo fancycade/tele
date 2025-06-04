@@ -237,6 +237,7 @@ pub const Context = struct {
         try self.writePadding(w);
         _ = try w.write("import ");
         try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .line = a.*.line, .col = a.*.col });
+        _ = try w.write("\n");
     }
 
     pub fn writeBehaviour(self: *Self, w: anytype, a: *const Ast) !void {
@@ -264,6 +265,7 @@ pub const Context = struct {
         try self.writePadding(w);
         _ = try w.write("attr ");
         try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .line = a.*.line, .col = a.*.col });
+        _ = try w.write("\n");
     }
 
     pub fn writeGuardSequence(self: *Self, w: anytype, a: *const Ast) !void {
@@ -276,8 +278,13 @@ pub const Context = struct {
         if (a.*.children.?.items.len == 0) {
             return CodegenError.WritingFailure;
         }
+        var i: usize = 0;
         for (a.*.children.?.items) |c| {
             try self.writeGuard(w, c);
+            if (i < a.*.children.?.items.len - 1) {
+                _ = try w.write("\n");
+            }
+            i = i + 1;
         }
     }
 
@@ -291,15 +298,27 @@ pub const Context = struct {
         if (a.*.children.?.items.len == 0) {
             return CodegenError.WritingFailure;
         }
-        _ = try w.write("when ");
+
+        const l = a.*.children.?.items.len;
+        if (l == 1) {
+            _ = try w.write("when ");
+            try self.pushPadding(0);
+        } else {
+            _ = try w.write("when\n");
+            try self.pushPadding(1);
+        }
+
         var i: usize = 0;
         for (a.*.children.?.items) |c| {
+            try self.writePadding(w);
             try self.writeAst(w, c);
-            if (i < a.*.children.?.items.len) {
+            if (i < l - 1) {
                 _ = try w.write("\n");
             }
             i = i + 1;
         }
+
+        try self.popPadding();
     }
 
     pub fn writeFunctionSignature(self: *Self, w: anytype, a: *const Ast) !void {
@@ -482,7 +501,7 @@ pub const Context = struct {
         try self.pushPadding(self.currentPadding() + 2);
         const len = a.children.?.items.len;
         while (loop) {
-            try self.writeAst(w, a.children.?.items[i]);
+            try self.writeCaseClause(w, a.children.?.items[i]);
             i = i + 1;
             if (i >= len) {
                 loop = false;
@@ -491,6 +510,7 @@ pub const Context = struct {
             }
         }
         try self.popPadding();
+        _ = try w.write("\n");
     }
 
     pub fn writeTryCatch(self: *Self, w: anytype, a: *const Ast) !void {
@@ -528,7 +548,7 @@ pub const Context = struct {
         var loop = true;
         try self.pushPadding(self.currentPadding() + 2);
         while (loop) {
-            try self.writeAst(w, a.children.?.items[i]);
+            try self.writeCaseClause(w, a.children.?.items[i]);
             const len = a.children.?.items.len;
 
             i += 1;
@@ -553,13 +573,14 @@ pub const Context = struct {
             return CodegenError.WritingFailure;
         }
         try self.writePadding(w);
-        _ = try w.write("catch\n");
+        _ = try w.write("catch:\n");
 
         try self.pushPadding(self.currentPadding() + 2);
         for (a.children.?.items) |c| {
-            try self.writeAst(w, c);
+            try self.writeCaseClause(w, c);
         }
         try self.popPadding();
+        _ = try w.write("\n");
     }
 
     pub fn writeFunctionDef(self: *Self, w: anytype, a: *const Ast, private: bool) !void {
@@ -630,8 +651,9 @@ pub const Context = struct {
         _ = try w.write(a.body);
 
         if (a.children.?.items.len == 1) {
-            _ = try w.write(":");
+            _ = try w.write(": ");
             try self.writeAst(w, a.children.?.items[0]);
+            _ = try w.write("\n");
         } else {
             try self.writeFunctionSignature(w, a.children.?.items[0]);
             _ = try w.write(":");
@@ -641,6 +663,7 @@ pub const Context = struct {
                 try self.writeAst(w, c);
             }
             try self.popPadding();
+            _ = try w.write("\n");
         }
     }
 
@@ -831,17 +854,17 @@ pub const Context = struct {
             return CodegenError.WritingFailure;
         }
         _ = try w.write("test:\n");
-        try self.pushPadding(self.currentPadding() + 2);
+        try self.pushPadding(self.currentPadding() + 1);
 
         for (a.*.children.?.items) |c| {
             try self.writeAst(w, c);
         }
         try self.popPadding();
-        _ = try w.write("\n");
+        _ = try w.write("\n\n");
     }
 
     pub fn writeTestUnit(self: *Self, w: anytype, a: *const Ast) !void {
-        if (a.*.ast_type != AstType.test_block) {
+        if (a.*.ast_type != AstType.test_unit) {
             return CodegenError.WritingFailure;
         }
         if (std.mem.eql(u8, "", a.*.body)) {
@@ -865,13 +888,12 @@ pub const Context = struct {
                 break;
             }
 
-            _ = try w.write("\n");
             try self.writeAst(w, a.children.?.items[i]);
+            _ = try w.write("\n");
 
             i = i + 1;
         }
         try self.popPadding();
-
         _ = try w.write("\n");
     }
 
@@ -1270,6 +1292,10 @@ test "write record" {
     try std.testing.expect(std.mem.eql(u8, list.items, "#person(name=\"Joe\", age=68)"));
 }
 
+test "write fun val" {
+    // TODO
+}
+
 test "write op" {
     var context = Context.init(test_allocator);
     defer context.deinit();
@@ -1309,7 +1335,11 @@ test "write function call" {
 
     try std.testing.expect(std.mem.eql(u8, list.items, "erlang.add(1, 2)"));
 
-    // TODO: Test no arguments
+    var list2 = std.ArrayList(u8).init(test_allocator);
+    defer list2.deinit();
+
+    try context.writeFunctionCall(list2.writer(), &Ast{ .body = "side_effect", .ast_type = AstType.function_call, .children = null, .col = 0, .line = 0 });
+    try std.testing.expect(std.mem.eql(u8, list2.items, "side_effect()"));
 }
 
 test "write attribute" {
@@ -1564,4 +1594,624 @@ test "write case" {
     try context.writeCase(list.writer(), &Ast{ .body = "", .ast_type = AstType.case, .children = children, .col = 0, .line = 0 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "case x:\n  'true:\n    'ok\n  'false:\n    'error"));
+}
+
+test "write paren exp" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var op_children = std.ArrayList(*Ast).init(test_allocator);
+    defer op_children.deinit();
+
+    var a = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+    try op_children.append(&a);
+
+    var b = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+    try op_children.append(&b);
+
+    var op = Ast{ .body = "+", .ast_type = AstType.op, .children = op_children, .col = 0, .line = 0 };
+
+    var paren_children = std.ArrayList(*Ast).init(test_allocator);
+    defer paren_children.deinit();
+    try paren_children.append(&op);
+
+    var paren_exp = Ast{ .body = "", .ast_type = AstType.paren_exp, .children = paren_children, .col = 0, .line = 0 };
+
+    try context.writeParenExp(list.writer(), &paren_exp);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "(1 + 2)"));
+}
+
+test "write behaviour" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var b = Ast{ .body = "factory", .ast_type = AstType.behaviour, .children = null, .col = 0, .line = 0 };
+
+    try context.writeBehaviour(list.writer(), &b);
+    try std.testing.expect(std.mem.eql(u8, list.items, "behaviour(factory)\n"));
+}
+
+test "write import def" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+
+    var name = Ast{ .body = "foobar", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
+    try children.append(&name);
+
+    var fcall = Ast{ .body = "barfoo", .ast_type = AstType.import_def, .children = children, .col = 0, .line = 0 };
+    try context.writeImportDef(list.writer(), &fcall);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "import barfoo(foobar)\n"));
+}
+
+test "write custom attribute" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+
+    var a = Ast{ .body = "'foobar", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
+    try children.append(&a);
+
+    var ca = Ast{ .body = "behaviour", .ast_type = AstType.custom_attribute, .children = children, .col = 0, .line = 0 };
+
+    try context.writeCustomAttribute(list.writer(), &ca);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "attr behaviour('foobar)\n"));
+}
+
+test "write guard" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var v = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var n = Ast{ .body = "2", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+
+    var op_children = std.ArrayList(*Ast).init(test_allocator);
+    defer op_children.deinit();
+    try op_children.append(&v);
+    try op_children.append(&n);
+    var op = Ast{ .body = ">", .ast_type = AstType.op, .children = op_children, .col = 0, .line = 0 };
+
+    var guard_children = std.ArrayList(*Ast).init(test_allocator);
+    defer guard_children.deinit();
+    try guard_children.append(&op);
+
+    var guard = Ast{ .body = "", .ast_type = AstType.guard, .children = guard_children, .col = 0, .line = 0 };
+
+    try context.writeGuard(list.writer(), &guard);
+    try std.testing.expect(std.mem.eql(u8, list.items, "when a > 2"));
+}
+
+test "write guard multiple expressions" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var v = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var n = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+
+    var op_children = std.ArrayList(*Ast).init(test_allocator);
+    defer op_children.deinit();
+    try op_children.append(&v);
+    try op_children.append(&n);
+    var op = Ast{ .body = ">", .ast_type = AstType.op, .children = op_children, .col = 0, .line = 0 };
+
+    var v2 = Ast{ .body = "b", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var n2 = Ast{ .body = "3", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+
+    var op_children2 = std.ArrayList(*Ast).init(test_allocator);
+    defer op_children2.deinit();
+    try op_children2.append(&v2);
+    try op_children2.append(&n2);
+    var op2 = Ast{ .body = "<", .ast_type = AstType.op, .children = op_children2, .col = 0, .line = 0 };
+
+    var guard_children = std.ArrayList(*Ast).init(test_allocator);
+    defer guard_children.deinit();
+    try guard_children.append(&op);
+    try guard_children.append(&op2);
+
+    var guard = Ast{ .body = "", .ast_type = AstType.guard, .children = guard_children, .col = 0, .line = 0 };
+
+    try context.writeGuard(list.writer(), &guard);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "when\n  a > 2\n  b < 3"));
+}
+
+test "write guard sequence" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var v = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var n = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+
+    var op_children = std.ArrayList(*Ast).init(test_allocator);
+    defer op_children.deinit();
+    try op_children.append(&v);
+    try op_children.append(&n);
+    var op = Ast{ .body = ">", .ast_type = AstType.op, .children = op_children, .col = 0, .line = 0 };
+
+    var guard_children = std.ArrayList(*Ast).init(test_allocator);
+    defer guard_children.deinit();
+    try guard_children.append(&op);
+
+    var guard = Ast{ .body = "", .ast_type = AstType.guard, .children = guard_children, .col = 0, .line = 0 };
+
+    var v2 = Ast{ .body = "b", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var n2 = Ast{ .body = "3", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+
+    var op_children2 = std.ArrayList(*Ast).init(test_allocator);
+    defer op_children2.deinit();
+    try op_children2.append(&v2);
+    try op_children2.append(&n2);
+    var op2 = Ast{ .body = "<", .ast_type = AstType.op, .children = op_children2, .col = 0, .line = 0 };
+
+    var guard_children2 = std.ArrayList(*Ast).init(test_allocator);
+    defer guard_children2.deinit();
+    try guard_children2.append(&op2);
+
+    var guard2 = Ast{ .body = "", .ast_type = AstType.guard, .children = guard_children2, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&guard);
+    try children.append(&guard2);
+
+    var guard_sequence = Ast{ .body = "", .ast_type = AstType.guard_sequence, .children = children, .col = 0, .line = 0 };
+
+    try context.writeGuardSequence(list.writer(), &guard_sequence);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "when a > 2\nwhen b < 3"));
+}
+
+test "write receive" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+
+    var n1 = Ast{ .body = "42", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+    var a1 = Ast{ .body = "'ok", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
+
+    var c1_children = std.ArrayList(*Ast).init(test_allocator);
+    defer c1_children.deinit();
+    try c1_children.append(&n1);
+    try c1_children.append(&a1);
+
+    var c1 = Ast{ .body = "", .ast_type = AstType.case_clause, .children = c1_children, .col = 0, .line = 0 };
+
+    var n2 = Ast{ .body = "_", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var a2 = Ast{ .body = "'error", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
+
+    var c2_children = std.ArrayList(*Ast).init(test_allocator);
+    defer c2_children.deinit();
+    try c2_children.append(&n2);
+    try c2_children.append(&a2);
+
+    var c2 = Ast{ .body = "", .ast_type = AstType.case_clause, .children = c2_children, .col = 0, .line = 0 };
+
+    try children.append(&c1);
+    try children.append(&c2);
+
+    var r = Ast{ .body = "", .ast_type = AstType.receive_exp, .children = children, .col = 0, .line = 0 };
+
+    try context.writeReceive(list.writer(), &r);
+    try std.testing.expect(std.mem.eql(u8, list.items, "receive:\n  42:\n    'ok\n  _:\n    'error\n"));
+}
+
+test "write try exp" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var f = Ast{ .body = "foobar", .ast_type = AstType.function_call, .children = null, .col = 0, .line = 0 };
+
+    var v = Ast{ .body = "_", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var a = Ast{ .body = "'ok", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
+
+    var c_children = std.ArrayList(*Ast).init(test_allocator);
+    defer c_children.deinit();
+
+    try c_children.append(&v);
+    try c_children.append(&a);
+    var c = Ast{ .body = "", .ast_type = AstType.case_clause, .children = c_children, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&f);
+    try children.append(&c);
+    var t = Ast{ .body = "", .ast_type = AstType.try_exp, .children = children, .col = 0, .line = 0 };
+
+    try context.writeTryExp(list.writer(), &t);
+    try std.testing.expect(std.mem.eql(u8, list.items, "try foobar():\n  _:\n    'ok\n"));
+}
+
+test "write catch exp" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var a = Ast{ .body = "'error", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
+    var v = Ast{ .body = "_", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var clause_children = std.ArrayList(*Ast).init(test_allocator);
+    defer clause_children.deinit();
+    try clause_children.append(&v);
+    try clause_children.append(&a);
+
+    var clause = Ast{ .body = "", .ast_type = AstType.case_clause, .children = clause_children, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&clause);
+
+    var c = Ast{ .body = "", .ast_type = AstType.catch_exp, .children = children, .col = 0, .line = 0 };
+    try context.writeCatchExp(list.writer(), &c);
+    try std.testing.expect(std.mem.eql(u8, list.items, "catch:\n  _:\n    'error\n"));
+}
+
+test "write try catch" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var f = Ast{ .body = "foobar", .ast_type = AstType.function_call, .children = null, .col = 0, .line = 0 };
+
+    var v = Ast{ .body = "_", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var a = Ast{ .body = "'ok", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
+
+    var c_children = std.ArrayList(*Ast).init(test_allocator);
+    defer c_children.deinit();
+
+    try c_children.append(&v);
+    try c_children.append(&a);
+    var c = Ast{ .body = "", .ast_type = AstType.case_clause, .children = c_children, .col = 0, .line = 0 };
+
+    var try_children = std.ArrayList(*Ast).init(test_allocator);
+    defer try_children.deinit();
+    try try_children.append(&f);
+    try try_children.append(&c);
+    var t = Ast{ .body = "", .ast_type = AstType.try_exp, .children = try_children, .col = 0, .line = 0 };
+
+    var a2 = Ast{ .body = "'error", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
+    var v2 = Ast{ .body = "_", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var clause_children = std.ArrayList(*Ast).init(test_allocator);
+    defer clause_children.deinit();
+    try clause_children.append(&v2);
+    try clause_children.append(&a2);
+
+    var clause = Ast{ .body = "", .ast_type = AstType.case_clause, .children = clause_children, .col = 0, .line = 0 };
+
+    var catch_children = std.ArrayList(*Ast).init(test_allocator);
+    defer catch_children.deinit();
+    try catch_children.append(&clause);
+
+    var c2 = Ast{ .body = "", .ast_type = AstType.catch_exp, .children = catch_children, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&t);
+    try children.append(&c2);
+
+    var try_catch = Ast{ .body = "", .ast_type = AstType.try_catch, .children = children, .col = 0, .line = 0 };
+
+    try context.writeTryCatch(list.writer(), &try_catch);
+    try std.testing.expect(std.mem.eql(u8, list.items, "try foobar():\n  _:\n    'ok\ncatch:\n  _:\n    'error\n"));
+}
+
+test "write macro def value" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var n = Ast{ .body = "42", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&n);
+    var m = Ast{ .body = "NUMBER", .ast_type = AstType.macro_def, .children = children, .col = 0, .line = 0 };
+
+    try context.writeMacroDef(list.writer(), &m);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "define NUMBER: 42\n"));
+}
+
+test "write macro def signature" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var sig_children = std.ArrayList(*Ast).init(test_allocator);
+    defer sig_children.deinit();
+
+    var v = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try sig_children.append(&v);
+
+    var v2 = Ast{ .body = "a", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var n = Ast{ .body = "42", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+
+    var op_children = std.ArrayList(*Ast).init(test_allocator);
+    defer op_children.deinit();
+    try op_children.append(&v2);
+    try op_children.append(&n);
+
+    var op = Ast{ .body = ">", .ast_type = AstType.op, .children = op_children, .col = 0, .line = 0 };
+
+    var fsig = Ast{ .body = "", .ast_type = AstType.function_signature, .children = sig_children, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&fsig);
+    try children.append(&op);
+
+    var m = Ast{ .body = "FOOBAR", .ast_type = AstType.macro_def, .children = children, .col = 0, .line = 0 };
+
+    try context.writeMacroDef(list.writer(), &m);
+    try std.testing.expect(std.mem.eql(u8, list.items, "define FOOBAR(a):\n  a > 42\n"));
+}
+
+test "write spec def" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var sig_children = std.ArrayList(*Ast).init(test_allocator);
+    defer sig_children.deinit();
+
+    var input = Ast{ .body = "integer", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try sig_children.append(&input);
+
+    var fsig = Ast{ .body = "", .ast_type = AstType.function_signature, .children = sig_children, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&fsig);
+
+    var output = Ast{ .body = "integer", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try children.append(&output);
+
+    var s = Ast{ .body = "foobar", .ast_type = AstType.spec_def, .children = children, .col = 0, .line = 0 };
+
+    try context.writeSpecDef(list.writer(), &s);
+    try std.testing.expect(std.mem.eql(u8, list.items, "spec foobar(integer): integer\n"));
+}
+
+test "write callback def" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var sig_children = std.ArrayList(*Ast).init(test_allocator);
+    defer sig_children.deinit();
+
+    var input = Ast{ .body = "integer", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try sig_children.append(&input);
+
+    var fsig = Ast{ .body = "", .ast_type = AstType.function_signature, .children = sig_children, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&fsig);
+
+    var output = Ast{ .body = "integer", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try children.append(&output);
+
+    var c = Ast{ .body = "foobar", .ast_type = AstType.callback_def, .children = children, .col = 0, .line = 0 };
+
+    try context.writeCallbackDef(list.writer(), &c);
+    try std.testing.expect(std.mem.eql(u8, list.items, "callback foobar(integer): integer\n"));
+}
+
+test "write type def" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+
+    var v = Ast{ .body = "id", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try children.append(&v);
+
+    var output = Ast{ .body = "integer", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try children.append(&output);
+
+    var t = Ast{ .body = "", .ast_type = AstType.type_def, .children = children, .col = 0, .line = 0 };
+
+    try context.writeTypeDef(list.writer(), &t);
+    try std.testing.expect(std.mem.eql(u8, list.items, "type id:\n  integer\n\n"));
+}
+
+test "write opaque type def" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+
+    var v = Ast{ .body = "id", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try children.append(&v);
+
+    var output = Ast{ .body = "integer", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try children.append(&output);
+
+    var t = Ast{ .body = "", .ast_type = AstType.opaque_type_def, .children = children, .col = 0, .line = 0 };
+
+    try context.writeOpaqueTypeDef(list.writer(), &t);
+    try std.testing.expect(std.mem.eql(u8, list.items, "opaque id:\n  integer\n\n"));
+}
+
+test "write record field type" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+
+    var t = Ast{ .body = "integer", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try children.append(&t);
+
+    var rt = Ast{ .body = "", .ast_type = AstType.record_field_type, .children = children, .col = 0, .line = 0 };
+
+    try context.writeRecordFieldType(list.writer(), &rt);
+    try std.testing.expect(std.mem.eql(u8, list.items, ": integer"));
+}
+
+test "write record field value" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+
+    var t = Ast{ .body = "42", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+    try children.append(&t);
+
+    var rv = Ast{ .body = "", .ast_type = AstType.record_field_value, .children = children, .col = 0, .line = 0 };
+
+    try context.writeRecordFieldValue(list.writer(), &rv);
+    try std.testing.expect(std.mem.eql(u8, list.items, "=42"));
+}
+
+test "write record field" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var rf = Ast{ .body = "foo", .ast_type = AstType.record_field, .children = null, .col = 0, .line = 0 };
+
+    try context.writeRecordField(list.writer(), &rf);
+    try std.testing.expect(std.mem.eql(u8, list.items, "foo"));
+
+    // TODO: Record field with type and value
+
+    // TODO: Record field with type
+
+    // TODO: Record field with value
+}
+
+test "write record def" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var x = Ast{ .body = "x", .ast_type = AstType.record_field, .children = null, .col = 0, .line = 0 };
+    var y = Ast{ .body = "y", .ast_type = AstType.record_field, .children = null, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&x);
+    try children.append(&y);
+
+    var r = Ast{ .body = "point", .ast_type = AstType.record_def, .children = children, .col = 0, .line = 0 };
+
+    try context.writeRecordDef(list.writer(), &r);
+    try std.testing.expect(std.mem.eql(u8, list.items, "record point:\n  #(x, y)\n\n"));
+}
+
+test "write test block" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var include_children = std.ArrayList(*Ast).init(test_allocator);
+    defer include_children.deinit();
+
+    var s = Ast{ .body = "\"test/lib/test.hrl\"", .ast_type = AstType.binary, .children = null, .col = 0, .line = 0 };
+    try include_children.append(&s);
+
+    var a = Ast{ .body = "include", .ast_type = AstType.attribute, .children = include_children, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&a);
+
+    var t = Ast{ .body = "", .ast_type = AstType.test_block, .children = children, .col = 0, .line = 0 };
+    try context.writeTestBlock(list.writer(), &t);
+    try std.testing.expect(std.mem.eql(u8, list.items, "test:\n  include(\"test/lib/test.hrl\")\n\n"));
+}
+
+test "write test unit" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var n1 = Ast{ .body = "1", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+    var n2 = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+
+    var fcall_children = std.ArrayList(*Ast).init(test_allocator);
+    defer fcall_children.deinit();
+    try fcall_children.append(&n1);
+    try fcall_children.append(&n2);
+
+    var fcall = Ast{ .body = "?assertEqual", .ast_type = AstType.function_call, .children = fcall_children, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&fcall);
+
+    var tu = Ast{ .body = "basic", .ast_type = AstType.test_unit, .children = children, .col = 0, .line = 0 };
+    try context.writeTestUnit(list.writer(), &tu);
+    try std.testing.expect(std.mem.eql(u8, list.items, "test basic:\n  ?assertEqual(1, 2)\n\n"));
 }

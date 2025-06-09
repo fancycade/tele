@@ -11,3 +11,6 @@ clean:
 
 install: build
         sudo cp zig-out/bin/tele /usr/local/bin/telec        
+
+release:
+        zig build -Doptimize=ReleaseSmall --summary all

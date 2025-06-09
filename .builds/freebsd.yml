@@ -25,5 +25,16 @@ tasks:
        tele build
        ./check.sh
        tele ct
+  - release: |
+       cd tele/tele
+       mkdir artifacts
+       zig build -Dtarget=x86_64-linux-gnu && mv zig-out/bin/tele artifacts/tele-x86_64-linux-gnu
+       zig build -Dtarget=x86_64-linux-musl && mv zig-out/bin/tele artifacts/tele-x86_64-linux-musl
+       zig build -Dtarget=x86_64-windows && mv zig-out/bin/tele artifacts/tele-x86_64-windows
+       zig build -Dtarget=x86_64-macos && mv zig-out/bin/tele artifacts/tele-x86_64-macos
+       zig build -Dtarget=x86_64-freebsd && mv zig-out/bin/tele artifacts/tele-x86_64-freebsd
+       zig build -Dtarget=aarch64-macos && mv zig-out/bin/tele artifacts/tele-aarch64-macos
+       zig build -Dtarget=aarch64-linux-gnu mv zig-out/bin/tele artifacts/tele-aarch64-linux-gnu
+       zig build -Dtarget=aarch64-linux-musl mv zig-out/bin/tele artifacts/tele-aarch64-linux-musl
 sources:
   - https://git.sr.ht/~fancycade/tele

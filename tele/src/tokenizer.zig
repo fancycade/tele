@@ -3,7 +3,7 @@ const test_allocator = std.testing.allocator;
 const eql = std.mem.eql;
 const expect = std.testing.expect;
 
-const TokenQueueError = error{MissingHead};
+const TokenQueueError = error{ MissingHead, MissingNode };
 
 pub const TokenQueueNode = struct { next: ?*TokenQueueNode, body: []const u8, line: usize, col: usize };
 
@@ -90,7 +90,7 @@ pub const TokenQueue = struct {
             self.head = node.?.next;
         }
 
-        return node.?;
+        return node orelse TokenQueueError.MissingNode;
     }
 
     pub fn peek(self: *Self) !*TokenQueueNode {

@@ -626,8 +626,6 @@ To make a module adhere to a behaviour:
 
 ### Tests
 
-EXPERIMENTAL:
-
 Defining eunit tests in Erlang looks like this:
 
     foobar_test() ->
@@ -637,5 +635,3 @@ In tele we can use block syntax:
 
     test foobar:
       ?assertEqual(2, foobar(1, 1))
-
-It would be nice if we can place unit tests throughout our source code like Zig. tele can organize all test cases into a section of the generated Erlang module. Another automatic option is to import the eunit library.

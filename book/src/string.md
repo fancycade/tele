@@ -8,7 +8,7 @@ Tele has a basic "string" datatype that looks like this:
 
 While this looks like a string in other programming languages, under the hood it is actually what we call a [binary](https://www.erlang.org/doc/system/data_types.html#bit-strings-and-binaries).
 
-In simple term's it is basically a static string but you can do a lot more with binaries. We will address that later.
+In simple term's it is basically a static string. There is more nuance to them that, but for now keep it simple.
 
 When the above string gets compiled to Erlang it gets compiled to this:
 
@@ -16,7 +16,12 @@ When the above string gets compiled to Erlang it gets compiled to this:
 <<"Hello, World!"/utf8>>
 ```
 
-If you code in Elixir this might be familiar as the same approach was taken.
+This sane default is actually taken from Elixir.
+
+## Erlang String's
+
+What can be confusing is that Erlang has it's own string datatype. This string is a list of characters.
+In practice, the binary is more in line with the popular notion of static string hence why it is preferred by tele.
 
 If you really need an Erlang string (a list of characters) you can always do this:
 

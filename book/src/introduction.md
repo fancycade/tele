@@ -10,9 +10,9 @@ The design is intended to be transparent to end users. Meaning libraries or tool
 ## Who is this for?
 
 Tele is meant to be an easy functional programming language to learn with a minimal syntax so it can be accessible for a wide audience.
-The goal of the language was take the good parts and make it more "modern" to appeal to people coming from Python or Javascript.
+The goal of the language was take the good parts of Erlang and make it feel more "modern" to appeal to people coming from Python or Javascript.
 
-However, at the current time this language is best suited for people who are already familiar with Erlang.
+However, due to current tooling limitations Tele is probably best suited for developers who have some familiarity with Erlang.
 
 You might like this if you are an Erlang programmer who:
 - Finds it hard to convince your friends or colleagues to code in Erlang because they don't like the Prolog style syntax.
@@ -21,6 +21,6 @@ You might like this if you are an Erlang programmer who:
 ## Goals
 
 - Easy to learn
-- Consistent but willing to sacrifice grammatical purity for user friendliness
 - Enjoyable to read
-- Minimize use of characters to reduce syntax errors 
+- Minimize use of characters to reduce syntax errors
+- Consistent but willing to sacrifice grammatical purity for user friendliness

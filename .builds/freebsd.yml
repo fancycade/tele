@@ -3,6 +3,7 @@ packages:
   - zig
   - erlang
   - rebar3
+  - mdbook
 tasks:
   - build: |
        cd tele/tele
@@ -36,5 +37,9 @@ tasks:
        zig build -Dtarget=aarch64-macos && mv zig-out/bin/tele artifacts/tele-aarch64-macos
        zig build -Dtarget=aarch64-linux-gnu && mv zig-out/bin/tele artifacts/tele-aarch64-linux-gnu
        zig build -Dtarget=aarch64-linux-musl && mv zig-out/bin/tele artifacts/tele-aarch64-linux-musl
+  - book: |
+       cd tele/book
+       mdbook build
+       
 sources:
   - https://git.sr.ht/~fancycade/tele

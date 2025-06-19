@@ -39,7 +39,8 @@ pub fn main() !void {
 
 fn handleArgs(allocator: std.mem.Allocator) !void {
     const process = std.process;
-    var arg_it = process.args();
+    var arg_it = try process.argsWithAllocator(allocator);
+    defer arg_it.deinit();
 
     _ = arg_it.skip(); // Skip tele
 

@@ -33,19 +33,19 @@ tasks:
        mkdir artifacts
        mv zig-out/bin/tele artifacts/tele-x86_64-freebsd
        zig build -Dtarget=x86_64-linux-gnu && mv zig-out/bin/tele artifacts/tele-x86_64-linux-gnu
-       cat artifacts/tele-x86_64-linux-gnu | openssl dgst -sha256 -binary | openssl base64 > tele-x86_64_linux-gnu.sha256
+       cat artifacts/tele-x86_64-linux-gnu | openssl dgst -sha256 -binary | openssl base64 > artifacts/tele-x86_64_linux-gnu.sha256
        zig build -Dtarget=x86_64-linux-musl && mv zig-out/bin/tele artifacts/tele-x86_64-linux-musl
-       cat artifacts/tele-x86_64-linux-musl | openssl dgst -sha256 -binary | openssl base64 > tele-x86_64_linux-musl.sha256
+       cat artifacts/tele-x86_64-linux-musl | openssl dgst -sha256 -binary | openssl base64 > artifacts/tele-x86_64_linux-musl.sha256
        zig build -Dtarget=x86_64-windows && mv zig-out/bin/tele.exe artifacts/tele-x86_64-windows.exe
-       cat artifacts/tele-x86_64-windows.exe | openssl dgst -sha256 -binary | openssl base64 > tele-x86_64-windows.sha256
+       cat artifacts/tele-x86_64-windows.exe | openssl dgst -sha256 -binary | openssl base64 > artifacts/tele-x86_64-windows.sha256
        zig build -Dtarget=x86_64-macos && mv zig-out/bin/tele artifacts/tele-x86_64-macos
-       cat artifacts/tele-x86_64-macos | openssl dgst -sha256 -binary | openssl base64 > tele-x86_64-macos.sha256
+       cat artifacts/tele-x86_64-macos | openssl dgst -sha256 -binary | openssl base64 > artifacts/tele-x86_64-macos.sha256
        zig build -Dtarget=aarch64-macos && mv zig-out/bin/tele artifacts/tele-aarch64-macos
-       cat artifacts/tele-aarch64-macos | openssl dgst -sha256 -binary | openssl base64 > tele-aarch64-macos.sha256
+       cat artifacts/tele-aarch64-macos | openssl dgst -sha256 -binary | openssl base64 > artifacts/tele-aarch64-macos.sha256
        zig build -Dtarget=aarch64-linux-gnu && mv zig-out/bin/tele artifacts/tele-aarch64-linux-gnu
-       cat artifacts/tele-aarch64-linux-gnu | openssl dgst -sha256 -binary | openssl base64 > tele-aarch64-linux-gnu.sha256
+       cat artifacts/tele-aarch64-linux-gnu | openssl dgst -sha256 -binary | openssl base64 > artifacts/tele-aarch64-linux-gnu.sha256
        zig build -Dtarget=aarch64-linux-musl && mv zig-out/bin/tele artifacts/tele-aarch64-linux-musl
-       cat artifacts/tele-aarch64-linux-musl | openssl dgst -sha256 -binary | openssl base64 > tele-aarch64-linux-musl.sha256
+       cat artifacts/tele-aarch64-linux-musl | openssl dgst -sha256 -binary | openssl base64 > artifacts/tele-aarch64-linux-musl.sha256
   - release_deploy: |
        cd tele/tele
        tar -czvf artifacts.tar.gz artifacts/

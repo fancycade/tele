@@ -2,7 +2,7 @@
 
 ## Install Binary
 
-Download the binary for your OS and Architecture [here](telelang.org/artifacts).
+Download the binary for your OS and Architecture [here](https://telelang.org/artifacts).
 
 Rename the binary to `tele` and put it in your path.
 
@@ -26,6 +26,6 @@ The Tele binary only compiles Tele code to Erlang code. To actually run the code
 
 ### Install Erlang/Rebar3:
 
-Install Erlang from [here](https://www.erlang.org/downloads)
+Install Erlang from [here](https://www.erlang.org/downloads).
 
-Install Rebar3 from [here](https://www.rebar3.org/docs/getting-started/)
+Install Rebar3 from [here](https://www.rebar3.org/docs/getting-started/).

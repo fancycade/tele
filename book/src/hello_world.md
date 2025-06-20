@@ -32,9 +32,14 @@ Start the REPL like this:
 erl
 ```
 
+Compile the Erlang module `hello.erl`.
 ```
 c(hello).
+```
 
+Then call our `hello_world` method from the `hello` module.
+
+````
 hello:hello_world().
 => Hello, World!
 

@@ -1,34 +1,31 @@
 # Installation
 
-Install Erlang:
+## Install Binary
 
-https://www.erlang.org/downloads
+Download the binary for your OS and Architecture [here](telelang.org/artifacts).
 
-Install Zig, currently 0.13:
+Rename the binary to `tele` and put it in your path.
 
-https://ziglang.org/download/
+## Build From Source
 
-Download tele source code and build:
+Install Zig 0.14 from [here](https://ziglang.org/download/).
 
-https://git.sr.ht/~fancycade/tele
+Download the Tele [code](https://git.sr.ht/~fancycade/tele).
 
 ```
 cd tele/tele
 zig build
 ```
 
-```
-./zig-out/bin/tele help
-``` 
+The binary will be at `zig-out/bin/tele`.
 
-If you are on Linux or Mac you can do this:
+## Dependencies
 
-```
-sudo cp zig-out/bin/tele /usr/local/bin/
-```
+The Tele binary only compiles Tele code to Erlang code. To actually run the code or do anything useful you will need Erlang and the build tool Rebar3.
 
-Install Rebar3:
 
-```
-https://rebar3.org/docs/getting-started/
-```
+### Install Erlang/Rebar3:
+
+Install Erlang from [here](https://www.erlang.org/downloads)
+
+Install Rebar3 from [here](https://www.rebar3.org/docs/getting-started/)

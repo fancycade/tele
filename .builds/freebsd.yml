@@ -4,6 +4,8 @@ packages:
   - erlang
   - rebar3
   - mdbook
+secrets:
+  - cd0fb7ce-9b8f-4135-a583-ea903a888e1b
 tasks:
   - build: |
        cd tele/tele
@@ -44,9 +46,21 @@ tasks:
        cat artifacts/tele-aarch64-linux-gnu | openssl dgst -sha256 -binary | openssl base64 > tele-aarch64-linux-gnu.sha256
        zig build -Dtarget=aarch64-linux-musl && mv zig-out/bin/tele artifacts/tele-aarch64-linux-musl
        cat artifacts/tele-aarch64-linux-musl | openssl dgst -sha256 -binary | openssl base64 > tele-aarch64-linux-musl.sha256
+  - release_deploy: |
+       cd tele/tele
+       tar -czvf artifacts.tar.gz artifacts/
+       scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null artifacts.tar.gz root@telelang.org:~
+       ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@telelang.org 'rm -rf artifacts'
+       ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@telelang.org 'tar -xzvf artifacts.tar.gz -C /usr/local/www'
   - book: |
        cd tele/book
        mdbook build
+  - book_deploy: |
+       cd tele/book
+       tar -czvf book.tar.gz book/
+       scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null book.tar.gz root@telelang.org:~
+       ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@telelang.org 'rm -rf book'
+       ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@telelang.org 'tar -xzvf book.tar.gz -C /usr/local/www'
        
 sources:
   - https://git.sr.ht/~fancycade/tele

@@ -25,7 +25,7 @@ Function definitions use block syntax. This means that this would be invalid fun
 
 ```
 fun add(a, b):
-  a + b
+a + b
 ```
 
 The body of the function needs to be 1 column ahead of the starting column of `fun` (in simple terms the `f`).

@@ -80,9 +80,10 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
     } else if (std.mem.eql(u8, "ct", command)) {
         try build(allocator, false);
         try commonTest(allocator);
+    } else if (std.mem.eql(u8, "help", command)) {
+        try help(allocator);
     } else {
-        // TODO: Better error message
-        return error.InvalidArgs;
+        try help(allocator);
     }
 }
 
@@ -544,4 +545,19 @@ fn freeFunctionMetadata(metadata: std.ArrayList(*const FunctionMetadata), alloca
     }
 
     metadata.deinit();
+}
+
+fn help(allocator: std.mem.Allocator) !void {
+    _ = allocator;
+    const outw = std.io.getStdOut().writer();
+
+    try outw.print("Usage: tele [command] [args]\n\n", .{});
+    try outw.print("Commands:\n\n", .{});
+
+    try outw.print("compile [path] [dir]\n  Compile Tele file to Erlang at [path], and write file to [dir].\n  Writes Erlang file to current working directory by default.\n\n", .{});
+    try outw.print("format [path]\n  Reformat tele file at [path].\n\n", .{});
+    try outw.print("build\n  Build Tele/Erlang Rebar3 project.\n\n", .{});
+    try outw.print("test\n  Run EUnit on Tele/Erlang Rebar3 project.\n\n", .{});
+    try outw.print("ct\n  Run Common Test on Tele/Erlang Rebar3 project.\n\n", .{});
+    try outw.print("help\n  Display list of commands.\n", .{});
 }

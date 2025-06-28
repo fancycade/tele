@@ -13,19 +13,20 @@
 - [Numbers](./numbers.md)
 - [Strings](./string.md)
 - [Atoms](./atoms.md)
+- [Variables](./variables.md)
 - [Lists](./lists.md)
 - [Maps](./maps.md)
 - [Tuples](./tuples.md)
 - [Records](./records.md)
 
-# Pattern Matching
-- [Variables](./variables.md)
-- [Match Operator](./match_operator.md)
-
 # Functions
 - [Function Definitions](./function_definitions.md)
 - [Anonymous Functions](./anonymous_functions.md)
 - [Dynamic Function Calls](./dynamic_function_calls.md)
+
+# Pattern Matching
+- [Match Operator](./match_operator.md)
+- [Guards](./guards.md)
 
 # Expressions
 - [Case](./case.md)
@@ -40,6 +41,7 @@
 - [Exporting Functions](./export_functions.md)
 - [Importing Functions](./import_functions.md)
 - [Private Functions](./private_functions.md)
+- [Macros](./macros.md)
 
 # Module Attributes
 

@@ -5,6 +5,7 @@
 # Getting Started
 - [Installation](./installation.md)
 - [Hello World](./hello_world.md)
+- [Getting Started](./getting_started.md)
 
 # Language
 

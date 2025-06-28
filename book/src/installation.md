@@ -6,6 +6,8 @@ Download the binary for your OS and Architecture [here](https://telelang.org/art
 
 Rename the binary to `tele` and put it in your path.
 
+Run `tele help` to see that it is working.
+
 ## Build From Source
 
 Install Zig 0.14 from [here](https://ziglang.org/download/).

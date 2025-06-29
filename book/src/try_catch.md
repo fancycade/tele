@@ -39,4 +39,20 @@ This works exactly like a case statement.
 
 The `catch` expression works in a similar way except it matches on exceptions.
 
-TODO: Describe exceptions in more detail
+Exception syntax looks a bit like `module.function`. It is `class.exception_pattern`. Sometimes the class might not be known ahead.
+
+If we want to catch any exception:
+
+```
+catch:
+  _._: 'ok
+```
+
+Or if we want to catch any `throw` exception and return the exception pattern using an absolute variable:
+
+```
+catch:
+  throw.@err: @err
+```
+
+There are lots of variations you can do, but this shows how to treat the components of the exception as separable variables to match with.

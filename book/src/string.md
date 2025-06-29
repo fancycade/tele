@@ -30,3 +30,7 @@ binary_to_list("Hello, World!")
 ```
 
 When coding in Tele keep this in mind because while they look like the strings you might be familiar with in Javascript and Python they have different semantics at times.
+
+## Bit Syntax
+
+Tele supports Erlang's bit syntax for binaries. Refer [here](https://www.erlang.org/doc/system/bit_syntax.html) for detailed documentation.

@@ -41,7 +41,10 @@
 - [Exporting Functions](./export_functions.md)
 - [Importing Functions](./import_functions.md)
 - [Private Functions](./private_functions.md)
+
+# Preprocessor
 - [Macros](./macros.md)
+- [Header Files](./header_files.md)
 
 # Module Attributes
 

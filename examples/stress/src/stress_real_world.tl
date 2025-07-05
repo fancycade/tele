@@ -47,3 +47,10 @@ fun example8():
   b = [#('mods, [#('simple_app, [])])]
   #(a, b)                
 
+fun example9
+  (label, 'undefined):
+    example9_helper("INSERT INTO nodes (body) VALUES (?)", [label])
+  (label, parent_id):
+    example9_helper("INSERT INTO nodes (body, parent_id) VALUES (?, ?)", [label, parent_id])
+
+funp example9_helper(_sql, args): args

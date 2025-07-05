@@ -1625,6 +1625,7 @@ pub const Parser = struct {
                     return ParserError.ParsingFailure;
                 }
             } else if (!util.validateVariableName(buf)) {
+                std.debug.print("BUF {s}\n", .{buf});
                 tele_error.setErrorMessage(line, col, tele_error.ErrorType.invalid_name);
                 return ParserError.ParsingFailure;
             }
@@ -4707,6 +4708,11 @@ test "is slash" {
 }
 
 fn containsParenStart(buf: []const u8) bool {
+    // Ignore parens in strings
+    if (buf[0] == '"') {
+        return false;
+    }
+
     for (buf) |c| {
         if (c == '(') {
             return true;
@@ -4721,4 +4727,6 @@ test "contains paren start" {
     try std.testing.expect(containsParenStart(")("));
     try std.testing.expect(containsParenStart("("));
     try std.testing.expect(!containsParenStart("foo"));
+    try std.testing.expect(!containsParenStart("\"(\""));
+    try std.testing.expect(!containsParenStart("\"()\""));
 }

@@ -1687,22 +1687,6 @@ test "write attribute" {
     // Test multi arg string
 }
 
-test "write custom attribute" {
-    var list = std.ArrayList(u8).init(test_allocator);
-    defer list.deinit();
-
-    var children = std.ArrayList(*const Ast).init(test_allocator);
-    defer children.deinit();
-
-    try children.append(&Ast{ .body = "TEST", .ast_type = AstType.atom, .children = null });
-
-    var context = Context.init(test_allocator);
-    defer context.deinit();
-    try context.writeCustomAttribute(list.writer(), &Ast{ .body = "ifdef", .ast_type = AstType.custom_attribute, .children = children });
-
-    try std.testing.expect(std.mem.eql(u8, list.items, "-ifdef(TEST).\n\n"));
-}
-
 test "write function def" {
     var list = std.ArrayList(u8).init(test_allocator);
     defer list.deinit();

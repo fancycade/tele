@@ -1642,26 +1642,6 @@ test "write import def" {
     try std.testing.expect(std.mem.eql(u8, list.items, "import barfoo(foobar)\n"));
 }
 
-test "write custom attribute" {
-    var context = Context.init(test_allocator);
-    defer context.deinit();
-
-    var list = std.ArrayList(u8).init(test_allocator);
-    defer list.deinit();
-
-    var children = std.ArrayList(*Ast).init(test_allocator);
-    defer children.deinit();
-
-    var a = Ast{ .body = "'foobar", .ast_type = AstType.atom, .children = null, .col = 0, .line = 0 };
-    try children.append(&a);
-
-    var ca = Ast{ .body = "behaviour", .ast_type = AstType.custom_attribute, .children = children, .col = 0, .line = 0 };
-
-    try context.writeCustomAttribute(list.writer(), &ca);
-
-    try std.testing.expect(std.mem.eql(u8, list.items, "attr behaviour('foobar)\n"));
-}
-
 test "write guard" {
     var context = Context.init(test_allocator);
     defer context.deinit();

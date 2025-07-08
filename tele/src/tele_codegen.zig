@@ -258,16 +258,6 @@ pub const Context = struct {
         try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .line = a.*.line, .col = a.*.col });
     }
 
-    pub fn writeCustomAttribute(self: *Self, w: anytype, a: *const Ast) !void {
-        if (a.*.ast_type != AstType.custom_attribute) {
-            return CodegenError.WritingFailure;
-        }
-        try self.writePadding(w);
-        _ = try w.write("attr ");
-        try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .line = a.*.line, .col = a.*.col });
-        _ = try w.write("\n");
-    }
-
     pub fn writeGuardSequence(self: *Self, w: anytype, a: *const Ast) !void {
         if (a.*.ast_type != AstType.guard_sequence) {
             return CodegenError.WritingFailure;
@@ -1012,11 +1002,6 @@ pub const Context = struct {
             },
             .attribute => {
                 self.writeAttribute(w, a) catch {
-                    return CodegenError.WritingFailure;
-                };
-            },
-            .custom_attribute => {
-                self.writeCustomAttribute(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

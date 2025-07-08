@@ -180,11 +180,6 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
-        .custom_attribute => {
-            return teleToErlangCustomAttribute(t, allocator) catch {
-                return CompilerError.CompilingFailure;
-            };
-        },
         .try_catch => {
             return teleToErlangTryCatch(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -1594,47 +1589,6 @@ test "tele to erlang attribute" {
 
     const result = try teleToErlangAttribute(&include_t, test_allocator);
     try std.testing.expect(erlang_ast.equal(result, &include_e));
-
-    t_children.deinit();
-    e_children.deinit();
-    erlang_ast.destroy(result, test_allocator);
-}
-
-fn teleToErlangCustomAttribute(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
-    if (t.*.ast_type != TeleAstType.custom_attribute) {
-        return CompilerError.CompilingFailure;
-    }
-    const e = try allocator.create(ErlangAst);
-    e.*.ast_type = ErlangAstType.custom_attribute;
-
-    var buf = try allocator.alloc(u8, t.*.body.len);
-    std.mem.copyForwards(u8, buf, t.*.body);
-
-    var i: usize = 0;
-    while (i < buf.len) {
-        if (buf[i] == '.') {
-            buf[i] = ':';
-        }
-        i += 1;
-    }
-
-    e.*.body = buf;
-    e.*.children = try compileChildren(t.*.children, allocator);
-    return e;
-}
-
-test "tele to erlang custom attribute" {
-    var attr_s = TeleAst{ .body = "\"stuff\"", .ast_type = TeleAstType.string, .children = null, .col = 0, .line = 0 };
-    var t_children = std.ArrayList(*TeleAst).init(test_allocator);
-    try t_children.append(&attr_s);
-    var attr_t = TeleAst{ .body = "foo.bar", .ast_type = TeleAstType.custom_attribute, .children = t_children, .col = 0, .line = 0 };
-
-    var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
-    try e_children.append(&ErlangAst{ .body = "\"stuff\"", .ast_type = ErlangAstType.string, .children = null });
-    var attr_e = ErlangAst{ .body = "foo:bar", .ast_type = ErlangAstType.custom_attribute, .children = e_children };
-
-    const result = try teleToErlangCustomAttribute(&attr_t, test_allocator);
-    try std.testing.expect(erlang_ast.equal(result, &attr_e));
 
     t_children.deinit();
     e_children.deinit();

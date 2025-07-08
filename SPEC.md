@@ -457,6 +457,8 @@ Would be:
 
 ## Custom Attributes
 
+REMOVED (might add again in future if deemed necessary)
+
 If an erlang attribute is not supported by a builtin tele attribute you can use the `attr` prefix to specify an attribute.
 
     attr compile('inline)

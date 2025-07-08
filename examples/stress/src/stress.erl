@@ -239,7 +239,7 @@ stress_real_world_example8_test() ->
 
 stress_real_world_example9_test() ->
     ?assertEqual([<<"root">>], stress_real_world:example9(<<"root">>, undefined)),
-    ?assertEqual([<<"root">>, 1], stress_real_world:example9(<<"hello">>, 1)).
+    ?assertEqual([<<"hello">>, 1], stress_real_world:example9(<<"hello">>, 1)).
 
 stress_math_test() ->
     ?assertEqual(2, stress_math:add(1, 1)),

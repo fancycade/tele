@@ -131,9 +131,6 @@ pub const Parser = struct {
                 } else if (isDefineKeyword(pn.*.body)) {
                     const ast = try self.parseMacroDefinition(token_queue);
                     try statements.append(ast);
-                } else if (isAttrKeyword(pn.*.body)) {
-                    const ast = try self.parseCustomAttribute(token_queue);
-                    try statements.append(ast);
                 } else if (isTestKeyword(pn.*.body)) {
                     const ast = try self.parseTest(token_queue);
                     try statements.append(ast);
@@ -3301,29 +3298,6 @@ pub const Parser = struct {
         return bast;
     }
 
-    fn parseCustomAttribute(self: *Self, token_queue: *TokenQueue) !*TeleAst {
-        // Pop off attr
-        const a_node = try token_queue.pop();
-        const current_col = a_node.*.col;
-        const ast_line = a_node.*.line;
-        if (!isAttrKeyword(a_node.*.body)) {
-            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
-            self.allocator.free(a_node.*.body);
-            self.allocator.destroy(a_node);
-            return ParserError.ParsingFailure;
-        }
-        self.allocator.free(a_node.*.body);
-        self.allocator.destroy(a_node);
-
-        const bast = try self.parseAttribute(token_queue);
-
-        bast.*.ast_type = TeleAstType.custom_attribute;
-        bast.*.col = current_col;
-        bast.*.line = ast_line;
-
-        return bast;
-    }
-
     fn parseBehaviour(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         const n = try token_queue.pop();
         const current_col = n.*.col;
@@ -4074,10 +4048,6 @@ fn parenExpToFunctionSignature(paren_exp: *TeleAst, allocator: std.mem.Allocator
 }
 
 fn isStatementKeyword(buf: []const u8) bool {
-    if (buf[0] == 'a') {
-        return isAttrKeyword(buf);
-    }
-
     if (buf[0] == 'e') {
         return isExportTypeKeyword(buf);
     }
@@ -4190,10 +4160,6 @@ fn isBehaviourKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "behaviour");
 }
 
-fn isAttrKeyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "attr");
-}
-
 fn isDocKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "doc");
 }
@@ -4245,7 +4211,6 @@ test "is keywords" {
     try std.testing.expect(isFunpKeyword("funp"));
     try std.testing.expect(isRecordKeyword("record"));
     try std.testing.expect(isBehaviourKeyword("behaviour"));
-    try std.testing.expect(isAttrKeyword("attr"));
     try std.testing.expect(isDocKeyword("doc"));
     try std.testing.expect(isModuledocKeyword("moduledoc"));
     try std.testing.expect(isCallbackKeyword("callback"));

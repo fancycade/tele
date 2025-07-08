@@ -49,7 +49,6 @@
 # Module Attributes
 
 - [Builtin Attributes](./builtin_attributes.md)
-- [Custom Attributes](./custom_attributes.md)
 
 # Tests
 

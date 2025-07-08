@@ -440,18 +440,6 @@ pub const Context = struct {
         self.attribute_mode = false;
     }
 
-    pub fn writeCustomAttribute(self: *Self, w: anytype, a: *const Ast) !void {
-        if (a.*.ast_type != AstType.custom_attribute) {
-            return CodegenError.WritingFailure;
-        }
-        self.attribute_mode = true;
-        try self.writePadding(w);
-        _ = try w.write("-");
-        try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .ast_type = AstType.function_call, .children = a.*.children }, false);
-        _ = try w.write(".\n\n");
-        self.attribute_mode = false;
-    }
-
     pub fn writeFunctionDef(self: *Self, w: anytype, a: *const Ast) !void {
         if (a.*.ast_type != AstType.function_def) {
             return CodegenError.WritingFailure;
@@ -1308,11 +1296,6 @@ pub const Context = struct {
                         return CodegenError.WritingFailure;
                     };
                 }
-            },
-            .custom_attribute => {
-                self.writeCustomAttribute(w, a) catch {
-                    return CodegenError.WritingFailure;
-                };
             },
             .function_call => {
                 self.writeFunctionCall(w, a, type_exp) catch {

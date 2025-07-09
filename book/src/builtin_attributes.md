@@ -9,11 +9,15 @@ import foobar(
 )
 ```
 
+[Read More](https://www.erlang.org/doc/system/modules.html#pre-defined-module-attributes)
+
 ## behaviour
 
 ```
 behaviour(gen_server)
 ```
+
+[Read More](https://www.erlang.org/doc/system/design_principles.html#behaviours)
 
 ## callback
 
@@ -21,11 +25,15 @@ behaviour(gen_server)
 callback foo(integer): integer
 ```
 
+[Read More](https://www.erlang.org/doc/system/design_principles.html#behaviours)
+
 ## include
 
 ```
 include("test/lib/test.hrl")
 ```
+
+[Read More](https://www.erlang.org/doc/system/macros.html)
 
 ## include_lib
 
@@ -33,11 +41,15 @@ include("test/lib/test.hrl")
 include_lib("test/lib/test.hrl")
 ```
 
+[Read More](https://www.erlang.org/doc/system/macros.html)
+
 ## export_type
 
 ```
 export_type(id/0)
 ```
+
+[Read More](https://www.erlang.org/doc/system/typespec.html#type-declarations-of-user-defined-types)
 
 ## nifs
 
@@ -45,11 +57,15 @@ export_type(id/0)
 nifs(foo/2, bar/3)
 ```
 
+[Read More](https://www.erlang.org/doc/system/nif.html)
+
 ## doc
 
 ```
 doc("this is a doc attribute")
 ```
+
+[Read More](https://www.erlang.org/doc/system/documentation.html)
 
 ## moduledoc
 
@@ -57,10 +73,13 @@ doc("this is a doc attribute")
 moduledoc("this is a module doc.")
 ```
 
-## onload
+[Read More](https://www.erlang.org/doc/system/documentation.html)
+
+## on_load
 
 ```
-onload("something")
+on_load(some_function/0)
 ```
+[Read More](https://www.erlang.org/doc/system/code_loading.html#running-a-function-when-a-module-is-loaded)
 
 

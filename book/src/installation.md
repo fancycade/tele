@@ -25,9 +25,5 @@ The binary will be at `zig-out/bin/tele`.
 
 The Tele binary only compiles Tele code to Erlang code. To actually run the code or do anything useful you will need Erlang and the build tool Rebar3.
 
-
-### Install Erlang/Rebar3:
-
-Install Erlang from [here](https://www.erlang.org/downloads).
-
-Install Rebar3 from [here](https://www.rebar3.org/docs/getting-started/).
+- Install [Erlang](https://www.erlang.org/downloads)
+- Install [Rebar3](https://www.rebar3.org/docs/getting-started/)

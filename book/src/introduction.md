@@ -2,8 +2,8 @@
 
 Tele is an alternative syntax for the Erlang programming language.
 
-This means that Tele code is compiled to Erlang code while being fully interoperable. There are no added semantics or extra standard library.
-It's just Erlang. In fact, the syntax is a subset of Erlang's.
+This means that Tele code is compiled to Erlang code. There are no added semantics or extra standard library.
+It's just Erlang. Technically, the syntax is a subset of Erlang's.
 
 The design is intended to be transparent to end users. Meaning libraries or tools that one writes in Tele will be seen as Erlang to the end user.
 
@@ -22,5 +22,5 @@ You might like this if you are an Erlang programmer who:
 
 - Easy to learn
 - Enjoyable to read
-- Minimize use of characters to reduce syntax errors
+- Minimize use of special characters to reduce syntax errors
 - Consistent but willing to sacrifice grammatical purity for user friendliness

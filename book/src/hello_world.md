@@ -39,7 +39,7 @@ c(hello).
 
 Then call our `hello_world` method from the `hello` module.
 
-````
+```
 hello:hello_world().
 => Hello, World!
 

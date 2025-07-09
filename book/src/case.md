@@ -43,9 +43,3 @@ fun handle_result
   (3): 'three
   (_): 'undefined
 ```
-
-We can handle `some_variable` with the function call:
-
-```
-handle_result(some_variable)
-```

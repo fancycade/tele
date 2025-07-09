@@ -2,7 +2,7 @@
 
 If you have Tele [installed](./installation.md) you'll want to do more than [hello_world](./hello_world.md).
 
-Here is how to make a Tele library.
+In this section we will show you how to setup an Erlang library and write the code with Tele.
 
 ## Create A New Project
 

@@ -50,7 +50,6 @@ tasks:
        cd tele/tele
        tar -czvf artifacts.tar.gz artifacts/
        scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null artifacts.tar.gz book@telelang.org:~
-       ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null book@telelang.org 'rm -rf artifacts'
        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null book@telelang.org 'tar -xzvf artifacts.tar.gz -C www'
   - book: |
        cd tele/book
@@ -59,7 +58,6 @@ tasks:
        cd tele/book
        tar -czvf book.tar.gz book/
        scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null book.tar.gz book@telelang.org:~
-       ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null book@telelang.org 'rm -rf book'
        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null book@telelang.org 'tar -xzvf book.tar.gz -C www'
        
 sources:

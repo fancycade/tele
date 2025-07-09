@@ -12,7 +12,7 @@ Run `tele help` to see that it is working.
 
 Install Zig 0.14 from [here](https://ziglang.org/download/).
 
-Download the Tele [code](https://git.sr.ht/~fancycade/tele).
+Download the Tele [code](https://github.com/fancycade/tele).
 
 ```
 cd tele/tele

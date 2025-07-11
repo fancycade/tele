@@ -1622,7 +1622,6 @@ pub const Parser = struct {
                     return ParserError.ParsingFailure;
                 }
             } else if (!util.validateVariableName(buf)) {
-                std.debug.print("BUF {s}\n", .{buf});
                 tele_error.setErrorMessage(line, col, tele_error.ErrorType.invalid_name);
                 return ParserError.ParsingFailure;
             }

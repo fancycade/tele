@@ -276,25 +276,23 @@ test "check path contains" {
     try std.testing.expect(!checkPathContains("foobar", "_build"));
 }
 
+fn release(allocator: std.mem.Allocator) !void {
+    try runWithModifiedRebarConfig(allocator, &[_][]const u8{ "rebar3", "release" });
+}
+
 fn eunit(allocator: std.mem.Allocator) !void {
-    // Run rebar3 eunit with modified rebar.config
-    const argv = [_][]const u8{ "rebar3", "eunit" };
-    var em = try std.process.getEnvMap(allocator);
-    defer em.deinit();
-    try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
-    const result = try std.process.Child.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
-    std.debug.print("{s}", .{result.stdout});
+    try runWithModifiedRebarConfig(allocator, &[_][]const u8{ "rebar3", "eunit" });
 }
 
 fn commonTest(allocator: std.mem.Allocator) !void {
-    // Run rebar3 common test with modified rebar.config and _build/_test as dir param
-    const argv = [_][]const u8{ "rebar3", "ct", "--dir", "_build/_test" };
+    try runWithModifiedRebarConfig(allocator, &[_][]const u8{ "rebar3", "ct", "--dir", "_build/_test" });
+}
+
+fn runWithModifiedRebarConfig(allocator: std.mem.Allocator, argv: []const []const u8) !void {
     var em = try std.process.getEnvMap(allocator);
     defer em.deinit();
     try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
-    const result = try std.process.Child.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
+    const result = try std.process.Child.run(.{ .argv = argv, .allocator = allocator, .env_map = &em });
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
     std.debug.print("{s}", .{result.stdout});

@@ -7,10 +7,10 @@ test:
 clean:
         rm -f *.erl
         rm -f *.beam
-        rm -f *.tl
-
-install: build
-        sudo cp zig-out/bin/tele /usr/local/bin/telec        
+        rm -f *.tl       
 
 release:
         zig build -Doptimize=ReleaseSmall --summary all
+
+install: release
+        sudo cp zig-out/bin/tele /usr/local/bin/telec

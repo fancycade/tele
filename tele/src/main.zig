@@ -80,6 +80,9 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
     } else if (std.mem.eql(u8, "ct", command)) {
         try build(allocator, false);
         try commonTest(allocator);
+    } else if (std.mem.eql(u8, "release", command)) {
+        try build(allocator, false);
+        try release(allocator);
     } else if (std.mem.eql(u8, "help", command)) {
         try help(allocator);
     } else {
@@ -557,5 +560,6 @@ fn help(allocator: std.mem.Allocator) !void {
     try outw.print("build\n  Build Tele/Erlang Rebar3 project.\n\n", .{});
     try outw.print("test\n  Run EUnit on Tele/Erlang Rebar3 project.\n\n", .{});
     try outw.print("ct\n  Run Common Test on Tele/Erlang Rebar3 project.\n\n", .{});
+    try outw.print("release\n  Create Erlang release.\n\n", .{});
     try outw.print("help\n  Display list of commands.\n", .{});
 }

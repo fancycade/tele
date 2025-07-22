@@ -110,9 +110,6 @@ pub const Parser = struct {
                 } else if (isNifsKeyword(pn.*.body)) {
                     const ast = try self.parseNifs(token_queue);
                     try statements.append(ast);
-                } else if (isExportTypeKeyword(pn.*.body)) {
-                    const ast = try self.parseExportType(token_queue);
-                    try statements.append(ast);
                 } else if (isDocKeyword(pn.*.body)) {
                     const ast = try self.parseAttribute(token_queue);
                     try statements.append(ast);
@@ -3550,71 +3547,6 @@ pub const Parser = struct {
         return ast;
     }
 
-    fn parseExportType(self: *Self, token_queue: *TokenQueue) !*TeleAst {
-        // TODO: check for export_type keyword
-        const name_node = try token_queue.pop();
-        const name = name_node.*.body;
-        const current_col = name_node.*.col;
-        const ast_line = name_node.*.line;
-        errdefer self.allocator.free(name);
-        self.allocator.destroy(name_node);
-
-        if (!try checkParenStartPeek(token_queue)) {
-            const peek_n = try token_queue.peek();
-            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
-            return ParserError.ParsingFailure;
-        }
-
-        // Pop off paren_start
-        const paren_start = try token_queue.pop();
-        const paren_current_col = paren_start.*.col;
-        const paren_ast_line = paren_start.*.line;
-        self.allocator.free(paren_start.*.body);
-        self.allocator.destroy(paren_start);
-
-        var children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.freeTeleAstList(children, self.allocator);
-
-        while (!token_queue.empty()) {
-            const pn = try token_queue.peek();
-
-            if (isParenEnd(pn.*.body)) {
-                const n2 = try token_queue.pop();
-                self.allocator.free(n2.*.body);
-                self.allocator.destroy(n2);
-                break;
-            } else if (isComma(pn.*.body)) {
-                const n2 = try token_queue.pop();
-                self.allocator.free(n2.*.body);
-                self.allocator.destroy(n2);
-            }
-
-            const e = try self.parseImportElement(token_queue);
-            try children.append(e);
-        }
-
-        const wrapper = try self.allocator.create(TeleAst);
-        wrapper.*.body = "";
-        wrapper.*.ast_type = TeleAstType.list;
-        wrapper.*.children = children;
-        wrapper.*.col = paren_current_col;
-        wrapper.*.line = paren_ast_line;
-
-        var final_children = std.ArrayList(*TeleAst).init(self.allocator);
-        errdefer tele_ast.freeTeleAstList(final_children, self.allocator);
-
-        try final_children.append(wrapper);
-
-        const ast = try self.allocator.create(TeleAst);
-        ast.*.body = name;
-        ast.*.ast_type = TeleAstType.attribute;
-        ast.*.children = final_children;
-        ast.*.col = current_col;
-        ast.*.line = ast_line;
-
-        return ast;
-    }
-
     fn parseImportElement(self: *Self, token_queue: *TokenQueue) !*TeleAst {
         const element_name_node = try token_queue.pop();
         const element_name = element_name_node.*.body;
@@ -4052,10 +3984,6 @@ fn parenExpToFunctionSignature(paren_exp: *TeleAst, allocator: std.mem.Allocator
 }
 
 fn isStatementKeyword(buf: []const u8) bool {
-    if (buf[0] == 'e') {
-        return isExportTypeKeyword(buf);
-    }
-
     if (buf[0] == 's') {
         return isSpecKeyword(buf);
     }
@@ -4119,7 +4047,6 @@ test "is statement keyword" {
     try std.testing.expect(isStatementKeyword("moduledoc"));
     try std.testing.expect(isStatementKeyword("define"));
     try std.testing.expect(isStatementKeyword("opaque"));
-    try std.testing.expect(isStatementKeyword("export_type"));
     try std.testing.expect(isStatementKeyword("test"));
     try std.testing.expect(isStatementKeyword("on_load"));
 
@@ -4138,10 +4065,6 @@ fn isTypeKeyword(buf: []const u8) bool {
 
 fn isOpaqueKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "opaque");
-}
-
-fn isExportTypeKeyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "export_type");
 }
 
 fn isSpecKeyword(buf: []const u8) bool {
@@ -4225,7 +4148,6 @@ test "is keywords" {
     try std.testing.expect(isDefineKeyword("define"));
     try std.testing.expect(isImportKeyword("import"));
     try std.testing.expect(isOpaqueKeyword("opaque"));
-    try std.testing.expect(isExportTypeKeyword("export_type"));
     try std.testing.expect(isWhenKeyword("when"));
     try std.testing.expect(isTestKeyword("test"));
 }

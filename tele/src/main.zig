@@ -377,15 +377,15 @@ fn erlangName(path: []const u8, output_prefix: ?[]const u8, allocator: std.mem.A
 
 test "erlang name" {
     const tele_path = "src/foobar/foobar.tl";
-    const erlang_path = try erlangName(tele_path, null, test_allocator, false);
+    const erlang_path = try erlangName(tele_path, null, test_allocator);
     try std.testing.expect(std.mem.eql(u8, erlang_path, "foobar.erl"));
     test_allocator.free(erlang_path);
 
-    const erlang_path2 = try erlangName(tele_path, "_build/tele/", test_allocator, false);
+    const erlang_path2 = try erlangName(tele_path, "_build/tele/", test_allocator);
     try std.testing.expect(std.mem.eql(u8, erlang_path2, "_build/tele/foobar.erl"));
     test_allocator.free(erlang_path2);
 
-    const erlang_path3 = try erlangName(tele_path, "_build/tele", test_allocator, false);
+    const erlang_path3 = try erlangName(tele_path, "_build/tele", test_allocator);
     try std.testing.expect(std.mem.eql(u8, erlang_path3, "_build/tele/foobar.erl"));
     test_allocator.free(erlang_path3);
 }

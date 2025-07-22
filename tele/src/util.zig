@@ -319,3 +319,32 @@ test "validate float" {
     try std.testing.expect(validateFloat("2.3e-3"));
     try std.testing.expect(validateFloat("1_234.333_333"));
 }
+
+pub fn validateAtom(buf: []const u8) bool {
+    if (buf.len < 2) {
+        return false;
+    }
+
+    if (buf[0] == '#') {
+        if (buf.len < 4) {
+            return false;
+        }
+
+        if (buf[1] != '\'') {
+            return false;
+        }
+
+        if (buf[buf.len - 1] != '\'') {
+            return false;
+        }
+    } else if (buf[0] != '\'') {
+        return false;
+    }
+
+    return true;
+}
+
+test "validate atom" {
+    try std.testing.expect(validateAtom("'foo"));
+    try std.testing.expect(!validateAtom("'"));
+}

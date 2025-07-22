@@ -1450,6 +1450,11 @@ pub const Parser = struct {
     }
 
     fn parseAtom(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        const n = try token_queue.peek();
+        if (!util.validateAtom(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.invalid_atom);
+            return ParserError.ParsingFailure;
+        }
         return try self.parseValue(token_queue, TeleAstType.atom);
     }
 

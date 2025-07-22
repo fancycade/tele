@@ -5,7 +5,7 @@ var column: usize = 0;
 var line: usize = 0;
 var path: []const u8 = "";
 
-pub const ErrorType = enum { invalid_statement, missing_name, missing_signature, missing_body, unexpected_token, invalid_signature_param, invalid_guard_clause, invalid_definition, invalid_field, invalid_expression, invalid_name, expected_token, invalid_integer, invalid_float };
+pub const ErrorType = enum { invalid_statement, missing_name, missing_signature, missing_body, unexpected_token, invalid_signature_param, invalid_guard_clause, invalid_definition, invalid_field, invalid_expression, invalid_name, expected_token, invalid_integer, invalid_float, invalid_atom };
 
 pub fn printErrorMessage() !void {
     const stderr = std.io.getStdErr().writer();
@@ -89,6 +89,9 @@ fn handleErrorType(e: ErrorType) void {
         },
         .invalid_float => {
             error_message = "Invalid Float";
+        },
+        .invalid_atom => {
+            error_message = "Invalid Atom";
         },
     }
 }

@@ -396,12 +396,7 @@ pub const Context = struct {
         _ = try w.write(a.*.body);
         _ = try w.write("(");
 
-        if (std.mem.eql(u8, ".htl", std.fs.path.extension(path.*.body[1 .. path.*.body.len - 1]))) {
-            _ = try w.write(path.*.body[0 .. path.*.body.len - 4]);
-            _ = try w.write("hrl\"");
-        } else {
-            _ = try w.write(path.*.body);
-        }
+        _ = try w.write(path.*.body);
 
         _ = try w.write(").\n");
     }

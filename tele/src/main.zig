@@ -59,7 +59,7 @@ fn handleArgs(allocator: std.mem.Allocator) !void {
             output_path = ".";
         }
 
-        compileFile(code_path, output_path.?, allocator, isTeleHeaderFile(code_path)) catch |e| {
+        compileFile(code_path, output_path.?, allocator) catch |e| {
             try tele_error.printErrorMessage();
             return e;
         };
@@ -100,6 +100,7 @@ fn build(allocator: std.mem.Allocator, erlang_compile: bool) !void {
     // Find app src
     const app_src_path = try findAppSrc(".", allocator);
     errdefer allocator.free(app_src_path);
+
     const build_tele_path = try createBuildTelePath(app_src_path, allocator);
     errdefer allocator.free(build_tele_path);
 
@@ -147,79 +148,16 @@ fn recursiveCompile(path: []const u8, allocator: std.mem.Allocator) !void {
                 defer allocator.free(input_path);
 
                 if (!checkPathContains(input_path, "_build")) {
+                    var build_path = "_build/_tele/";
+
                     if (checkPathContains(input_path, "test")) {
-                        const dir = std.fs.path.dirname(input_path);
-                        if (dir == null) {
-                            compileFile(input_path, "_build/_test/", allocator, false) catch |e| {
-                                try tele_error.printErrorMessage();
-                                return e;
-                            };
-                        } else {
-                            const output_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_test/", dir.? });
-                            defer allocator.free(output_path);
-                            compileFile(input_path, output_path, allocator, false) catch |e| {
-                                try tele_error.printErrorMessage();
-                                return e;
-                            };
-                        }
-                    } else {
-                        const dir = std.fs.path.dirname(input_path);
-                        if (dir == null) {
-                            compileFile(input_path, "_build/_tele/", allocator, false) catch |e| {
-                                try tele_error.printErrorMessage();
-                                return e;
-                            };
-                        } else {
-                            const output_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_tele/", dir.? });
-                            defer allocator.free(output_path);
-                            compileFile(input_path, output_path, allocator, false) catch |e| {
-                                try tele_error.printErrorMessage();
-                                return e;
-                            };
-                        }
+                        build_path = "_build/_test/";
                     }
-                }
-            } else if (isTeleHeaderFile(entry.basename)) {
-                const input_path = try std.fs.path.join(allocator, &[_][]const u8{ path, entry.path });
-                defer allocator.free(input_path);
 
-                if (!checkPathContains(input_path, "_build")) {
-                    const dir = std.fs.path.dirname(input_path);
-                    if (dir == null) {
-                        compileFile(input_path, "_build/_tele/", allocator, true) catch |e| {
-                            try tele_error.printErrorMessage();
-                            return e;
-                        };
-                    } else {
-                        if (checkPathContains(input_path, "include")) {
-                            compileFile(input_path, dir.?, allocator, true) catch |e| {
-                                try tele_error.printErrorMessage();
-                                return e;
-                            };
-                        } else {
-                            const output_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_tele/", dir.? });
-                            defer allocator.free(output_path);
-
-                            compileFile(input_path, output_path, allocator, true) catch |e| {
-                                try tele_error.printErrorMessage();
-                                return e;
-                            };
-                        }
-                    }
-                }
-            }
-        } else if (entry.kind == std.fs.File.Kind.directory) {
-            if (!checkPathContains(entry.path, "_build")) {
-                if (checkPathContains(entry.path, "test")) {
-                    const input_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_test/", entry.path });
-                    defer allocator.free(input_path);
-
-                    try std.fs.cwd().makePath(input_path);
-                } else {
-                    const input_path = try std.fs.path.join(allocator, &[_][]const u8{ "_build/_tele/", entry.path });
-                    defer allocator.free(input_path);
-
-                    try std.fs.cwd().makePath(input_path);
+                    compileFile(input_path, build_path, allocator) catch |e| {
+                        try tele_error.printErrorMessage();
+                        return e;
+                    };
                 }
             }
         }
@@ -312,17 +250,6 @@ test "is tele file" {
     try std.testing.expect(!isTeleFile("baz.erl"));
 }
 
-fn isTeleHeaderFile(path: []const u8) bool {
-    const ext = std.fs.path.extension(path);
-    return std.mem.eql(u8, ".htl", ext);
-}
-
-test "is tele header file" {
-    try std.testing.expect(isTeleHeaderFile("foo.htl"));
-    try std.testing.expect(isTeleHeaderFile("./foo/bar/foo.htl"));
-    try std.testing.expect(!isTeleHeaderFile("baz.erl"));
-}
-
 fn isAppSrcFile(path: []const u8) bool {
     const ext = std.fs.path.extension(path);
     // TODO: Check for app.src not just .src
@@ -367,8 +294,8 @@ fn formatFile(code_path: []const u8, allocator: std.mem.Allocator) !void {
     tast.freeTeleAstList(ta2, allocator);
 }
 
-fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.mem.Allocator, header: bool) !void {
-    const erlang_path = try erlangName(code_path, output_path, allocator, header);
+fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.mem.Allocator) !void {
+    const erlang_path = try erlangName(code_path, output_path, allocator);
     errdefer allocator.free(erlang_path);
 
     tele_error.setPath(code_path);
@@ -393,29 +320,27 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
 
     var w = file.writer();
 
-    if (!header) {
-        _ = try w.write("-module(");
-        _ = try w.write(std.fs.path.basename(erlang_path[0 .. erlang_path.len - 4]));
-        _ = try w.write(").\n");
-        _ = try w.write("-export([");
+    _ = try w.write("-module(");
+    _ = try w.write(std.fs.path.basename(erlang_path[0 .. erlang_path.len - 4]));
+    _ = try w.write(").\n");
+    _ = try w.write("-export([");
 
-        const metadata = try scanFunctionMetadata(ta2, allocator);
+    const metadata = try scanFunctionMetadata(ta2, allocator);
 
-        var ctr: usize = 0;
-        for (metadata.items) |m| {
-            try writeFunctionMetadata(w, m);
-            if (ctr < metadata.items.len - 1) {
-                _ = try w.write(", ");
-            }
-
-            ctr += 1;
+    var ctr: usize = 0;
+    for (metadata.items) |m| {
+        try writeFunctionMetadata(w, m);
+        if (ctr < metadata.items.len - 1) {
+            _ = try w.write(", ");
         }
 
-        _ = try w.write("]).\n");
-        _ = try w.write("\n");
-
-        freeFunctionMetadata(metadata, allocator);
+        ctr += 1;
     }
+
+    _ = try w.write("]).\n");
+    _ = try w.write("\n");
+
+    freeFunctionMetadata(metadata, allocator);
 
     var context = Context.init(allocator);
     for (east_list.items) |c| {
@@ -428,44 +353,26 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
     ast.free_erlang_ast_list(east_list, allocator);
 }
 
-fn erlangName(path: []const u8, output_prefix: ?[]const u8, allocator: std.mem.Allocator, header: bool) ![]const u8 {
+fn erlangName(path: []const u8, output_prefix: ?[]const u8, allocator: std.mem.Allocator) ![]const u8 {
     const base = std.fs.path.basename(path);
 
     var buf: []u8 = undefined;
-    if (!header) {
-        if (output_prefix == null) {
-            buf = try allocator.alloc(u8, base.len + 1);
-            std.mem.copyForwards(u8, buf, base[0 .. base.len - 2]);
-        } else if (output_prefix.?[output_prefix.?.len - 1] != '/') { // TODO: Make work for windows
-            buf = try allocator.alloc(u8, (output_prefix.?.len + 1) + (base.len + 1));
-            std.mem.copyForwards(u8, buf, output_prefix.?);
-            buf[output_prefix.?.len] = '/';
-            std.mem.copyForwards(u8, buf[output_prefix.?.len + 1 .. buf.len], base[0 .. base.len - 2]);
-        } else {
-            buf = try allocator.alloc(u8, output_prefix.?.len + base.len + 1);
-            std.mem.copyForwards(u8, buf, output_prefix.?);
-            std.mem.copyForwards(u8, buf[output_prefix.?.len..buf.len], base[0 .. base.len - 2]);
-        }
-        std.mem.copyForwards(u8, buf[buf.len - 3 .. buf.len], "erl");
-
-        return buf;
+    if (output_prefix == null) {
+        buf = try allocator.alloc(u8, base.len + 1);
+        std.mem.copyForwards(u8, buf, base[0 .. base.len - 2]);
+    } else if (output_prefix.?[output_prefix.?.len - 1] != '/') { // TODO: Make work for windows
+        buf = try allocator.alloc(u8, (output_prefix.?.len + 1) + (base.len + 1));
+        std.mem.copyForwards(u8, buf, output_prefix.?);
+        buf[output_prefix.?.len] = '/';
+        std.mem.copyForwards(u8, buf[output_prefix.?.len + 1 .. buf.len], base[0 .. base.len - 2]);
     } else {
-        if (output_prefix == null) {
-            buf = try allocator.alloc(u8, base.len);
-            std.mem.copyForwards(u8, buf, base[0 .. base.len - 3]);
-        } else if (output_prefix.?[output_prefix.?.len - 1] != '/') {
-            buf = try allocator.alloc(u8, output_prefix.?.len + base.len + 1);
-            std.mem.copyForwards(u8, buf, output_prefix.?);
-            buf[output_prefix.?.len] = '/';
-            std.mem.copyForwards(u8, buf[output_prefix.?.len + 1 .. buf.len], base[0 .. base.len - 3]);
-        } else {
-            buf = try allocator.alloc(u8, output_prefix.?.len + base.len);
-            std.mem.copyForwards(u8, buf, output_prefix.?);
-            std.mem.copyForwards(u8, buf[output_prefix.?.len..buf.len], base[0 .. base.len - 3]);
-        }
-        std.mem.copyForwards(u8, buf[buf.len - 3 .. buf.len], "hrl");
-        return buf;
+        buf = try allocator.alloc(u8, output_prefix.?.len + base.len + 1);
+        std.mem.copyForwards(u8, buf, output_prefix.?);
+        std.mem.copyForwards(u8, buf[output_prefix.?.len..buf.len], base[0 .. base.len - 2]);
     }
+    std.mem.copyForwards(u8, buf[buf.len - 3 .. buf.len], "erl");
+
+    return buf;
 }
 
 test "erlang name" {
@@ -481,19 +388,6 @@ test "erlang name" {
     const erlang_path3 = try erlangName(tele_path, "_build/tele", test_allocator, false);
     try std.testing.expect(std.mem.eql(u8, erlang_path3, "_build/tele/foobar.erl"));
     test_allocator.free(erlang_path3);
-
-    const tele_header_path = "src/foobar/foobar.htl";
-    const erlang_path4 = try erlangName(tele_header_path, null, test_allocator, true);
-    try std.testing.expect(std.mem.eql(u8, erlang_path4, "foobar.hrl"));
-    test_allocator.free(erlang_path4);
-
-    const erlang_path5 = try erlangName(tele_header_path, "_build/tele/", test_allocator, true);
-    try std.testing.expect(std.mem.eql(u8, erlang_path5, "_build/tele/foobar.hrl"));
-    test_allocator.free(erlang_path5);
-
-    const erlang_path6 = try erlangName(tele_header_path, "_build/tele", test_allocator, true);
-    try std.testing.expect(std.mem.eql(u8, erlang_path6, "_build/tele/foobar.hrl"));
-    test_allocator.free(erlang_path6);
 }
 
 fn writeFunctionMetadata(w: anytype, md: *const FunctionMetadata) !void {

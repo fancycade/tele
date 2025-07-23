@@ -281,7 +281,14 @@ pub const Context = struct {
             self.popMatch();
 
             _ = try w.write(" ");
-            _ = try w.write(a.body);
+
+            if (std.mem.eql(u8, a.body, "and")) {
+                _ = try w.write("andalso");
+            } else if (std.mem.eql(u8, a.body, "or")) {
+                _ = try w.write("orelse");
+            } else {
+                _ = try w.write(a.body);
+            }
             _ = try w.write(" ");
             try self.writeAst(w, a.children.?.items[1], type_exp);
         } else if (a.children.?.items.len == 1) {

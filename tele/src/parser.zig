@@ -4038,7 +4038,6 @@ test "is statement keyword" {
     try std.testing.expect(isStatementKeyword("import"));
     try std.testing.expect(isStatementKeyword("nifs"));
     try std.testing.expect(isStatementKeyword("callback"));
-    try std.testing.expect(isStatementKeyword("include"));
     try std.testing.expect(isStatementKeyword("include_lib"));
     try std.testing.expect(isStatementKeyword("doc"));
     try std.testing.expect(isStatementKeyword("moduledoc"));
@@ -4054,6 +4053,7 @@ test "is statement keyword" {
     try std.testing.expect(!isStatementKeyword("catch"));
     try std.testing.expect(!isStatementKeyword("("));
     try std.testing.expect(!isStatementKeyword(")"));
+    try std.testing.expect(!isStatementKeyword("include"));
 }
 
 fn isTypeKeyword(buf: []const u8) bool {
@@ -4412,10 +4412,10 @@ fn isOperator(buf: []const u8) bool {
             }
         },
         'a' => {
-            return std.mem.eql(u8, "and", buf) or std.mem.eql(u8, "andalso", buf);
+            return std.mem.eql(u8, "and", buf);
         },
         'o' => {
-            return std.mem.eql(u8, "or", buf) or std.mem.eql(u8, "orelse", buf);
+            return std.mem.eql(u8, "or", buf);
         },
         'n' => {
             return std.mem.eql(u8, "not", buf);
@@ -4447,8 +4447,6 @@ test "is operator" {
     try std.testing.expect(isOperator("++"));
     try std.testing.expect(isOperator("and"));
     try std.testing.expect(isOperator("or"));
-    try std.testing.expect(isOperator("andalso"));
-    try std.testing.expect(isOperator("orelse"));
     try std.testing.expect(isOperator("not"));
     try std.testing.expect(isOperator("::"));
     try std.testing.expect(isOperator("=/="));
@@ -4460,6 +4458,8 @@ test "is operator" {
     try std.testing.expect(!isOperator("foobar"));
     try std.testing.expect(!isOperator("<<"));
     try std.testing.expect(!isOperator(">>"));
+    try std.testing.expect(!isOperator("andalso"));
+    try std.testing.expect(!isOperator("orelse"));
 }
 
 fn isPipeOperator(buf: []const u8) bool {

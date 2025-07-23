@@ -251,9 +251,6 @@ pub const Context = struct {
     }
 
     pub fn writeAttribute(self: *Self, w: anytype, a: *const Ast) !void {
-        if (a.*.ast_type != AstType.attribute) {
-            return CodegenError.WritingFailure;
-        }
         try self.writePadding(w);
         try self.writeFunctionCall(w, &Ast{ .body = a.*.body, .children = a.*.children, .ast_type = AstType.function_call, .line = a.*.line, .col = a.*.col });
     }
@@ -1000,11 +997,6 @@ pub const Context = struct {
                     return CodegenError.WritingFailure;
                 };
             },
-            .attribute => {
-                self.writeAttribute(w, a) catch {
-                    return CodegenError.WritingFailure;
-                };
-            },
             .guard_sequence => {
                 self.writeGuardSequence(w, a) catch {
                     return CodegenError.WritingFailure;
@@ -1137,6 +1129,36 @@ pub const Context = struct {
             },
             .exception => {
                 self.writeValue(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .include => {
+                self.writeAttribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .include_lib => {
+                self.writeAttribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .on_load => {
+                self.writeAttribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .nifs => {
+                self.writeAttribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .doc => {
+                self.writeAttribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .moduledoc => {
+                self.writeAttribute(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },
@@ -1325,26 +1347,6 @@ test "write function call" {
 
     try context.writeFunctionCall(list2.writer(), &Ast{ .body = "side_effect", .ast_type = AstType.function_call, .children = null, .col = 0, .line = 0 });
     try std.testing.expect(std.mem.eql(u8, list2.items, "side_effect()"));
-}
-
-test "write attribute" {
-    var context = Context.init(test_allocator);
-    defer context.deinit();
-
-    var list = std.ArrayList(u8).init(test_allocator);
-    defer list.deinit();
-
-    var children = std.ArrayList(*Ast).init(test_allocator);
-    defer children.deinit();
-
-    var c = Ast{ .body = "\"hello world\"", .ast_type = AstType.binary, .children = null, .col = 0, .line = 0 };
-    try children.append(&c);
-
-    var a = Ast{ .body = "doc", .ast_type = AstType.attribute, .children = children, .col = 0, .line = 0 };
-
-    try context.writeAttribute(list.writer(), &a);
-
-    try std.testing.expect(std.mem.eql(u8, list.items, "doc(\"hello world\")"));
 }
 
 test "write function signature" {
@@ -2140,10 +2142,10 @@ test "write test block" {
     var include_children = std.ArrayList(*Ast).init(test_allocator);
     defer include_children.deinit();
 
-    var s = Ast{ .body = "\"test/lib/test.hrl\"", .ast_type = AstType.binary, .children = null, .col = 0, .line = 0 };
+    var s = Ast{ .body = "\"test/include/test.hrl\"", .ast_type = AstType.binary, .children = null, .col = 0, .line = 0 };
     try include_children.append(&s);
 
-    var a = Ast{ .body = "include", .ast_type = AstType.attribute, .children = include_children, .col = 0, .line = 0 };
+    var a = Ast{ .body = "include_lib", .ast_type = AstType.include_lib, .children = include_children, .col = 0, .line = 0 };
 
     var children = std.ArrayList(*Ast).init(test_allocator);
     defer children.deinit();
@@ -2151,7 +2153,7 @@ test "write test block" {
 
     var t = Ast{ .body = "", .ast_type = AstType.test_block, .children = children, .col = 0, .line = 0 };
     try context.writeTestBlock(list.writer(), &t);
-    try std.testing.expect(std.mem.eql(u8, list.items, "test:\n  include(\"test/lib/test.hrl\")\n\n"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "test:\n  include_lib(\"test/include/test.hrl\")\n\n"));
 }
 
 test "write test unit" {

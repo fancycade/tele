@@ -175,11 +175,6 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
-        .attribute => {
-            return teleToErlangAttribute(t, allocator) catch {
-                return CompilerError.CompilingFailure;
-            };
-        },
         .try_catch => {
             return teleToErlangTryCatch(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -237,6 +232,36 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
         },
         .exception => {
             return teleToErlangException(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .include => {
+            return teleToErlangAttribute(t, allocator, ErlangAstType.include) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .include_lib => {
+            return teleToErlangAttribute(t, allocator, ErlangAstType.include_lib) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .on_load => {
+            return teleToErlangAttribute(t, allocator, ErlangAstType.on_load) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .nifs => {
+            return teleToErlangAttribute(t, allocator, ErlangAstType.nifs) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .doc => {
+            return teleToErlangAttribute(t, allocator, ErlangAstType.doc) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .moduledoc => {
+            return teleToErlangAttribute(t, allocator, ErlangAstType.moduledoc) catch {
                 return CompilerError.CompilingFailure;
             };
         },
@@ -1569,30 +1594,9 @@ test "tele to erlang import element" {
     erlang_ast.destroy(result, test_allocator);
 }
 
-fn teleToErlangAttribute(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
-    if (t.*.ast_type != TeleAstType.attribute) {
-        return CompilerError.CompilingFailure;
-    }
+fn teleToErlangAttribute(t: *const TeleAst, allocator: std.mem.Allocator, ast_type: ErlangAstType) !*ErlangAst {
     const children = try compileChildren(t.*.children, allocator);
-    return try erlang_ast.makeNamedCollection(try util.copyString(t.*.body, allocator), children, ErlangAstType.attribute, allocator);
-}
-
-test "tele to erlang attribute" {
-    var include_s = TeleAst{ .body = "\"include/foo.hrl\"", .ast_type = TeleAstType.string, .children = null, .col = 0, .line = 0 };
-    var t_children = std.ArrayList(*TeleAst).init(test_allocator);
-    try t_children.append(&include_s);
-    var include_t = TeleAst{ .body = "include", .ast_type = TeleAstType.attribute, .children = t_children, .col = 0, .line = 0 };
-
-    var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
-    try e_children.append(&ErlangAst{ .body = "\"include/foo.hrl\"", .ast_type = ErlangAstType.string, .children = null });
-    var include_e = ErlangAst{ .body = "include", .ast_type = ErlangAstType.attribute, .children = e_children };
-
-    const result = try teleToErlangAttribute(&include_t, test_allocator);
-    try std.testing.expect(erlang_ast.equal(result, &include_e));
-
-    t_children.deinit();
-    e_children.deinit();
-    erlang_ast.destroy(result, test_allocator);
+    return try erlang_ast.makeNamedCollection(try util.copyString(t.*.body, allocator), children, ast_type, allocator);
 }
 
 fn teleToErlangTestBlock(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {

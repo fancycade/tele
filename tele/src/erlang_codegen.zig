@@ -365,7 +365,7 @@ pub const Context = struct {
     }
 
     pub fn writeInclude(self: *Self, w: anytype, a: *const Ast) !void {
-        if (a.*.ast_type != AstType.attribute) {
+        if (a.*.ast_type != AstType.include and a.*.ast_type != AstType.include_lib) {
             return CodegenError.WritingFailure;
         }
 
@@ -412,9 +412,6 @@ pub const Context = struct {
     }
 
     pub fn writeAttribute(self: *Self, w: anytype, a: *const Ast) !void {
-        if (a.*.ast_type != AstType.attribute) {
-            return CodegenError.WritingFailure;
-        }
         try self.writePadding(w);
         self.attribute_mode = true;
         _ = try w.write("-");
@@ -1281,16 +1278,35 @@ pub const Context = struct {
                     return CodegenError.WritingFailure;
                 };
             },
-            .attribute => {
-                if (std.mem.eql(u8, a.*.body, "include") or std.mem.eql(u8, a.*.body, "include_lib")) {
-                    self.writeInclude(w, a) catch {
-                        return CodegenError.WritingFailure;
-                    };
-                } else {
-                    self.writeAttribute(w, a) catch {
-                        return CodegenError.WritingFailure;
-                    };
-                }
+            .include => {
+                self.writeInclude(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .include_lib => {
+                self.writeInclude(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .on_load => {
+                self.writeAttribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .nifs => {
+                self.writeAttribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .doc => {
+                self.writeAttribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .moduledoc => {
+                self.writeAttribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
             },
             .function_call => {
                 self.writeFunctionCall(w, a, type_exp) catch {
@@ -1662,24 +1678,6 @@ test "write import def" {
     try context.writeImportDef(list.writer(), &Ast{ .body = "other", .ast_type = AstType.import_def, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "-import(other, [foobar/1, barfoo/2]).\n"));
-}
-
-test "write attribute" {
-    var list = std.ArrayList(u8).init(test_allocator);
-    defer list.deinit();
-
-    var children = std.ArrayList(*const Ast).init(test_allocator);
-    defer children.deinit();
-
-    try children.append(&Ast{ .body = "foobar", .ast_type = AstType.atom, .children = null });
-
-    var context = Context.init(test_allocator);
-    defer context.deinit();
-    try context.writeAttribute(list.writer(), &Ast{ .body = "module", .ast_type = AstType.attribute, .children = children });
-
-    try std.testing.expect(std.mem.eql(u8, list.items, "-module(foobar).\n"));
-
-    // Test multi arg string
 }
 
 test "write function def" {

@@ -102,19 +102,19 @@ pub const Parser = struct {
                     const ast = try self.parseBehaviour(token_queue);
                     try statements.append(ast);
                 } else if (isIncludeKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(token_queue);
+                    const ast = try self.parseAttribute(token_queue, TeleAstType.include);
                     try statements.append(ast);
                 } else if (isIncludeLibKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(token_queue);
+                    const ast = try self.parseAttribute(token_queue, TeleAstType.include_lib);
                     try statements.append(ast);
                 } else if (isNifsKeyword(pn.*.body)) {
                     const ast = try self.parseNifs(token_queue);
                     try statements.append(ast);
                 } else if (isDocKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(token_queue);
+                    const ast = try self.parseAttribute(token_queue, TeleAstType.doc);
                     try statements.append(ast);
                 } else if (isModuledocKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(token_queue);
+                    const ast = try self.parseAttribute(token_queue, TeleAstType.moduledoc);
                     try statements.append(ast);
                 } else if (isOnLoadKeyword(pn.*.body)) {
                     const ast = try self.parseOnLoad(token_queue);
@@ -3272,7 +3272,7 @@ pub const Parser = struct {
         return ast;
     }
 
-    fn parseAttribute(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+    fn parseAttribute(self: *Self, token_queue: *TokenQueue, ast_type: TeleAstType) !*TeleAst {
 
         // Pop off attribute name
         const name_node = try token_queue.pop();
@@ -3292,7 +3292,7 @@ pub const Parser = struct {
             return ParserError.ParsingFailure;
         };
 
-        bast.*.ast_type = TeleAstType.attribute;
+        bast.*.ast_type = ast_type;
         bast.*.col = current_col;
         bast.*.line = ast_line;
 
@@ -3469,7 +3469,7 @@ pub const Parser = struct {
 
         const onload = try self.allocator.create(TeleAst);
         onload.*.body = name;
-        onload.*.ast_type = TeleAstType.attribute;
+        onload.*.ast_type = TeleAstType.on_load;
         onload.*.children = children;
         onload.*.col = current_col;
         onload.*.line = ast_line;
@@ -3539,7 +3539,7 @@ pub const Parser = struct {
 
         const ast = try self.allocator.create(TeleAst);
         ast.*.body = name;
-        ast.*.ast_type = TeleAstType.attribute;
+        ast.*.ast_type = TeleAstType.nifs;
         ast.*.children = final_children;
         ast.*.col = current_col;
         ast.*.line = ast_line;

@@ -343,6 +343,7 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
     freeFunctionMetadata(metadata, allocator);
 
     var context = Context.init(allocator);
+    errdefer context.deinit();
     for (east_list.items) |c| {
         try context.writeAst(w, c, false);
     }

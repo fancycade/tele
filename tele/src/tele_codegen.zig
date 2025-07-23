@@ -714,7 +714,7 @@ pub const Context = struct {
         _ = try w.write("\n\n");
     }
 
-    pub fn writeTypeDef(self: *Self, w: anytype, a: *const Ast) !void {
+    pub fn writeTypeDef(self: *Self, w: anytype, a: *const Ast, public: bool) !void {
         if (a.*.ast_type != AstType.type_def) {
             return CodegenError.WritingFailure;
         }
@@ -724,7 +724,12 @@ pub const Context = struct {
         if (a.*.children.?.items.len != 2) {
             return CodegenError.WritingFailure;
         }
-        _ = try w.write("type ");
+
+        if (public) {
+            _ = try w.write("type ");
+        } else {
+            _ = try w.write("typep ");
+        }
         try self.writeAst(w, a.children.?.items[0]);
         _ = try w.write(":\n");
 
@@ -1038,7 +1043,12 @@ pub const Context = struct {
                 };
             },
             .type_def => {
-                self.writeTypeDef(w, a) catch {
+                self.writeTypeDef(w, a, true) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .typep_def => {
+                self.writeTypeDef(w, a, false) catch {
                     return CodegenError.WritingFailure;
                 };
             },
@@ -2023,7 +2033,7 @@ test "write type def" {
 
     var t = Ast{ .body = "", .ast_type = AstType.type_def, .children = children, .col = 0, .line = 0 };
 
-    try context.writeTypeDef(list.writer(), &t);
+    try context.writeTypeDef(list.writer(), &t, true);
     try std.testing.expect(std.mem.eql(u8, list.items, "type id:\n  integer\n\n"));
 }
 

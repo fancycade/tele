@@ -125,6 +125,11 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
+        .typep_def => {
+            return teleToErlangTypeDef(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         .record_def => {
             return teleToErlangRecordDef(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -1096,7 +1101,7 @@ test "tele to erlang opaque type def" {
 }
 
 fn teleToErlangTypeDef(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
-    if (t.*.ast_type != TeleAstType.type_def) {
+    if (t.*.ast_type != TeleAstType.type_def and t.*.ast_type != TeleAstType.typep_def) {
         return CompilerError.CompilingFailure;
     }
     const children = try compileChildren(t.*.children, allocator);

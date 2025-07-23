@@ -81,10 +81,13 @@ pub const Parser = struct {
 
             if (isStatementKeyword(pn.*.body)) {
                 if (isTypeKeyword(pn.*.body)) {
-                    const ast = try self.parseTypeDefinition(token_queue, false);
+                    const ast = try self.parseTypeDefinition(token_queue, false, true);
+                    try statements.append(ast);
+                } else if (isTypepKeyword(pn.*.body)) {
+                    const ast = try self.parseTypeDefinition(token_queue, false, false);
                     try statements.append(ast);
                 } else if (isOpaqueKeyword(pn.*.body)) {
-                    const ast = try self.parseTypeDefinition(token_queue, true);
+                    const ast = try self.parseTypeDefinition(token_queue, true, true);
                     try statements.append(ast);
                 } else if (isSpecKeyword(pn.*.body)) {
                     const ast = try self.parseSpecDefinition(token_queue);
@@ -804,12 +807,12 @@ pub const Parser = struct {
         return t;
     }
 
-    fn parseTypeDefinition(self: *Self, token_queue: *TokenQueue, opaque_type: bool) !*TeleAst {
+    fn parseTypeDefinition(self: *Self, token_queue: *TokenQueue, opaque_type: bool, public: bool) !*TeleAst {
         // Free type/opaque keyword
         const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
-        if (!(isTypeKeyword(n.*.body) or isOpaqueKeyword(n.*.body))) {
+        if (!(isTypeKeyword(n.*.body) or isOpaqueKeyword(n.*.body) or isTypepKeyword(n.*.body))) {
             tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
@@ -917,8 +920,10 @@ pub const Parser = struct {
         t.*.body = "";
         if (opaque_type) {
             t.*.ast_type = TeleAstType.opaque_type_def;
-        } else {
+        } else if (public) {
             t.*.ast_type = TeleAstType.type_def;
+        } else {
+            t.*.ast_type = TeleAstType.typep_def;
         }
         t.*.children = children;
         t.*.col = current_col;
@@ -3991,7 +3996,7 @@ fn isStatementKeyword(buf: []const u8) bool {
     }
 
     if (buf[0] == 't') {
-        return isTypeKeyword(buf) or isTestKeyword(buf);
+        return isTypeKeyword(buf) or isTestKeyword(buf) or isTypepKeyword(buf);
     }
 
     if (buf[0] == 'r') {
@@ -4046,6 +4051,7 @@ test "is statement keyword" {
     try std.testing.expect(isStatementKeyword("opaque"));
     try std.testing.expect(isStatementKeyword("test"));
     try std.testing.expect(isStatementKeyword("on_load"));
+    try std.testing.expect(isStatementKeyword("typep"));
 
     try std.testing.expect(!isStatementKeyword("["));
     try std.testing.expect(!isStatementKeyword("]"));
@@ -4059,6 +4065,10 @@ test "is statement keyword" {
 
 fn isTypeKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "type");
+}
+
+fn isTypepKeyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "typep");
 }
 
 fn isOpaqueKeyword(buf: []const u8) bool {

@@ -364,12 +364,12 @@ pub const Context = struct {
         _ = try w.write("]).\n");
     }
 
-    pub fn writeInclude(self: *Self, w: anytype, a: *const Ast) !void {
-        if (a.*.ast_type != AstType.include and a.*.ast_type != AstType.include_lib) {
+    pub fn writeIncludeLib(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.include_lib) {
             return CodegenError.WritingFailure;
         }
 
-        if (!(std.mem.eql(u8, "include", a.*.body) or std.mem.eql(u8, "include_lib", a.*.body))) {
+        if (!std.mem.eql(u8, "include_lib", a.*.body)) {
             return CodegenError.WritingFailure;
         }
 
@@ -1278,13 +1278,8 @@ pub const Context = struct {
                     return CodegenError.WritingFailure;
                 };
             },
-            .include => {
-                self.writeInclude(w, a) catch {
-                    return CodegenError.WritingFailure;
-                };
-            },
             .include_lib => {
-                self.writeInclude(w, a) catch {
+                self.writeIncludeLib(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

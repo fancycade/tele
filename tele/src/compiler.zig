@@ -235,11 +235,6 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
-        .include => {
-            return teleToErlangAttribute(t, allocator, ErlangAstType.include) catch {
-                return CompilerError.CompilingFailure;
-            };
-        },
         .include_lib => {
             return teleToErlangAttribute(t, allocator, ErlangAstType.include_lib) catch {
                 return CompilerError.CompilingFailure;

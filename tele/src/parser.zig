@@ -101,9 +101,6 @@ pub const Parser = struct {
                 } else if (isBehaviourKeyword(pn.*.body)) {
                     const ast = try self.parseBehaviour(token_queue);
                     try statements.append(ast);
-                } else if (isIncludeKeyword(pn.*.body)) {
-                    const ast = try self.parseAttribute(token_queue, TeleAstType.include);
-                    try statements.append(ast);
                 } else if (isIncludeLibKeyword(pn.*.body)) {
                     const ast = try self.parseAttribute(token_queue, TeleAstType.include_lib);
                     try statements.append(ast);
@@ -4005,7 +4002,7 @@ fn isStatementKeyword(buf: []const u8) bool {
     }
 
     if (buf[0] == 'i') {
-        return isIncludeKeyword(buf) or isIncludeLibKeyword(buf) or isImportKeyword(buf);
+        return isIncludeLibKeyword(buf) or isImportKeyword(buf);
     }
 
     if (buf[0] == 'm') {
@@ -4103,10 +4100,6 @@ fn isNifsKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "nifs");
 }
 
-fn isIncludeKeyword(buf: []const u8) bool {
-    return std.mem.eql(u8, buf, "include");
-}
-
 fn isIncludeLibKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "include_lib");
 }
@@ -4143,7 +4136,6 @@ test "is keywords" {
     try std.testing.expect(isCallbackKeyword("callback"));
     try std.testing.expect(isOnLoadKeyword("on_load"));
     try std.testing.expect(isNifsKeyword("nifs"));
-    try std.testing.expect(isIncludeKeyword("include"));
     try std.testing.expect(isIncludeLibKeyword("include_lib"));
     try std.testing.expect(isDefineKeyword("define"));
     try std.testing.expect(isImportKeyword("import"));

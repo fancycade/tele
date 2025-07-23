@@ -1132,11 +1132,6 @@ pub const Context = struct {
                     return CodegenError.WritingFailure;
                 };
             },
-            .include => {
-                self.writeAttribute(w, a) catch {
-                    return CodegenError.WritingFailure;
-                };
-            },
             .include_lib => {
                 self.writeAttribute(w, a) catch {
                     return CodegenError.WritingFailure;

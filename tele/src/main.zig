@@ -18,7 +18,7 @@ const util = @import("util.zig");
 
 const ExecutionError = error{ Empty, MissingAppSrc };
 
-const FunctionMetadata = struct { name: []const u8, args: usize };
+const CodeMetadata = struct { name: []const u8, args: usize };
 
 pub fn main() !void {
     // Setup memory allocator
@@ -320,16 +320,19 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
 
     var w = file.writer();
 
+    // Write module attribute
     _ = try w.write("-module(");
     _ = try w.write(std.fs.path.basename(erlang_path[0 .. erlang_path.len - 4]));
-    _ = try w.write(").\n");
+    _ = try w.write(").\n\n");
+
+    // Write export functions
     _ = try w.write("-export([");
 
     const metadata = try scanFunctionMetadata(ta2, allocator);
 
     var ctr: usize = 0;
     for (metadata.items) |m| {
-        try writeFunctionMetadata(w, m);
+        try writeCodeMetadata(w, m);
         if (ctr < metadata.items.len - 1) {
             _ = try w.write(", ");
         }
@@ -340,7 +343,26 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
     _ = try w.write("]).\n");
     _ = try w.write("\n");
 
-    freeFunctionMetadata(metadata, allocator);
+    freeCodeMetadata(metadata, allocator);
+
+    // Write export types
+    const type_metadata = try scanTypeMetadata(ta2, allocator);
+
+    _ = try w.write("-export_types([");
+
+    ctr = 0;
+    for (type_metadata.items) |m| {
+        try writeCodeMetadata(w, m);
+        if (ctr < type_metadata.items.len - 1) {
+            _ = try w.write(", ");
+        }
+        ctr += 1;
+    }
+
+    _ = try w.write("]).\n");
+    _ = try w.write("\n");
+
+    freeCodeMetadata(type_metadata, allocator);
 
     var context = Context.init(allocator);
     errdefer context.deinit();
@@ -391,7 +413,7 @@ test "erlang name" {
     test_allocator.free(erlang_path3);
 }
 
-fn writeFunctionMetadata(w: anytype, md: *const FunctionMetadata) !void {
+fn writeCodeMetadata(w: anytype, md: *const CodeMetadata) !void {
     _ = try w.write(md.*.name);
     _ = try w.write("/");
     var buf: [24]u8 = undefined;
@@ -399,12 +421,12 @@ fn writeFunctionMetadata(w: anytype, md: *const FunctionMetadata) !void {
     _ = try w.write(str);
 }
 
-fn scanFunctionMetadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !std.ArrayList(*const FunctionMetadata) {
-    var metadata = std.ArrayList(*const FunctionMetadata).init(allocator);
+fn scanFunctionMetadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !std.ArrayList(*const CodeMetadata) {
+    var metadata = std.ArrayList(*const CodeMetadata).init(allocator);
 
     for (ta.items) |t| {
         if (t.*.ast_type == TeleAstType.function_def) {
-            const md = try allocator.create(FunctionMetadata);
+            const md = try allocator.create(CodeMetadata);
 
             const buf = try allocator.alloc(u8, t.*.body.len);
             std.mem.copyForwards(u8, buf, t.*.body);
@@ -434,7 +456,35 @@ fn scanFunctionMetadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Allocato
     return metadata;
 }
 
-fn freeFunctionMetadata(metadata: std.ArrayList(*const FunctionMetadata), allocator: std.mem.Allocator) void {
+fn scanTypeMetadata(ta: std.ArrayList(*TeleAst), allocator: std.mem.Allocator) !std.ArrayList(*const CodeMetadata) {
+    var metadata = std.ArrayList(*const CodeMetadata).init(allocator);
+
+    for (ta.items) |t| {
+        if (t.*.ast_type == TeleAstType.type_def or t.*.ast_type == TeleAstType.opaque_type_def) {
+            const md = try allocator.create(CodeMetadata);
+
+            // TODO: throw error when children is null or length zero
+            const type_sig = t.*.children.?.items[0];
+            if (type_sig.ast_type == TeleAstType.function_call) {
+                const buf = try allocator.alloc(u8, type_sig.*.body.len);
+                std.mem.copyForwards(u8, buf, type_sig.*.body);
+                md.*.name = buf;
+
+                if (type_sig.*.children == null) {
+                    md.*.args = 0;
+                } else {
+                    md.*.args = type_sig.*.children.?.items.len;
+                }
+            }
+
+            try metadata.append(md);
+        }
+    }
+
+    return metadata;
+}
+
+fn freeCodeMetadata(metadata: std.ArrayList(*const CodeMetadata), allocator: std.mem.Allocator) void {
     for (metadata.items) |m| {
         allocator.free(m.name);
         allocator.destroy(m);

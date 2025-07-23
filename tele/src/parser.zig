@@ -850,7 +850,8 @@ pub const Parser = struct {
             t.*.body = buf;
             t.*.ast_type = TeleAstType.function_call;
             t.*.children = null;
-            t.*.col = 0;
+            t.*.col = pn.*.col;
+            t.*.line = pn.*.line;
             try children.append(t);
         } else {
 

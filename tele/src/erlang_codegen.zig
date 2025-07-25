@@ -290,6 +290,7 @@ pub const Context = struct {
                 _ = try w.write(a.body);
             }
             _ = try w.write(" ");
+            // TODO: handle padding for when second argument is anonymous function
             try self.writeAst(w, a.children.?.items[1], type_exp);
         } else if (a.children.?.items.len == 1) {
             _ = try w.write(a.body);
@@ -394,7 +395,8 @@ pub const Context = struct {
             return CodegenError.WritingFailure;
         }
 
-        if (path.*.body.len < 6) {
+        // Minimal path is: "a.hrl"
+        if (path.*.body.len < 7) {
             return CodegenError.WritingFailure;
         }
 
@@ -578,7 +580,7 @@ pub const Context = struct {
 
             var can_break = false;
             if (i >= a.children.?.items.len) {
-                _ = try w.write(".\n\n");
+                _ = try w.write(".\n");
                 can_break = true;
             } else if (a.children.?.items[i].ast_type == AstType.function_signature) {
                 _ = try w.write(";\n");
@@ -916,6 +918,7 @@ pub const Context = struct {
             _ = try w.write("when ");
 
             try self.writeGuardSequence(w, a.children.?.items[i], false);
+            try self.popPadding();
 
             i = i + 1;
         }
@@ -1486,7 +1489,7 @@ test "write value" {
     // TODO: Atom with double quotes
 }
 
-test "write binary" {
+test "write string" {
     var list = std.ArrayList(u8).init(test_allocator);
     defer list.deinit();
 
@@ -1496,6 +1499,76 @@ test "write binary" {
     try context.writeString(list.writer(), &Ast{ .body = "\"foobar\"", .ast_type = AstType.string, .children = null }, true);
 
     try std.testing.expect(std.mem.eql(u8, list.items, "<<\"foobar\"/utf8>>"));
+
+    list.clearAndFree();
+
+    try context.writeString(list.writer(), &Ast{ .body = "\"foobar\"", .ast_type = AstType.string, .children = null }, false);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "\"foobar\""));
+}
+
+test "write binary" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var echildren = std.ArrayList(*const Ast).init(test_allocator);
+    defer echildren.deinit();
+
+    try echildren.append(&Ast{ .body = "\"foobar\"", .ast_type = AstType.string, .children = null });
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+    try children.append(&Ast{ .body = "", .ast_type = AstType.binary_element, .children = echildren });
+
+    try context.writeBinary(list.writer(), &Ast{ .body = "", .ast_type = AstType.binary, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "<<\"foobar\">>"));
+}
+
+test "write binary element" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "\"foo\"", .ast_type = AstType.string, .children = null });
+
+    try context.writeBinaryElement(list.writer(), &Ast{ .body = "", .ast_type = AstType.binary_element, .children = children });
+    try std.testing.expect(std.mem.eql(u8, list.items, "\"foo\""));
+}
+
+test "write binary element size" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "1", .ast_type = AstType.int, .children = null });
+
+    try context.writeBinaryElementSize(list.writer(), &Ast{ .body = "", .ast_type = AstType.binary_element_size, .children = children });
+    try std.testing.expect(std.mem.eql(u8, list.items, ":1"));
+}
+
+test "write binary element type" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    try context.writeBinaryElementType(list.writer(), &Ast{ .body = "binary", .ast_type = AstType.binary_element_type, .children = null });
+    try std.testing.expect(std.mem.eql(u8, list.items, "/binary"));
 }
 
 test "write tuple" {
@@ -1662,7 +1735,10 @@ test "write function call" {
 
     try std.testing.expect(std.mem.eql(u8, list.items, "erlang:add(1, 2)"));
 
-    // TODO: Test no arguments
+    list.clearAndFree();
+
+    try context.writeFunctionCall(list.writer(), &Ast{ .body = "timestamp", .ast_type = AstType.function_call, .children = null }, false);
+    try std.testing.expect(std.mem.eql(u8, list.items, "timestamp()"));
 }
 
 test "write import def" {
@@ -1680,6 +1756,18 @@ test "write import def" {
     try context.writeImportDef(list.writer(), &Ast{ .body = "other", .ast_type = AstType.import_def, .children = children });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "-import(other, [foobar/1, barfoo/2]).\n"));
+}
+
+test "write behaviour" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    try context.writeBehaviour(list.writer(), &Ast{ .body = "gen_server", .children = null, .ast_type = AstType.behaviour });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "-behaviour(gen_server).\n"));
 }
 
 test "write function def" {
@@ -1886,7 +1974,7 @@ test "write spec def" {
     defer context.deinit();
     try context.writeSpecDef(list.writer(), &Ast{ .body = "foobar", .ast_type = AstType.spec_def, .children = children });
 
-    try std.testing.expect(std.mem.eql(u8, list.items, "-spec foobar() ->\n    integer().\n\n"));
+    try std.testing.expect(std.mem.eql(u8, list.items, "-spec foobar() ->\n    integer().\n"));
 }
 
 test "write macro def" {
@@ -2132,4 +2220,93 @@ test "write catch exp" {
     try context.writeCatchExp(list.writer(), &Ast{ .body = "", .ast_type = AstType.catch_exp, .children = children2 });
 
     try std.testing.expect(std.mem.eql(u8, list.items, "catch\n\n    _ ->\n        42\nend"));
+}
+
+test "write guard" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var op_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer op_children.deinit();
+    try op_children.append(&Ast{ .body = "A", .ast_type = AstType.variable, .children = null });
+    try op_children.append(&Ast{ .body = "2", .ast_type = AstType.int, .children = null });
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = ">=", .ast_type = AstType.op, .children = op_children });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeGuard(list.writer(), &Ast{ .body = "", .ast_type = AstType.guard, .children = children }, false);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "A >= 2"));
+}
+
+test "write guard sequence" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var op_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer op_children.deinit();
+    try op_children.append(&Ast{ .body = "A", .ast_type = AstType.variable, .children = null });
+    try op_children.append(&Ast{ .body = "2", .ast_type = AstType.int, .children = null });
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = ">=", .ast_type = AstType.op, .children = op_children });
+
+    var gchildren = std.ArrayList(*const Ast).init(test_allocator);
+    defer gchildren.deinit();
+
+    try gchildren.append(&Ast{ .body = "", .ast_type = AstType.guard, .children = children });
+    try gchildren.append(&Ast{ .body = "", .ast_type = AstType.guard, .children = children });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    try context.writeGuardSequence(list.writer(), &Ast{ .body = "", .ast_type = AstType.guard_sequence, .children = gchildren }, false);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "A >= 2;\nA >= 2"));
+}
+
+test "write test block" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var fchildren = std.ArrayList(*const Ast).init(test_allocator);
+    defer fchildren.deinit();
+
+    try fchildren.append(&Ast{ .body = "", .ast_type = AstType.function_signature, .children = null });
+    try fchildren.append(&Ast{ .body = "hello", .ast_type = AstType.function_call, .children = null });
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "foo_test", .ast_type = AstType.function_def, .children = fchildren });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    try context.writeTestBlock(list.writer(), &Ast{ .body = "", .ast_type = AstType.test_block, .children = children }, false);
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "-ifdef(TEST).\nfoo_test() ->\n    hello().\n\n-endif.\n\n"));
+}
+
+test "write test unit" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "hello", .ast_type = AstType.function_call, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    try context.writeTestUnit(list.writer(), &Ast{ .body = "foo", .ast_type = AstType.test_unit, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "-ifdef(TEST).\nfoo_test() ->\n    hello().\n\n-endif.\n\n"));
 }

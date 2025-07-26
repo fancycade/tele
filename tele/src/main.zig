@@ -325,6 +325,9 @@ fn compileFile(code_path: []const u8, output_path: []const u8, allocator: std.me
     _ = try w.write(std.fs.path.basename(erlang_path[0 .. erlang_path.len - 4]));
     _ = try w.write(").\n\n");
 
+    // Write enable maybe_expr feature. Can remove when default is widespread
+    _ = try w.write("-feature(maybe_expr, enable).\n\n");
+
     // Write export functions
     _ = try w.write("-export([");
 

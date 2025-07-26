@@ -81,13 +81,16 @@ pub const Parser = struct {
 
             if (isStatementKeyword(pn.*.body)) {
                 if (isTypeKeyword(pn.*.body)) {
-                    const ast = try self.parseTypeDefinition(token_queue, false, true);
+                    const ast = try self.parseTypeDefinition(token_queue, false, true, false);
                     try statements.append(ast);
                 } else if (isTypepKeyword(pn.*.body)) {
-                    const ast = try self.parseTypeDefinition(token_queue, false, false);
+                    const ast = try self.parseTypeDefinition(token_queue, false, false, false);
                     try statements.append(ast);
                 } else if (isOpaqueKeyword(pn.*.body)) {
-                    const ast = try self.parseTypeDefinition(token_queue, true, true);
+                    const ast = try self.parseTypeDefinition(token_queue, true, true, false);
+                    try statements.append(ast);
+                } else if (isNominalKeyword(pn.*.body)) {
+                    const ast = try self.parseTypeDefinition(token_queue, false, false, true);
                     try statements.append(ast);
                 } else if (isSpecKeyword(pn.*.body)) {
                     const ast = try self.parseSpecDefinition(token_queue);
@@ -807,12 +810,13 @@ pub const Parser = struct {
         return t;
     }
 
-    fn parseTypeDefinition(self: *Self, token_queue: *TokenQueue, opaque_type: bool, public: bool) !*TeleAst {
+    // TODO: change bools to an enum
+    fn parseTypeDefinition(self: *Self, token_queue: *TokenQueue, opaque_type: bool, public: bool, nominal: bool) !*TeleAst {
         // Free type/opaque keyword
         const n = token_queue.pop() catch {
             return ParserError.ParsingFailure;
         };
-        if (!(isTypeKeyword(n.*.body) or isOpaqueKeyword(n.*.body) or isTypepKeyword(n.*.body))) {
+        if (!(isTypeKeyword(n.*.body) or isOpaqueKeyword(n.*.body) or isTypepKeyword(n.*.body) or isNominalKeyword(n.*.body))) {
             tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
             self.allocator.free(n.*.body);
             self.allocator.destroy(n);
@@ -922,6 +926,8 @@ pub const Parser = struct {
             t.*.ast_type = TeleAstType.opaque_type_def;
         } else if (public) {
             t.*.ast_type = TeleAstType.type_def;
+        } else if (nominal) {
+            t.*.ast_type = TeleAstType.nominal_type_def;
         } else {
             t.*.ast_type = TeleAstType.typep_def;
         }
@@ -4020,7 +4026,7 @@ fn isStatementKeyword(buf: []const u8) bool {
     }
 
     if (buf[0] == 'n') {
-        return isNifsKeyword(buf);
+        return isNifsKeyword(buf) or isNominalKeyword(buf);
     }
 
     if (buf[0] == 'd') {
@@ -4052,6 +4058,7 @@ test "is statement keyword" {
     try std.testing.expect(isStatementKeyword("test"));
     try std.testing.expect(isStatementKeyword("on_load"));
     try std.testing.expect(isStatementKeyword("typep"));
+    try std.testing.expect(isStatementKeyword("nominal"));
 
     try std.testing.expect(!isStatementKeyword("["));
     try std.testing.expect(!isStatementKeyword("]"));
@@ -4073,6 +4080,10 @@ fn isTypepKeyword(buf: []const u8) bool {
 
 fn isOpaqueKeyword(buf: []const u8) bool {
     return std.mem.eql(u8, buf, "opaque");
+}
+
+fn isNominalKeyword(buf: []const u8) bool {
+    return std.mem.eql(u8, buf, "nominal");
 }
 
 fn isSpecKeyword(buf: []const u8) bool {

@@ -714,6 +714,26 @@ pub const Context = struct {
         _ = try w.write("\n\n");
     }
 
+    pub fn writeNominalTypeDef(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.nominal_type_def) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len != 2) {
+            return CodegenError.WritingFailure;
+        }
+        _ = try w.write("nominal ");
+        try self.writeAst(w, a.children.?.items[0]);
+        _ = try w.write(":\n");
+
+        try self.pushPadding(self.currentPadding() + 2);
+        try self.writeAst(w, a.children.?.items[1]);
+
+        _ = try w.write("\n\n");
+    }
+
     pub fn writeTypeDef(self: *Self, w: anytype, a: *const Ast, public: bool) !void {
         if (a.*.ast_type != AstType.type_def) {
             return CodegenError.WritingFailure;
@@ -1049,6 +1069,11 @@ pub const Context = struct {
             },
             .typep_def => {
                 self.writeTypeDef(w, a, false) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .nominal_type_def => {
+                self.writeNominalTypeDef(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

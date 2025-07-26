@@ -120,6 +120,11 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
+        .nominal_type_def => {
+            return teleToErlangNominalTypeDef(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
         .type_def => {
             return teleToErlangTypeDef(t, allocator) catch {
                 return CompilerError.CompilingFailure;
@@ -1080,7 +1085,6 @@ fn teleToErlangOpaqueTypeDef(t: *const TeleAst, allocator: std.mem.Allocator) !*
     const children = try compileChildren(t.*.children, allocator);
     return try erlang_ast.makeNamedCollection(try util.copyString(t.*.body, allocator), children, ErlangAstType.opaque_type_def, allocator);
 }
-
 test "tele to erlang opaque type def" {
     var t_child1 = TeleAst{ .body = "integer", .ast_type = TeleAstType.function_call, .children = null, .col = 0, .line = 0 };
     var t_children = std.ArrayList(*TeleAst).init(test_allocator);
@@ -1098,6 +1102,18 @@ test "tele to erlang opaque type def" {
     t_children.deinit();
     e_children.deinit();
     erlang_ast.destroy(result, test_allocator);
+}
+
+fn teleToErlangNominalTypeDef(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.nominal_type_def) {
+        return CompilerError.CompilingFailure;
+    }
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeNamedCollection(try util.copyString(t.*.body, allocator), children, ErlangAstType.nominal_type_def, allocator);
+}
+
+test "tele to erlang nominal" {
+    // TODO
 }
 
 fn teleToErlangTypeDef(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {

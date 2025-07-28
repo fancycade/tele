@@ -1250,6 +1250,10 @@ pub const Parser = struct {
             ast = self.parseReceiveExpression(token_queue) catch {
                 return ParserError.ParsingFailure;
             };
+        } else if (isMaybeKeyword(pn.*.body)) {
+            ast = self.parseMaybeExpression(token_queue) catch {
+                return ParserError.ParsingFailure;
+            };
         } else if (isTryKeyword(pn.*.body)) {
             ast = self.parseTryCatch(token_queue) catch {
                 return ParserError.ParsingFailure;
@@ -1374,6 +1378,12 @@ pub const Parser = struct {
         } else if (isCaseKeyword(pn.*.body)) {
             return ParserError.ParsingFailure;
         } else if (isTryKeyword(pn.*.body)) {
+            return ParserError.ParsingFailure;
+        } else if (isReceiveKeyword(pn.*.body)) {
+            return ParserError.ParsingFailure;
+        } else if (isMaybeKeyword(pn.*.body)) {
+            return ParserError.ParsingFailure;
+        } else if (isElseKeyword(pn.*.body)) {
             return ParserError.ParsingFailure;
         } else {
             const n = token_queue.pop() catch {
@@ -2605,7 +2615,7 @@ pub const Parser = struct {
                 signature_ready = false;
             }
 
-            if ((isFun(peek_node.*.body) and paren_count == 0) or isCaseKeyword(peek_node.*.body) or isTryKeyword(peek_node.*.body) or isCatchKeyword(peek_node.*.body) or isReceiveKeyword(peek_node.*.body)) {
+            if ((isFun(peek_node.*.body) and paren_count == 0) or isCaseKeyword(peek_node.*.body) or isTryKeyword(peek_node.*.body) or isCatchKeyword(peek_node.*.body) or isReceiveKeyword(peek_node.*.body) or isMaybeKeyword(peek_node.*.body) or isElseKeyword(peek_node.*.body)) {
                 if (!nested_body) {
                     nested_body_col = peek_node.*.col;
                 }
@@ -2789,6 +2799,133 @@ pub const Parser = struct {
         }
 
         return alist;
+    }
+
+    fn parseMaybeExpression(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        // Pop off maybe keyword
+        const n = try token_queue.pop();
+        const current_col = n.*.col;
+        const ast_line = n.*.line;
+
+        if (!isMaybeKeyword(n.*.body)) {
+            tele_error.setErrorMessage(ast_line, current_col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
+        self.allocator.free(n.*.body);
+        self.allocator.destroy(n);
+
+        // Pop off colon
+        const n2 = try token_queue.pop();
+        if (!isColon(n2.*.body)) {
+            tele_error.setErrorMessage(n2.*.line, n2.*.col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(n2.*.body);
+            self.allocator.destroy(n2);
+            return ParserError.ParsingFailure;
+        }
+        self.allocator.free(n.*.body);
+        self.allocator.destroy(n);
+
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
+
+        // Parse Maybe Expression
+        while (!token_queue.empty()) {
+            const pnode2 = try token_queue.peek();
+
+            if (pnode2.*.col <= current_col) {
+                break;
+            } else {
+                const node = try token_queue.pop();
+                errdefer self.allocator.free(node.*.body);
+                errdefer self.allocator.destroy(node);
+
+                try buffer_token_queue.push(node.*.body, node.*.line, node.*.col);
+                self.allocator.destroy(node);
+            }
+        }
+
+        var maybe_body = try self.parseBody(buffer_token_queue, ast_line, current_col);
+        errdefer tele_ast.freeTeleAstList(maybe_body, self.allocator);
+
+        if (!token_queue.empty()) {
+            const pn2 = try token_queue.peek();
+
+            if (isElseKeyword(pn2.*.body)) {
+                const else_ast = try self.parseElseExpression(token_queue);
+                try maybe_body.append(else_ast);
+            }
+        }
+
+        const maybe_ast = try self.allocator.create(TeleAst);
+        maybe_ast.*.body = "";
+        maybe_ast.*.ast_type = TeleAstType.maybe_exp;
+        maybe_ast.*.children = maybe_body;
+        maybe_ast.*.col = current_col;
+        maybe_ast.*.line = ast_line;
+
+        return maybe_ast;
+    }
+
+    fn parseElseExpression(self: *Self, token_queue: *TokenQueue) !*TeleAst {
+        // Pop off else keyword
+        const n = try token_queue.pop();
+        const current_col = n.*.col;
+        const ast_line = n.*.line;
+        if (!isElseKeyword(n.*.body)) {
+            tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(n.*.body);
+            self.allocator.destroy(n);
+            return ParserError.ParsingFailure;
+        }
+        self.allocator.free(n.*.body);
+        self.allocator.destroy(n);
+
+        // Pop off colon
+        const n2 = try token_queue.pop();
+        if (!isColon(n2.*.body)) {
+            tele_error.setErrorMessage(n2.*.line, n2.*.col, tele_error.ErrorType.unexpected_token);
+            self.allocator.free(n2.*.body);
+            self.allocator.destroy(n2);
+            return ParserError.ParsingFailure;
+        }
+
+        var buffer_token_queue = try TokenQueue.init(self.allocator);
+        errdefer buffer_token_queue.deinit();
+
+        while (!token_queue.empty()) {
+            const pnode2 = try token_queue.peek();
+
+            if (pnode2.*.col <= current_col) {
+                break;
+            } else {
+                const node = try token_queue.pop();
+                errdefer self.allocator.free(node.*.body);
+                errdefer self.allocator.destroy(node);
+
+                try buffer_token_queue.push(node.*.body, node.*.line, node.*.col);
+                self.allocator.destroy(node);
+            }
+        }
+
+        const body = try self.parseCaseBody(buffer_token_queue, ast_line, current_col);
+        errdefer tele_ast.freeTeleAstList(body, self.allocator);
+        if (!buffer_token_queue.empty()) {
+            const peek_n = try buffer_token_queue.peek();
+            tele_error.setErrorMessage(peek_n.*.line, peek_n.*.col, tele_error.ErrorType.unexpected_token);
+            return ParserError.ParsingFailure;
+        }
+        buffer_token_queue.deinit();
+
+        const ast = try self.allocator.create(TeleAst);
+        ast.*.body = "";
+        ast.*.ast_type = TeleAstType.else_exp;
+        ast.*.children = body;
+        ast.*.col = current_col;
+        ast.*.line = ast_line;
+
+        return ast;
     }
 
     fn parseReceiveExpression(self: *Self, token_queue: *TokenQueue) !*TeleAst {
@@ -4500,6 +4637,24 @@ fn isCaseKeyword(buf: []const u8) bool {
 test "is case keyword" {
     try std.testing.expect(isCaseKeyword("case"));
     try std.testing.expect(!isCaseKeyword("foobar"));
+}
+
+fn isMaybeKeyword(buf: []const u8) bool {
+    return std.mem.eql(u8, "maybe", buf);
+}
+
+test "is maybe keyword" {
+    try std.testing.expect(isMaybeKeyword("maybe"));
+    try std.testing.expect(!isMaybeKeyword("mabye"));
+}
+
+fn isElseKeyword(buf: []const u8) bool {
+    return std.mem.eql(u8, "else", buf);
+}
+
+test "is else keyword" {
+    try std.testing.expect(isElseKeyword("else"));
+    try std.testing.expect(!isElseKeyword("esle"));
 }
 
 fn isReceiveKeyword(buf: []const u8) bool {

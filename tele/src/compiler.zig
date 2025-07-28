@@ -270,6 +270,16 @@ pub fn teleToErlang(t: *const TeleAst, allocator: std.mem.Allocator) error{Compi
                 return CompilerError.CompilingFailure;
             };
         },
+        .maybe_exp => {
+            return teleToErlangMaybe(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
+        .else_exp => {
+            return teleToErlangElse(t, allocator) catch {
+                return CompilerError.CompilingFailure;
+            };
+        },
     }
 }
 
@@ -1407,6 +1417,22 @@ test "test to erlang receive" {
     ecc_children.deinit();
     e_children.deinit();
     erlang_ast.destroy(result, test_allocator);
+}
+
+fn teleToErlangMaybe(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.maybe_exp) {
+        return CompilerError.CompilingFailure;
+    }
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeCollection(children, ErlangAstType.maybe_exp, allocator);
+}
+
+fn teleToErlangElse(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
+    if (t.*.ast_type != TeleAstType.else_exp) {
+        return CompilerError.CompilingFailure;
+    }
+    const children = try compileChildren(t.*.children, allocator);
+    return try erlang_ast.makeCollection(children, ErlangAstType.else_exp, allocator);
 }
 
 fn teleToErlangTryCatch(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {

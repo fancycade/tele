@@ -500,6 +500,58 @@ pub const Context = struct {
         _ = try w.write("\n");
     }
 
+    pub fn writeMaybe(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.maybe_exp) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+
+        var len: usize = a.*.children.?.items.len;
+        var else_expr = false;
+        if (a.*.children.?.items[len - 1].ast_type == AstType.else_exp) {
+            len = len - 1;
+            else_expr = true;
+        }
+
+        try self.writePadding(w);
+        _ = try w.write("maybe:\n");
+
+        try self.pushPadding(self.currentPadding() + 2);
+        for (a.*.children.?.items[0..len]) |c| {
+            try self.writeAst(w, c);
+            _ = try w.write("\n");
+        }
+        try self.popPadding();
+
+        if (else_expr) {
+            try self.writeElse(w, a.*.children.?.items[len]);
+        }
+    }
+
+    pub fn writeElse(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.else_exp) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len < 1) {
+            return CodegenError.WritingFailure;
+        }
+
+        try self.writePadding(w);
+        _ = try w.write("else:\n");
+
+        try self.pushPadding(self.currentPadding() + 2);
+        for (a.*.children.?.items) |c| {
+            try self.writeCaseClause(w, c);
+            _ = try w.write("\n");
+        }
+        try self.popPadding();
+    }
+
     pub fn writeTryCatch(self: *Self, w: anytype, a: *const Ast) !void {
         if (a.*.ast_type != AstType.try_catch) {
             return CodegenError.WritingFailure;
@@ -1189,6 +1241,16 @@ pub const Context = struct {
             },
             .moduledoc => {
                 self.writeAttribute(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .maybe_exp => {
+                self.writeMaybe(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .else_exp => {
+                self.writeElse(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },

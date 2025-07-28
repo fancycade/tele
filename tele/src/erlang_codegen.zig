@@ -1006,6 +1006,85 @@ pub const Context = struct {
         _ = try w.write("end");
     }
 
+    pub fn writeMaybe(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.maybe_exp) {
+            return CodegenError.WritingFailure;
+        }
+
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        try self.writePadding(w);
+
+        _ = try w.write("maybe\n");
+
+        try self.pushPadding(self.currentPadding() + 4);
+
+        var i: usize = 0;
+        var len = a.*.children.?.items.len;
+        var else_exp = false;
+
+        if (a.*.children.?.items[len - 1].ast_type == AstType.else_exp) {
+            len = len - 1;
+            else_exp = true;
+        }
+        while (true) {
+            if (i >= len) {
+                break;
+            }
+
+            try self.writeAst(w, a.*.children.?.items[i], false);
+
+            if (i < len - 1) {
+                _ = try w.write(",\n");
+            } else {
+                _ = try w.write("\n");
+            }
+
+            i = i + 1;
+        }
+        try self.popPadding();
+
+        if (else_exp) {
+            try self.writeElse(w, a.*.children.?.items[len]);
+        }
+        try self.popPadding();
+        _ = try w.write("end");
+    }
+
+    pub fn writeElse(self: *Self, w: anytype, a: *const Ast) !void {
+        if (a.*.ast_type != AstType.else_exp) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children == null) {
+            return CodegenError.WritingFailure;
+        }
+        if (a.*.children.?.items.len < 1) {
+            return CodegenError.WritingFailure;
+        }
+        try self.writePadding(w);
+        _ = try w.write("else\n");
+        try self.pushPadding(self.currentPadding() + 4);
+
+        var i: usize = 0;
+        while (true) {
+            if (i >= a.*.children.?.items.len) {
+                break;
+            }
+
+            try self.writeCaseClause(w, a.*.children.?.items[i]);
+
+            if (i < a.*.children.?.items.len - 1) {
+                _ = try w.write(";\n");
+            } else {
+                _ = try w.write("\n");
+            }
+
+            i = i + 1;
+        }
+        try self.popPadding();
+    }
+
     pub fn writeReceive(self: *Self, w: anytype, a: *const Ast) !void {
         if (a.*.ast_type != AstType.receive_exp) {
             return CodegenError.WritingFailure;
@@ -1477,6 +1556,16 @@ pub const Context = struct {
             },
             .nominal_type_def => {
                 self.writeNominalTypeDef(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .maybe_exp => {
+                self.writeMaybe(w, a) catch {
+                    return CodegenError.WritingFailure;
+                };
+            },
+            .else_exp => {
+                self.writeElse(w, a) catch {
                     return CodegenError.WritingFailure;
                 };
             },
@@ -2332,3 +2421,7 @@ test "write test unit" {
 
     try std.testing.expect(std.mem.eql(u8, list.items, "-ifdef(TEST).\nfoo_test() ->\n    hello().\n\n-endif.\n\n"));
 }
+
+test "write else" {}
+
+test "write maybe" {}

@@ -2274,3 +2274,73 @@ test "write test unit" {
     try context.writeTestUnit(list.writer(), &tu);
     try std.testing.expect(std.mem.eql(u8, list.items, "test basic:\n  ?assertEqual(1, 2)\n\n"));
 }
+
+test "write else" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var v = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+
+    var cc_children = std.ArrayList(*Ast).init(test_allocator);
+    defer cc_children.deinit();
+
+    try cc_children.append(&v);
+    try cc_children.append(&v);
+
+    var e_children = std.ArrayList(*Ast).init(test_allocator);
+    defer e_children.deinit();
+
+    var a = Ast{ .body = "", .ast_type = AstType.case_clause, .children = cc_children, .col = 0, .line = 0 };
+    try e_children.append(&a);
+
+    try context.writeElse(list.writer(), &Ast{ .body = "", .ast_type = AstType.else_exp, .children = e_children, .col = 0, .line = 0 });
+    try std.testing.expect(std.mem.eql(u8, list.items, "else:\n  x:\n    x\n"));
+}
+
+test "write maybe" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var v = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+
+    var cc_children = std.ArrayList(*Ast).init(test_allocator);
+    defer cc_children.deinit();
+
+    try cc_children.append(&v);
+    try cc_children.append(&v);
+
+    var e_children = std.ArrayList(*Ast).init(test_allocator);
+    defer e_children.deinit();
+
+    var a = Ast{ .body = "", .ast_type = AstType.case_clause, .children = cc_children, .col = 0, .line = 0 };
+    try e_children.append(&a);
+
+    var e = Ast{ .body = "", .ast_type = AstType.else_exp, .children = e_children, .col = 0, .line = 0 };
+
+    var v2 = Ast{ .body = "x", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    var i = Ast{ .body = "2", .ast_type = AstType.int, .children = null, .col = 0, .line = 0 };
+
+    var op_children = std.ArrayList(*Ast).init(test_allocator);
+    defer op_children.deinit();
+    try op_children.append(&v2);
+    try op_children.append(&i);
+
+    var op = Ast{ .body = "=", .ast_type = AstType.op, .children = op_children, .col = 0, .line = 0 };
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&op);
+    try children.append(&e);
+
+    var m = Ast{ .body = "", .ast_type = AstType.maybe_exp, .children = children, .col = 0, .line = 0 };
+
+    try context.writeMaybe(list.writer(), &m);
+    try std.testing.expect(std.mem.eql(u8, list.items, "maybe:\n  x = 2\nelse:\n  x:\n    x\n"));
+}

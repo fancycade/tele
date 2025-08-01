@@ -1049,7 +1049,7 @@ pub const Context = struct {
             try self.writeElse(w, a.*.children.?.items[len]);
         }
         try self.popPadding();
-        _ = try w.write("end");
+        _ = try w.write("end\n");
     }
 
     pub fn writeElse(self: *Self, w: anytype, a: *const Ast) !void {
@@ -2422,6 +2422,76 @@ test "write test unit" {
     try std.testing.expect(std.mem.eql(u8, list.items, "-ifdef(TEST).\nfoo_test() ->\n    hello().\n\n-endif.\n\n"));
 }
 
-test "write else" {}
+test "write else" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
 
-test "write maybe" {}
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    const v = Ast{ .body = "X", .ast_type = AstType.variable, .children = null };
+    try children.append(&v);
+    try children.append(&v);
+
+    const cc = Ast{ .body = "", .ast_type = AstType.case_clause, .children = children };
+
+    const i = Ast{ .body = "2", .ast_type = AstType.int, .children = null };
+    var children2 = std.ArrayList(*const Ast).init(test_allocator);
+    defer children2.deinit();
+
+    try children2.append(&i);
+    try children2.append(&i);
+
+    var cc2 = Ast{ .body = "", .ast_type = AstType.case_clause, .children = children2 };
+
+    var cc_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer cc_children.deinit();
+
+    try cc_children.append(&cc2);
+    try cc_children.append(&cc);
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    try context.writeElse(list.writer(), &Ast{ .body = "", .ast_type = AstType.else_exp, .children = cc_children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "else\n    2 ->\n        2;\n    X ->\n        X\n"));
+}
+
+test "write maybe" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    var op_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer op_children.deinit();
+    try op_children.append(&Ast{ .body = "X", .ast_type = AstType.variable, .children = null });
+    try op_children.append(&Ast{ .body = "2", .ast_type = AstType.int, .children = null });
+    const op = Ast{ .body = "=", .ast_type = AstType.op, .children = op_children };
+    try children.append(&op);
+
+    var cc_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer cc_children.deinit();
+
+    const v = Ast{ .body = "X", .ast_type = AstType.variable, .children = null };
+    try cc_children.append(&v);
+    try cc_children.append(&v);
+
+    const cc = Ast{ .body = "", .ast_type = AstType.case_clause, .children = cc_children };
+
+    var e_children = std.ArrayList(*const Ast).init(test_allocator);
+    defer e_children.deinit();
+
+    try e_children.append(&cc);
+    const e = Ast{ .body = "", .ast_type = AstType.else_exp, .children = e_children };
+    try children.append(&e);
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    try context.writeMaybe(list.writer(), &Ast{ .body = "", .ast_type = AstType.maybe_exp, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "maybe\n    X = 2\nelse\n    X ->\n        X\nend\n"));
+}

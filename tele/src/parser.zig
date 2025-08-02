@@ -4596,7 +4596,14 @@ fn isOperator(buf: []const u8) bool {
                 return false;
             }
         },
-        '*', '/', '!', '-', '|' => {
+        '!' => {
+            if (buf.len == 1) {
+                return true;
+            } else {
+                return buf.len == 2 and buf[1] == '=';
+            }
+        },
+        '*', '/', '-', '|' => {
             return true;
         },
         '<', '>', '=' => {
@@ -4608,14 +4615,8 @@ fn isOperator(buf: []const u8) bool {
                 } else {
                     return false;
                 }
-            } else if (buf.len == 3) {
-                if (buf[1] == '/' and buf[2] == '=') {
-                    return true;
-                } else if (buf[1] == ':' and buf[2] == '=') {
-                    return true;
-                } else {
-                    return false;
-                }
+            } else {
+                return false;
             }
         },
         '?' => {
@@ -4663,7 +4664,7 @@ test "is operator" {
     try std.testing.expect(isOperator("or"));
     try std.testing.expect(isOperator("not"));
     try std.testing.expect(isOperator("::"));
-    try std.testing.expect(isOperator("=/="));
+    try std.testing.expect(isOperator("!="));
 
     try std.testing.expect(!isOperator("==="));
     try std.testing.expect(!isOperator("+++"));
@@ -4674,6 +4675,8 @@ test "is operator" {
     try std.testing.expect(!isOperator(">>"));
     try std.testing.expect(!isOperator("andalso"));
     try std.testing.expect(!isOperator("orelse"));
+    try std.testing.expect(!isOperator("=:="));
+    try std.testing.expect(!isOperator("=/="));
 }
 
 fn isPipeOperator(buf: []const u8) bool {

@@ -857,7 +857,15 @@ fn teleToErlangOp(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {
     if (t.*.ast_type != TeleAstType.op) {
         return CompilerError.CompilingFailure;
     }
-    const e = try erlang_ast.makeValue(try util.copyString(t.*.body, allocator), ErlangAstType.op, allocator);
+
+    var body: []const u8 = undefined;
+    if (std.mem.eql(u8, t.*.body, "!=")) {
+        body = try util.copyString("=/=", allocator);
+    } else {
+        body = try util.copyString(t.*.body, allocator);
+    }
+
+    const e = try erlang_ast.makeValue(body, ErlangAstType.op, allocator);
     e.*.children = try compileChildren(t.*.children, allocator);
     if (e.*.children == null) {
         erlang_ast.destroy(e, allocator);
@@ -884,6 +892,28 @@ test "tele to erlang op" {
     try e_children.append(&ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null });
 
     try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "+", .ast_type = ErlangAstType.op, .children = e_children }));
+
+    erlang_ast.destroy(e, test_allocator);
+}
+
+test "tele to erlang op not equal" {
+    var t_children = std.ArrayList(*TeleAst).init(test_allocator);
+    defer t_children.deinit();
+
+    var t = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0, .line = 0 };
+    try t_children.append(&t);
+    var t2 = TeleAst{ .body = "2", .ast_type = TeleAstType.int, .children = null, .col = 0, .line = 0 };
+    try t_children.append(&t2);
+
+    const e = try teleToErlangOp(&TeleAst{ .body = "!=", .ast_type = TeleAstType.op, .children = t_children, .col = 0, .line = 0 }, test_allocator);
+
+    var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
+    defer e_children.deinit();
+
+    try e_children.append(&ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null });
+    try e_children.append(&ErlangAst{ .body = "2", .ast_type = ErlangAstType.int, .children = null });
+
+    try std.testing.expect(erlang_ast.equal(e, &ErlangAst{ .body = "=/=", .ast_type = ErlangAstType.op, .children = e_children }));
 
     erlang_ast.destroy(e, test_allocator);
 }

@@ -1113,6 +1113,14 @@ test "read token" {
     try expect(ctx.next_col_number == 12);
     list.clearAndFree();
 
+    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, "!="));
+    try expect(ctx.line_number == 37);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 37);
+    try expect(ctx.next_col_number == 2);
+    list.clearAndFree();
+
     const eof = try readToken(file.reader(), &list, &ctx, tokenizer);
     try expect(eof);
 }

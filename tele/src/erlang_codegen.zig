@@ -2157,6 +2157,23 @@ test "write type def" {
     try std.testing.expect(std.mem.eql(u8, list.items, "-type id() :: integer().\n\n"));
 }
 
+test "write nominal type def" {
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*const Ast).init(test_allocator);
+    defer children.deinit();
+
+    try children.append(&Ast{ .body = "id", .ast_type = AstType.function_call, .children = null });
+    try children.append(&Ast{ .body = "integer", .ast_type = AstType.function_call, .children = null });
+
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+    try context.writeNominalTypeDef(list.writer(), &Ast{ .body = "id", .ast_type = AstType.nominal_type_def, .children = children });
+
+    try std.testing.expect(std.mem.eql(u8, list.items, "-nominal id() :: integer().\n\n"));
+}
+
 test "write record def" {
     var list = std.ArrayList(u8).init(test_allocator);
     defer list.deinit();

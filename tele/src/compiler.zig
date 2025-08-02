@@ -1123,7 +1123,22 @@ fn teleToErlangNominalTypeDef(t: *const TeleAst, allocator: std.mem.Allocator) !
 }
 
 test "tele to erlang nominal" {
-    // TODO
+    var t_child1 = TeleAst{ .body = "integer", .ast_type = TeleAstType.function_call, .children = null, .col = 0, .line = 0 };
+    var t_children = std.ArrayList(*TeleAst).init(test_allocator);
+    try t_children.append(&t_child1);
+    var t = TeleAst{ .body = "", .ast_type = TeleAstType.nominal_type_def, .children = t_children, .col = 0, .line = 0 };
+
+    const e_child1 = ErlangAst{ .body = "integer", .ast_type = ErlangAstType.function_call, .children = null };
+    var e_children = std.ArrayList(*const ErlangAst).init(test_allocator);
+    try e_children.append(&e_child1);
+    var e = ErlangAst{ .body = "", .ast_type = ErlangAstType.nominal_type_def, .children = e_children };
+
+    const result = try teleToErlangNominalTypeDef(&t, test_allocator);
+    try std.testing.expect(erlang_ast.equal(&e, result));
+
+    t_children.deinit();
+    e_children.deinit();
+    erlang_ast.destroy(result, test_allocator);
 }
 
 fn teleToErlangTypeDef(t: *const TeleAst, allocator: std.mem.Allocator) !*ErlangAst {

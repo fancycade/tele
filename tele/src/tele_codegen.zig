@@ -2146,6 +2146,28 @@ test "write opaque type def" {
     try std.testing.expect(std.mem.eql(u8, list.items, "opaque id:\n  integer\n\n"));
 }
 
+test "write nominal type def" {
+    var context = Context.init(test_allocator);
+    defer context.deinit();
+
+    var list = std.ArrayList(u8).init(test_allocator);
+    defer list.deinit();
+
+    var children = std.ArrayList(*Ast).init(test_allocator);
+    defer children.deinit();
+
+    var v = Ast{ .body = "id", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try children.append(&v);
+
+    var output = Ast{ .body = "integer", .ast_type = AstType.variable, .children = null, .col = 0, .line = 0 };
+    try children.append(&output);
+
+    var t = Ast{ .body = "", .ast_type = AstType.nominal_type_def, .children = children, .col = 0, .line = 0 };
+
+    try context.writeNominalTypeDef(list.writer(), &t);
+    try std.testing.expect(std.mem.eql(u8, list.items, "nominal id:\n  integer\n\n"));
+}
+
 test "write record field type" {
     var context = Context.init(test_allocator);
     defer context.deinit();

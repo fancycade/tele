@@ -330,6 +330,13 @@ fn readToken(r: anytype, l: *std.ArrayList(u8), ctx: *TokenContext, tokenizer: *
                         mode = .hash;
                     } else if (pb == '\'') {
                         mode = .short_atom;
+                    } else if (pb == '?') {
+                        const pb2 = try tokenizer.peekChar(r);
+                        if (pb2 == '=') {
+                            mode = .op;
+                        } else {
+                            mode = .word;
+                        }
                     } else if (opChar(pb)) {
                         mode = .op;
                     } else {
@@ -493,7 +500,7 @@ fn newline(c: u8) bool {
 
 fn specialChar(c: u8) bool {
     switch (c) {
-        '(', ')', '{', '}', '[', ']', ':', ',', '#', '-', '+', '/', '*', '<', '>', '|', '=', '"', '\'', '!' => {
+        '(', ')', '{', '}', '[', ']', ':', ',', '#', '-', '+', '/', '*', '<', '>', '|', '=', '"', '\'', '!', '?' => {
             return true;
         },
         else => {},
@@ -503,7 +510,7 @@ fn specialChar(c: u8) bool {
 
 fn opChar(c: u8) bool {
     switch (c) {
-        '-', '+', '/', '*', '<', '>', '=', '|', ':', '!' => {
+        '-', '+', '/', '*', '<', '>', '=', '|', ':', '!', '?' => {
             return true;
         },
         else => {},
@@ -1087,6 +1094,22 @@ test "read token" {
     try expect(ctx.line_number == 34);
     try expect(ctx.col_number == 0);
     try expect(ctx.next_line_number == 34);
+    try expect(ctx.next_col_number == 12);
+    list.clearAndFree();
+
+    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, "?="));
+    try expect(ctx.line_number == 35);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 35);
+    try expect(ctx.next_col_number == 2);
+    list.clearAndFree();
+
+    _ = try readToken(file.reader(), &list, &ctx, tokenizer);
+    try expect(eql(u8, list.items, "?assertEqual"));
+    try expect(ctx.line_number == 36);
+    try expect(ctx.col_number == 0);
+    try expect(ctx.next_line_number == 36);
     try expect(ctx.next_col_number == 12);
     list.clearAndFree();
 

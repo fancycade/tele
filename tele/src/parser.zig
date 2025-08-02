@@ -1634,6 +1634,7 @@ pub const Parser = struct {
         } else {
             if (buf[0] == '@' or buf[0] == '#' or buf[0] == '?') {
                 if (!util.validateName(buf[1..])) {
+                    std.debug.print("\nBUF:{s}\n", .{buf});
                     tele_error.setErrorMessage(line, col, tele_error.ErrorType.invalid_name);
                     return ParserError.ParsingFailure;
                 }
@@ -2824,8 +2825,8 @@ pub const Parser = struct {
             self.allocator.destroy(n2);
             return ParserError.ParsingFailure;
         }
-        self.allocator.free(n.*.body);
-        self.allocator.destroy(n);
+        self.allocator.free(n2.*.body);
+        self.allocator.destroy(n2);
 
         var buffer_token_queue = try TokenQueue.init(self.allocator);
         errdefer buffer_token_queue.deinit();
@@ -2848,6 +2849,7 @@ pub const Parser = struct {
 
         var maybe_body = try self.parseBody(buffer_token_queue, ast_line, current_col);
         errdefer tele_ast.freeTeleAstList(maybe_body, self.allocator);
+        buffer_token_queue.deinit();
 
         if (!token_queue.empty()) {
             const pn2 = try token_queue.peek();
@@ -2890,6 +2892,8 @@ pub const Parser = struct {
             self.allocator.destroy(n2);
             return ParserError.ParsingFailure;
         }
+        self.allocator.free(n2.*.body);
+        self.allocator.destroy(n2);
 
         var buffer_token_queue = try TokenQueue.init(self.allocator);
         errdefer buffer_token_queue.deinit();
@@ -4046,6 +4050,50 @@ test "parse case clause body multi line" {
     tele_ast.freeTeleAstList(result, test_allocator);
 }
 
+test "parse else expression" {
+    const parser = try fileToParser("snippets/else.tl", talloc);
+    defer parser.deinit();
+
+    const result = try parser.parseElseExpression(parser.*.token_queue);
+    errdefer tele_ast.freeTeleAst(result, talloc);
+
+    try std.testing.expect(result.*.ast_type == TeleAstType.else_exp);
+    try std.testing.expect(result.*.children != null);
+    try std.testing.expect(result.*.children.?.items.len == 2);
+
+    const c1 = result.*.children.?.items[0];
+    try std.testing.expect(c1.*.ast_type == TeleAstType.case_clause);
+    try std.testing.expect(c1.*.children != null);
+    try std.testing.expect(c1.*.children.?.items.len == 2);
+    try std.testing.expect(c1.*.children.?.items[0].ast_type == TeleAstType.int);
+    try std.testing.expect(std.mem.eql(u8, c1.*.children.?.items[0].body, "42"));
+    try std.testing.expect(c1.*.children.?.items[1].ast_type == TeleAstType.atom);
+    try std.testing.expect(std.mem.eql(u8, c1.*.children.?.items[1].body, "'ok"));
+
+    const c2 = result.*.children.?.items[1];
+    try std.testing.expect(c2.*.ast_type == TeleAstType.case_clause);
+    try std.testing.expect(c2.*.children != null);
+    try std.testing.expect(c2.*.children.?.items.len == 2);
+    try std.testing.expect(c2.*.children.?.items[0].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, c2.*.children.?.items[0].body, "x"));
+    try std.testing.expect(c2.*.children.?.items[1].ast_type == TeleAstType.variable);
+    try std.testing.expect(std.mem.eql(u8, c2.*.children.?.items[1].body, "x"));
+
+    tele_ast.freeTeleAst(result, talloc);
+}
+
+test "parse maybe expression" {
+    const parser = try fileToParser("snippets/maybe.tl", talloc);
+    defer parser.deinit();
+
+    const result = try parser.parseMaybeExpression(parser.*.token_queue);
+    errdefer tele_ast.freeTeleAst(result, talloc);
+
+    try std.testing.expect(result.*.ast_type == TeleAstType.maybe_exp);
+
+    tele_ast.freeTeleAst(result, talloc);
+}
+
 fn extractRecordName(name: []const u8, allocator: std.mem.Allocator) ![]const u8 {
     const buf = try allocator.alloc(u8, name.len - 2);
     var i: usize = 1;
@@ -4568,6 +4616,13 @@ fn isOperator(buf: []const u8) bool {
                 } else {
                     return false;
                 }
+            }
+        },
+        '?' => {
+            if (buf.len < 2) {
+                return false;
+            } else {
+                return buf[1] == '=';
             }
         },
         'a' => {

@@ -33,3 +33,5 @@ a#person(x=2)
 'ok,
 #point):
 "foo\"bar\""
+?=
+?assertEqual

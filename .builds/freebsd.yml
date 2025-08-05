@@ -1,33 +1,37 @@
 image: freebsd/latest
 packages:
+  - gmake
   - zig
   - kerl
-  - rebar3
   - mdbook 
 secrets:
   - cd0fb7ce-9b8f-4135-a583-ea903a888e1b
 tasks:
   - install_erlang: |
+       
        kerl build 28.0 28.0
-       kerl install 28.0 /usr/local/lib/erlang/28.0
-       . /usr/local/lib/erlang/28.0/activate
+       kerl install 28.0 erlang/28.0
+       . erlang/28.0/activate
        erl -version
   - build: |
        cd tele/tele
        zig build test
        zig build
   - hello: |
+       . erlang/28.0/activate
        cd tele/examples/hello_tele
        source setup.sh
        tele build
        ./check.sh
   - stress: |
+       . erlang/28.0/activate
        cd tele/examples/stress
        source setup.sh
        tele build
        ./check.sh
        tele test
   - common_test: |
+       . erlang/28.0/activate
        cd tele/examples/example_release
        source setup.sh
        tele build

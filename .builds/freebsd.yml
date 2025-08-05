@@ -1,12 +1,17 @@
 image: freebsd/latest
 packages:
   - zig
-  - erlang
+  - kerl
   - rebar3
-  - mdbook
+  - mdbook 
 secrets:
   - cd0fb7ce-9b8f-4135-a583-ea903a888e1b
 tasks:
+  - install_erlang: |
+       kerl build 28.0 28.0
+       kerl install 28.0 /usr/local/lib/erlang/28.0
+       . /usr/local/lib/erlang/28.0/activate
+       erl -version
   - build: |
        cd tele/tele
        zig build test

@@ -8,12 +8,6 @@ They look like this:
 'foo
 ```
 
-Since it is common for autocomplete to wrap single quotes when making an atom, a surrounding quote is also supported:
-
-```
-'foo'
-```
-
 Keep in mind that two single quotes will not work with spaces as it does in Erlang.
 
 You can't do this:
@@ -27,13 +21,6 @@ However, there is a special syntax to support this case:
 
 ```
 #'foo bar'
-```
-
-TODO: Don't support this case?
-
-One can always do this:
-```
-binary_to_atom("foo bar")
 ```
 
 ## Booleans

@@ -27,14 +27,6 @@ callback foo(integer): integer
 
 [Read More](https://www.erlang.org/doc/system/design_principles.html#behaviours)
 
-## include
-
-```
-include("test/lib/test.hrl")
-```
-
-[Read More](https://www.erlang.org/doc/system/macros.html)
-
 ## include_lib
 
 ```
@@ -42,14 +34,6 @@ include_lib("test/lib/test.hrl")
 ```
 
 [Read More](https://www.erlang.org/doc/system/macros.html)
-
-## export_type
-
-```
-export_type(id/0)
-```
-
-[Read More](https://www.erlang.org/doc/system/typespec.html#type-declarations-of-user-defined-types)
 
 ## nifs
 

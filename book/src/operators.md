@@ -9,14 +9,12 @@ Match
 
 Equality
 ```
-=:=
 ==
 ```
 
 Not equal:
 ```
-=/=
-/=
+!=
 ```
 
 Less than/Less than or equal:
@@ -59,4 +57,19 @@ Concatenation:
 Cons or Map Update:
 ```
 |
+```
+
+And:
+```
+and
+```
+
+Or:
+```
+or
+```
+
+Not:
+```
+not
 ```

@@ -47,6 +47,14 @@ spec move_up(point): point
 fun move_up(#(x, y)): #(x, y - 1)
 ```
 
+### Private Type Definitions
+
+Types are exported from the module by default. Use `typep` if you do not want the type to be exported.
+
+```
+typep internal_id: integer
+```
+
 ## Type Variables
 
 Since Tele uses lowercase letters for both types and variables it can make type variables ambiguous. This is solved by using an absolute variable.

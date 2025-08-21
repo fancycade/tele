@@ -78,3 +78,29 @@ fun some_api_call():
 ```
 
 Here we are specifying that the function `some_api_call` will return an okay tuple with a list of maps or an error tuple.
+
+## Nominal Types
+
+As of Erlang 28, nominal types are supported. Nominal types are user-defined types that are distinguished by their name,
+not their structure.
+
+In Tele a nominal type definition looks like this:
+
+```
+nominal id: integer
+```
+
+Now function definitions like this would fail a type check:
+
+```
+spec add2(integer): integer
+fun add2(a): a + 2
+
+spec get_todo(id): map
+fun get_todo(id): ...
+
+fun get_todo2():
+  get_todo(add2(0))
+```
+
+`get_todo(add2(0))` would fail the type check because `get_todo` accepts an id as an input not an integer.

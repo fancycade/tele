@@ -1,10 +1,13 @@
 # Operators
 
-Possible operators:
-
 Match
 ```
 =
+```
+
+Conditional Match
+```
+?=
 ```
 
 Equality
@@ -12,64 +15,69 @@ Equality
 ==
 ```
 
-Not equal:
+Not equal
 ```
 !=
 ```
 
-Less than/Less than or equal:
+Less than/Less than or equal
 ```
 <
 <=
 ```
 
-Greater than/Greater than or equal:
+Greater than/Greater than or equal
 ```
 >
 >=
 ```
 
-Addition:
+Addition
 ```
 +
 ```
 
-Subtraction or negative:
+Subtraction or negative
 ```
 -
 ```
 
-Multiplication:
+Multiplication
 ```
 *
 ```
 
-Division:
+Division
 ```
 /
 ```
 
-Concatenation:
+Concatenation
 ```
 ++
 ```
 
-Cons or Map Update:
+Cons or Map Update
 ```
 |
 ```
 
-And:
+Send
+```
+!
+```
+
+And
 ```
 and
 ```
 
-Or:
+Or
 ```
 or
 ```
 
-Not:
+Not
 ```
 not
 ```

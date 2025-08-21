@@ -32,6 +32,7 @@
 - [Case](./case.md)
 - [Operators](./operators.md)
 - [Try/Catch](./try_catch.md)
+- [Maybe](./maybe.md)
 
 # Types
 - [Specs](./specs.md)

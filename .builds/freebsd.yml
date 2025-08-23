@@ -30,6 +30,7 @@ tasks:
        tele build
        ./check.sh
        tele test
+       rebar3 dialyzer
   - common_test: |
        . erlang/28.0/activate
        cd tele/examples/example_release

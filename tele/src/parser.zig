@@ -486,8 +486,6 @@ pub const Parser = struct {
         self.allocator.destroy(n);
 
         var buffer_token_queue = try TokenQueue.init(self.allocator);
-        errdefer buffer_token_queue.deinit();
-        defer buffer_token_queue.deinit();
 
         while (!token_queue.empty()) {
             while (!token_queue.empty()) {
@@ -501,7 +499,11 @@ pub const Parser = struct {
                 self.allocator.destroy(n2);
             }
 
-            const alist = try self.parseBody(buffer_token_queue, ast_line, current_col);
+            const alist = self.parseBody(buffer_token_queue, ast_line, current_col) catch |e| {
+                buffer_token_queue.deinit();
+                return e;
+            };
+
             const g = try self.allocator.create(TeleAst);
             g.*.body = "";
             g.*.ast_type = TeleAstType.guard;
@@ -510,6 +512,8 @@ pub const Parser = struct {
             g.*.line = ast_line;
             try guards.append(g);
         }
+
+        buffer_token_queue.deinit();
 
         if (guards.items.len == 0) {
             tele_error.setErrorMessage(n.*.line, n.*.col, tele_error.ErrorType.invalid_guard_clause);

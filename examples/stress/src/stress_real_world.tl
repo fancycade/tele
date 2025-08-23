@@ -26,19 +26,17 @@ funp example_helper
 fun example4():
   case example4_helper({'token: "foo"}):
     #('ok, v): #('ok, v + 2)
-    #('error, _err) = e: e
 
 funp example4_helper
   ({'token: _token}): #('ok, 0)
-  (_): #('error, 'invalid_input)
   
 fun example5(): #('GET, #'GET')
 
 fun example6(): <<>>
 
 fun example7
-  (x) when x =:= 'foo
-      when x =:= 'bar:
+  (x) when x == 'foo
+      when x == 'bar:
     42
   (_): 43
 

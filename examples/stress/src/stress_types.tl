@@ -1,5 +1,7 @@
 include_lib("stress/include/stress.hrl")
 
+nominal id: integer
+
 spec simple(some_type): some_type
 fun simple
   (x) when is_integer(x):
@@ -34,3 +36,9 @@ fun simple5
     46
   (x):
     x
+
+spec int_to_id(integer): id
+fun int_to_id(n): n
+
+spec simple6(id): #(atom, id)
+fun simple6(id): #('foo, id)

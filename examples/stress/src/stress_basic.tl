@@ -181,3 +181,28 @@ fun hello_guard2(x):
   case x:
     x when x > 2: x + 1
     _: 42
+
+fun hello_maybe():
+  maybe:
+    #('ok, v) ?= hello_maybe_helper()
+    #('ok, v2) ?= hello_maybe_helper2(v)
+    v2
+  else:
+    #('error, _err) = e: e
+
+funp hello_maybe_helper():
+  #('ok, 2)
+
+funp hello_maybe_helper2(x):
+  #('ok, x + 2)
+
+fun hello_maybe_err(flag):
+  maybe:
+    #('ok, v) ?= hello_maybe_oops(flag)
+    v
+  else:
+    #('error, _err) = e: e
+
+fun hello_maybe_oops
+  ('true): #('ok, 2)
+  ('false): #('error, 'oops)

@@ -179,6 +179,13 @@ stress_basic_hello_guard2_test() ->
     ?assertEqual(5, stress_basic:hello_guard2(4)),
     ?assertEqual(42, stress_basic:hello_guard2(2)).
 
+stress_basic_hello_maybe_test() ->
+    ?assertEqual(4, stress_basic:hello_maybe()).
+
+stress_basic_hello_maybe_err_test() ->
+    ?assertEqual({error, oops}, stress_basic:hello_maybe_err(false)),
+    ?assertEqual(2, stress_basic:hello_maybe_err(true)).
+
 stress_statements_add2_test() ->
     ?assertEqual(6, stress_statements:add2_example()).
 
@@ -277,5 +284,9 @@ stress_types_simple4_test() ->
 stress_types_simple5_test() ->
     ?assertEqual(46, stress_types:simple5(1)),
     ?assertEqual(<<"foobar">>, stress_types:simple5(<<"foobar">>)).
+
+stress_types_simple6_test() ->
+    ?assertEqual({foo, 42}, stress_types:simple6(42)),
+    ?assertEqual({foo, 42}, stress_types:simple6(stress_types:int_to_id(42))).
 
 -endif.

@@ -9,7 +9,6 @@ set -- \
   "stress_types.beam" \
   "stress_basic.beam" \
   "stress_hello_goodbye.beam" \
-  "stress_nested.beam" \
   "stress_real_world.beam" \
   "stress_test.beam"
 

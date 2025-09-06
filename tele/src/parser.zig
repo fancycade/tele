@@ -1638,7 +1638,6 @@ pub const Parser = struct {
         } else {
             if (buf[0] == '@' or buf[0] == '#' or buf[0] == '?') {
                 if (!util.validateName(buf[1..])) {
-                    std.debug.print("\nBUF:{s}\n", .{buf});
                     tele_error.setErrorMessage(line, col, tele_error.ErrorType.invalid_name);
                     return ParserError.ParsingFailure;
                 }
@@ -3228,6 +3227,7 @@ pub const Parser = struct {
         var clause_col_first: bool = true;
 
         // Case Clause Signature
+        var map_count: usize = 0;
         while (!token_queue.empty()) {
             const node = try token_queue.pop();
             errdefer self.allocator.free(node.*.body);
@@ -3238,11 +3238,16 @@ pub const Parser = struct {
                 clause_col_first = false;
             }
 
-            if (isColon(node.*.body)) {
+            if (map_count == 0 and isColon(node.*.body)) {
                 self.allocator.free(node.*.body);
                 self.allocator.destroy(node);
                 break;
             } else {
+                if (isMapStart(node.*.body)) {
+                    map_count += 1;
+                } else if (isMapEnd(node.*.body)) {
+                    map_count -= 1;
+                }
                 try buffer_token_queue.push(node.*.body, node.*.line, node.*.col);
                 self.allocator.destroy(node);
             }

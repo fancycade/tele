@@ -52,3 +52,11 @@ fun example9
     example9_helper("INSERT INTO nodes (body, parent_id) VALUES (?, ?)", [label, parent_id])
 
 funp example9_helper(_sql, args): args
+
+fun example10(uri):
+  case uri_string.parse(uri):
+    {'scheme: scheme,
+     'host: host}: 
+      #('ok, scheme, host)
+    _:
+      #('error, 'missing_scheme_or_host)

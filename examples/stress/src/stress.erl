@@ -247,6 +247,10 @@ stress_real_world_example9_test() ->
     ?assertEqual([<<"root">>], stress_real_world:example9(<<"root">>, undefined)),
     ?assertEqual([<<"hello">>, 1], stress_real_world:example9(<<"hello">>, 1)).
 
+stress_real_world_example10_test() ->
+    ?assertEqual({ok, <<"http">>, <<"localhost">>}, stress_real_world:example10(<<"http://localhost:8080">>)),
+    ?assertEqual({error, missing_scheme_or_host}, stress_real_world:example10(<<"foobar">>)).
+
 stress_math_test() ->
     ?assertEqual(2, stress_math:add(1, 1)),
     ?assertEqual(1, stress_math:sub(2, 1)),

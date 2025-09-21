@@ -251,6 +251,10 @@ stress_real_world_example10_test() ->
     ?assertEqual({ok, <<"http">>, <<"localhost">>}, stress_real_world:example10(<<"http://localhost:8080">>)),
     ?assertEqual({error, missing_scheme_or_host}, stress_real_world:example10(<<"foobar">>)).
 
+stress_real_world_example11_test() ->
+    F = stress_real_world:example11(),
+    ?assertEqual([3, 4, 5], F(fun (X) -> X + 2 end, [1, 2, 3])).
+
 stress_math_test() ->
     ?assertEqual(2, stress_math:add(1, 1)),
     ?assertEqual(1, stress_math:sub(2, 1)),

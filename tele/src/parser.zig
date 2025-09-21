@@ -1674,7 +1674,7 @@ pub const Parser = struct {
 
     fn parseFunVal(self: *Self, token_queue: *TokenQueue, line: usize, col: usize) !*TeleAst {
         const name = try token_queue.pop();
-        if (!util.validateName(name.*.body)) {
+        if (!util.validateFunctionName(name.*.body)) {
             tele_error.setErrorMessage(name.*.line, name.*.col, tele_error.ErrorType.invalid_name);
             self.allocator.free(name.*.body);
             self.allocator.destroy(name);

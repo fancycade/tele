@@ -60,3 +60,6 @@ fun example10(uri):
       #('ok, scheme, host)
     _:
       #('error, 'missing_scheme_or_host)
+
+fun example11():
+  fun lists.map/2

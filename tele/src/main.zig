@@ -126,10 +126,7 @@ fn build(allocator: std.mem.Allocator, erlang_compile: bool) !void {
         var em = try std.process.getEnvMap(allocator);
         defer em.deinit();
         try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
-        const result = try std.process.Child.run(.{ .argv = &argv, .allocator = allocator, .env_map = &em });
-        defer allocator.free(result.stdout);
-        defer allocator.free(result.stderr);
-        std.debug.print("{s}", .{result.stdout});
+        try shellCommand(&argv, allocator, &em);
     }
     allocator.free(app_src_path);
     allocator.free(build_tele_path);
@@ -233,10 +230,19 @@ fn runWithModifiedRebarConfig(allocator: std.mem.Allocator, argv: []const []cons
     var em = try std.process.getEnvMap(allocator);
     defer em.deinit();
     try em.put("REBAR_CONFIG", "_build/_tele/rebar.config");
-    const result = try std.process.Child.run(.{ .argv = argv, .allocator = allocator, .env_map = &em });
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
-    std.debug.print("{s}", .{result.stdout});
+    try shellCommand(argv, allocator, &em);
+}
+
+fn shellCommand(argv: []const []const u8, allocator: std.mem.Allocator, em: *std.process.EnvMap) !void {
+    var child = std.process.Child.init(argv, allocator);
+    child.env_map = em;
+
+    child.stdout_behavior = .Inherit;
+    child.stderr_behavior = .Inherit;
+
+    try child.spawn();
+    // TODO: Do something with output signal?
+    _ = try child.wait();
 }
 
 fn isTeleFile(path: []const u8) bool {
